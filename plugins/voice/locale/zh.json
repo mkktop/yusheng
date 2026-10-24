@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "语声语音",
+    "description": "语音交互后端：minimax 语音识别与合成，对话经 dsh 会话调用模型"
+  }
+}

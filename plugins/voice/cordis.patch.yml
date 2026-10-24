@@ -1,0 +1,20 @@
+# ============================================================================
+# dsh-yusheng-voice —— DSH bundle patch
+# ============================================================================
+# 挂载声明：把语音后端插件行插入 Web profile 的配置树。
+# 运行期设置（minimax 凭据、音色、令牌等）不在这里配置：
+#   安装后打开 dsh 网页 → 主页右侧栏菜单 → 「语声语音」设置面板，
+#   设置持久化在 $DSH_HOME/yusheng-voice/settings.json（0600）。
+#
+# 安装：dsh plugin --profile web add link:<本目录绝对路径>
+# ============================================================================
+
+- insert:
+    - id: yusheng-voice
+      name: dsh-yusheng-voice
+      config:
+        # 语音 WebSocket / 设置 REST 监听地址；仅限内网使用，本插件不提供 TLS
+        host: "0.0.0.0"
+        port: 8090
+        # 设置文件路径，默认 $DSH_HOME/yusheng-voice/settings.json
+        # settingsPath: "/etc/yusheng/settings.json"

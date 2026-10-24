@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Login Gate",
+    "description": "Remote-access login page: verifies a password, then redirects into the official dsh web token-to-cookie exchange so other devices can reach the WebUI without the process entrance URL"
+  }
+}

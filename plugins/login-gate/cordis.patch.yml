@@ -1,0 +1,16 @@
+# ============================================================================
+# dsh-login-gate —— DSH bundle patch
+# ============================================================================
+# 挂载声明：把登录门插件行插入 Web profile 的配置树。
+# 密码不在本文件配置（不入库）：在 profile 用户层 cordis.patch.yml 里加
+#   - id: login-gate
+#     name: dsh-login-gate
+#     config:
+#       password: "<密码>"        # 或 passwordEnv / passwordHash，见插件 README
+#
+# 安装：dsh plugin --profile web add link:<本目录绝对路径>
+# ============================================================================
+
+- insert:
+    - id: login-gate
+      name: dsh-login-gate

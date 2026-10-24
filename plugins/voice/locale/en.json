@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "yusheng voice",
+    "description": "Voice interaction backend: minimax ASR/TTS with LLM turns through dsh sessions"
+  }
+}
