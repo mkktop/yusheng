@@ -6,7 +6,7 @@
 
 | 插件 | 说明 |
 |---|---|
-| [`plugins/voice/`](plugins/voice/)（dsh-yusheng-voice） | 语音交互系统后端：WebSocket 语音协议（PCM 进/PCM 出），minimax asr-1.0 语音识别 + minimax t2a_v2 流式合成，对话直接驱动宿主 dsh 会话（复用 web 配置的模型与凭据）。设置面板挂载在 dsh 网页右侧栏菜单 |
+| [`plugins/voice/`](plugins/voice/)（dsh-yusheng-voice） | 语音交互系统后端：WebSocket 语音协议（PCM 进/PCM 出），minimax asr-1.0 语音识别 + minimax t2a_v2 流式合成，对话直接驱动宿主 dsh 会话（复用 web 配置的模型与凭据）。设置面板挂载在 dsh 网页左侧边栏「全局面板」（「语声语音」按钮，位于「自动化任务」上方） |
 | [`plugins/login-gate/`](plugins/login-gate/)（dsh-login-gate） | 远程访问登录门：`/login` 密码验证后转入官方 token→cookie 交换（自 MinuSense 项目迁入） |
 
 ## 安装到 dsh
