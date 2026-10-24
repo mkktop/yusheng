@@ -3715,7 +3715,12 @@ var require_websocket_server = __commonJS({
   }
 });
 
+// src/index.ts
+import { dirname as dirname3, resolve as resolve2 } from "node:path";
+
 // src/llm.ts
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 var SentenceSlicer = class _SentenceSlicer {
   buffer = "";
   static MAJOR = /* @__PURE__ */ new Set(["\u3002", "\uFF01", "\uFF1F", "!", "?", "\uFF1B", ";", "\n"]);
@@ -3757,13 +3762,40 @@ var AgentBridge = class _AgentBridge {
   agents;
   sessions;
   agentsBySession = /* @__PURE__ */ new Map();
+  /** cacheKey → 实际采用的会话 id（原始派生 id 的会话损坏降级后，记住替补避免每次重连都丢上下文） */
+  adoptedByCacheKey = /* @__PURE__ */ new Map();
+  adoptionPath;
   cwdPromise;
-  constructor(ctx) {
+  constructor(ctx, adoptionPath) {
     this.ctx = ctx;
     this.agents = ctx.get("agents");
     this.sessions = ctx.get("sessions");
     if (this.agents === void 0) throw new Error("yusheng-voice: profile \u672A\u63D0\u4F9B agents \u670D\u52A1");
     if (this.sessions === void 0) throw new Error("yusheng-voice: profile \u672A\u63D0\u4F9B sessions \u670D\u52A1");
+    this.adoptionPath = adoptionPath;
+    try {
+      if (adoptionPath !== void 0 && existsSync(adoptionPath)) {
+        const raw = JSON.parse(readFileSync(adoptionPath, "utf8"));
+        if (raw && typeof raw === "object") {
+          for (const [key, value] of Object.entries(raw)) {
+            if (typeof value === "string" && value !== "") this.adoptedByCacheKey.set(key, value);
+          }
+        }
+      }
+    } catch {
+    }
+  }
+  recordAdoption(cacheKey, sessionId) {
+    if (this.adoptedByCacheKey.get(cacheKey) === sessionId) return;
+    this.adoptedByCacheKey.set(cacheKey, sessionId);
+    const path = this.adoptionPath;
+    if (path === void 0) return;
+    try {
+      const entries = Object.fromEntries(this.adoptedByCacheKey);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, JSON.stringify(entries, null, 2) + "\n", { mode: 384 });
+    } catch {
+    }
   }
   /** 默认模型选择（与 web 界面一致）。 */
   currentModel() {
@@ -3840,21 +3872,56 @@ var AgentBridge = class _AgentBridge {
     const cacheKey = presetId === "" ? deviceKey : `${deviceKey}::${presetId}`;
     const cached = this.agentsBySession.get(cacheKey);
     if (cached !== void 0) return cached;
-    const sessionId = _AgentBridge.sessionIdFor(deviceKey, presetId);
     const cwd = await this.resolveCwd();
     const model = this.modelSetup();
+    const derived = _AgentBridge.sessionIdFor(deviceKey, presetId);
+    const candidates = [];
+    const adopted = this.adoptedByCacheKey.get(cacheKey);
+    if (adopted !== void 0 && adopted !== derived) candidates.push(adopted);
+    candidates.push(derived);
+    const existed = /* @__PURE__ */ new Set();
     let agent;
-    let created = false;
-    try {
-      const resumed = await this.agents.resume({ resumeSessionId: sessionId, ...model ?? {} });
-      agent = resumed?.agent ?? resumed;
-    } catch {
-      agent = void 0;
+    for (const sessionId of candidates) {
+      try {
+        const live = this.agents.get?.(sessionId);
+        if (live !== void 0) {
+          agent = live;
+          this.recordAdoption(cacheKey, sessionId);
+          break;
+        }
+      } catch {
+      }
+      const query = this.ctx.get("sessionQuery");
+      if (query === void 0) break;
+      let persisted = false;
+      try {
+        await query.observeSession(sessionId);
+        persisted = true;
+      } catch (error) {
+        const message = String(error?.message ?? "");
+        const notFound = error?.code === "SESSION_QUERY_SESSION_NOT_FOUND" || message.includes("SESSION_QUERY_SESSION_NOT_FOUND") || message.toLowerCase().includes("not found");
+        if (notFound) continue;
+        persisted = true;
+        this.ctx.logger?.warn?.(`yusheng-voice: observeSession("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (!persisted) continue;
+      existed.add(sessionId);
+      try {
+        const resumed = await this.agents.resume({ resumeSessionId: sessionId, ...model ?? {} });
+        agent = resumed?.agent ?? resumed;
+        this.recordAdoption(cacheKey, sessionId);
+        break;
+      } catch (error) {
+        this.ctx.logger?.warn?.(`yusheng-voice: resume("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
+    let created = false;
     if (agent === void 0) {
-      const createdAgent = await this.agents.create({ sessionId, meta: { cwd }, ...model ?? {} });
+      const createId = existed.has(derived) ? `${derived}-r${Date.now().toString(36).slice(-4)}` : derived;
+      const createdAgent = await this.agents.create({ sessionId: createId, meta: { cwd }, ...model ?? {} });
       agent = createdAgent?.agent ?? createdAgent;
       created = true;
+      this.recordAdoption(cacheKey, createId);
     }
     if (created && presetId !== "") {
       const presets = this.ctx.get("agentPresets");
@@ -4133,8 +4200,8 @@ var SAMPLE_RATE_IN = 16e3;
 var SAMPLE_RATE_OUT = 24e3;
 var MAX_CAPTURE_MS = 12e4;
 var DRAIN_MS = 3e4;
-var sleep = (ms) => new Promise((resolve2) => {
-  const timer = setTimeout(resolve2, ms);
+var sleep = (ms) => new Promise((resolve3) => {
+  const timer = setTimeout(resolve3, ms);
   if (typeof timer.unref === "function") timer.unref();
 });
 function createPacedSender(ws) {
@@ -4153,7 +4220,7 @@ function createPacedSender(ws) {
   };
   const wake = () => {
     const pending = waiters.splice(0);
-    for (const resolve2 of pending) resolve2();
+    for (const resolve3 of pending) resolve3();
   };
   const start = () => {
     if (timer !== void 0 || closed) return;
@@ -4189,7 +4256,7 @@ function createPacedSender(ws) {
       finishing = true;
       if (frames.length === 0 && timer === void 0) return;
       start();
-      await new Promise((resolve2) => waiters.push(resolve2));
+      await new Promise((resolve3) => waiters.push(resolve3));
     },
     stop() {
       closed = true;
@@ -4214,8 +4281,8 @@ var SentenceQueue = class {
   }
   wake() {
     while (this.waiters.length > 0) {
-      const resolve2 = this.waiters.shift();
-      if (resolve2 !== void 0) resolve2();
+      const resolve3 = this.waiters.shift();
+      if (resolve3 !== void 0) resolve3();
     }
   }
   async next() {
@@ -4223,7 +4290,7 @@ var SentenceQueue = class {
       const sentence = this.pending.shift();
       if (sentence !== void 0) return sentence;
       if (this.closed) return null;
-      await new Promise((resolve2) => this.waiters.push(resolve2));
+      await new Promise((resolve3) => this.waiters.push(resolve3));
     }
   }
 };
@@ -4514,7 +4581,13 @@ var VoiceConnection = class {
     }
     this.sendJson({ type: "llm", state: "end" });
     queue.close();
-    await Promise.race([Promise.all([pump, sender.finish()]), sleep(DRAIN_MS)]);
+    await Promise.race([
+      (async () => {
+        await pump;
+        await sender.finish();
+      })(),
+      sleep(DRAIN_MS)
+    ]);
     ttsAbort.abort();
     sender.stop();
     this.activeSender = void 0;
@@ -4548,8 +4621,8 @@ function sanitizeDeviceId(value) {
 
 // src/settings.ts
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, chmodSync } from "node:fs";
+import { dirname as dirname2, resolve } from "node:path";
 import { homedir } from "node:os";
 var DEFAULT_PREFIX = "\u4F60\u662F\u8BED\u97F3\u52A9\u624B\u3002\u59CB\u7EC8\u7528\u7B80\u77ED\u3001\u53E3\u8BED\u5316\u7684\u4E2D\u6587\u56DE\u7B54\uFF08\u901A\u5E38\u4E0D\u8D85\u8FC7\u4E09\u53E5\u8BDD\uFF09\uFF0C\u4E0D\u8981\u4F7F\u7528 Markdown\u3001\u4EE3\u7801\u5757\u6216\u5217\u8868\u3002";
 var DEFAULT_SETTINGS = {
@@ -4634,8 +4707,8 @@ var SettingsStore = class {
     this.path = path;
     this.data = { ...DEFAULT_SETTINGS };
     try {
-      if (existsSync(path)) {
-        const raw = JSON.parse(readFileSync(path, "utf8"));
+      if (existsSync2(path)) {
+        const raw = JSON.parse(readFileSync2(path, "utf8"));
         if (raw && typeof raw === "object") {
           const { settings } = mergeSettings(DEFAULT_SETTINGS, raw);
           this.data = settings;
@@ -4665,8 +4738,8 @@ var SettingsStore = class {
   }
   save() {
     try {
-      mkdirSync(dirname(this.path), { recursive: true });
-      writeFileSync(this.path, JSON.stringify(this.data, null, 2) + "\n", { mode: 384 });
+      mkdirSync2(dirname2(this.path), { recursive: true });
+      writeFileSync2(this.path, JSON.stringify(this.data, null, 2) + "\n", { mode: 384 });
       try {
         chmodSync(this.path, 384);
       } catch {
@@ -4698,7 +4771,7 @@ var VoiceServer = class _VoiceServer {
     this.log = log;
   }
   start() {
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve3, reject) => {
       const httpServer = createServer((req, res) => this.handleRest(req, res));
       const wss = new import_websocket_server.default({ noServer: true });
       httpServer.on("upgrade", (req, socket, head) => {
@@ -4744,7 +4817,7 @@ var VoiceServer = class _VoiceServer {
         this.startedAt = Date.now();
         const tokenState = this.store.get().token === "" ? "OPEN (token \u672A\u914D\u7F6E)" : "token";
         this.log("info", `listening on ws://${this.config.host}:${this.config.port}${WS_PATH} (${tokenState})`);
-        resolve2();
+        resolve3();
       });
     });
   }
@@ -4940,14 +5013,14 @@ function parseUrl(req) {
   }
 }
 function readBody(req) {
-  return new Promise((resolve2) => {
+  return new Promise((resolve3) => {
     const chunks = [];
     let size = 0;
     let settled = false;
     const finish = (value) => {
       if (!settled) {
         settled = true;
-        resolve2(value);
+        resolve3(value);
       }
     };
     req.on("data", (chunk) => {
@@ -4978,7 +5051,7 @@ function clampPort(value) {
 }
 var index_default = {
   name: "yusheng-voice",
-  inject: ["agentDefaultModel", "agents", "sessions"],
+  inject: ["agentDefaultModel", "agents", "sessions", "sessionQuery"],
   apply(root, config = {}) {
     const unknown = Object.keys(config).filter((key) => !CONFIG_KEYS.has(key));
     if (unknown.length > 0) {
@@ -4994,7 +5067,7 @@ var index_default = {
       } catch {
       }
     };
-    const bridge = new AgentBridge(root);
+    const bridge = new AgentBridge(root, resolve2(dirname3(settingsPath), "sessions.json"));
     const server = new VoiceServer(store, bridge, { host, port }, log);
     root.effect(() => server.stop(), "yusheng-voice: server");
     server.start().then(() => {

@@ -3,6 +3,9 @@
 // agent/assistant-stream 实时增量 + agent.whenIdle 等待收敛 + sessions.flush。
 // 运行在 web 宿主进程内，直接复用 web 配置的默认模型与凭据。
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+
 export interface TurnCallbacks {
   /** 收到一段实时文本增量（已过滤非文本帧） */
   onTextDelta(text: string): void
@@ -72,14 +75,44 @@ export class AgentBridge {
   private agents: any
   private sessions: any
   private agentsBySession = new Map<string, AnyAgent>()
+  /** cacheKey → 实际采用的会话 id（原始派生 id 的会话损坏降级后，记住替补避免每次重连都丢上下文） */
+  private adoptedByCacheKey = new Map<string, string>()
+  private adoptionPath: string | undefined
   private cwdPromise: Promise<string> | undefined
 
-  constructor(ctx: any) {
+  constructor(ctx: any, adoptionPath?: string) {
     this.ctx = ctx
     this.agents = ctx.get('agents')
     this.sessions = ctx.get('sessions')
     if (this.agents === undefined) throw new Error('yusheng-voice: profile 未提供 agents 服务')
     if (this.sessions === undefined) throw new Error('yusheng-voice: profile 未提供 sessions 服务')
+    this.adoptionPath = adoptionPath
+    try {
+      if (adoptionPath !== undefined && existsSync(adoptionPath)) {
+        const raw = JSON.parse(readFileSync(adoptionPath, 'utf8'))
+        if (raw && typeof raw === 'object') {
+          for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+            if (typeof value === 'string' && value !== '') this.adoptedByCacheKey.set(key, value)
+          }
+        }
+      }
+    } catch {
+      /* 边车损坏则忽略，按派生 id 探测 */
+    }
+  }
+
+  private recordAdoption(cacheKey: string, sessionId: string) {
+    if (this.adoptedByCacheKey.get(cacheKey) === sessionId) return
+    this.adoptedByCacheKey.set(cacheKey, sessionId)
+    const path = this.adoptionPath
+    if (path === undefined) return
+    try {
+      const entries = Object.fromEntries(this.adoptedByCacheKey)
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, JSON.stringify(entries, null, 2) + '\n', { mode: 0o600 })
+    } catch {
+      /* 持久化失败不影响运行 */
+    }
   }
 
   /** 默认模型选择（与 web 界面一致）。 */
@@ -163,21 +196,66 @@ export class AgentBridge {
     const cacheKey = presetId === '' ? deviceKey : `${deviceKey}::${presetId}`
     const cached = this.agentsBySession.get(cacheKey)
     if (cached !== undefined) return cached
-    const sessionId = AgentBridge.sessionIdFor(deviceKey, presetId)
     const cwd = await this.resolveCwd()
     const model = this.modelSetup()
+
+    // 与 headless runner 相同的次序：先查进程内在实例，再探测持久会话，存在才 resume，
+    // 不存在才 create——盲目 resume→create 会对已存在会话撞 "already exists"。
+    // 候选顺序：上次实际采用的 id（边车记录）优先于派生 id；原始会话损坏降级后，
+    // 重连/重启都回到替补会话，保持上下文。
+    const derived = AgentBridge.sessionIdFor(deviceKey, presetId)
+    const candidates: string[] = []
+    const adopted = this.adoptedByCacheKey.get(cacheKey)
+    if (adopted !== undefined && adopted !== derived) candidates.push(adopted)
+    candidates.push(derived)
+    const existed = new Set<string>()
+
     let agent: AnyAgent | undefined
-    let created = false
-    try {
-      const resumed = await this.agents.resume({ resumeSessionId: sessionId, ...(model ?? {}) })
-      agent = resumed?.agent ?? resumed
-    } catch {
-      agent = undefined
+    for (const sessionId of candidates) {
+      try {
+        const live = this.agents.get?.(sessionId)
+        if (live !== undefined) {
+          agent = live
+          this.recordAdoption(cacheKey, sessionId)
+          break
+        }
+      } catch {
+        /* get 不可用则跳过 */
+      }
+      const query = this.ctx.get('sessionQuery')
+      if (query === undefined) break
+      let persisted = false
+      try {
+        await query.observeSession(sessionId)
+        persisted = true
+      } catch (error) {
+        const message = String(error?.message ?? '')
+        const notFound = error?.code === 'SESSION_QUERY_SESSION_NOT_FOUND' || message.includes('SESSION_QUERY_SESSION_NOT_FOUND') || message.toLowerCase().includes('not found')
+        if (notFound) continue
+        // 损坏/校验失败等：记录仍在磁盘上，按"存在但可能无法接管"处理
+        persisted = true
+        this.ctx.logger?.warn?.(`yusheng-voice: observeSession("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`)
+      }
+      if (!persisted) continue
+      existed.add(sessionId)
+      try {
+        const resumed = await this.agents.resume({ resumeSessionId: sessionId, ...(model ?? {}) })
+        agent = resumed?.agent ?? resumed
+        this.recordAdoption(cacheKey, sessionId)
+        break
+      } catch (error) {
+        this.ctx.logger?.warn?.(`yusheng-voice: resume("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`)
+      }
     }
+
+    let created = false
     if (agent === undefined) {
-      const createdAgent = await this.agents.create({ sessionId, meta: { cwd }, ...(model ?? {}) })
+      // 派生 id 已被占用（损坏/无法接管）时换新 id 起话，避免 "already exists" 卡死
+      const createId = existed.has(derived) ? `${derived}-r${Date.now().toString(36).slice(-4)}` : derived
+      const createdAgent = await this.agents.create({ sessionId: createId, meta: { cwd }, ...(model ?? {}) })
       agent = createdAgent?.agent ?? createdAgent
       created = true
+      this.recordAdoption(cacheKey, createId)
     }
     // 指定会话模式：仅对全新会话生效（preset 首轮后锁定）；未知 preset 只告警
     if (created && presetId !== '') {

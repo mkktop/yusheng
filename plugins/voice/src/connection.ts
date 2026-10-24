@@ -452,7 +452,15 @@ export class VoiceConnection {
     this.sendJson({ type: 'llm', state: 'end' })
 
     queue.close()
-    await Promise.race([Promise.all([pump, sender.finish()]), sleep(DRAIN_MS)])
+    // 排空必须等生产者结束再开始：TTS 流分块间有网络间隙，过早 finish 会在
+    // 队列瞬时清空时提前收口，把后续到达的帧全部丢弃
+    await Promise.race([
+      (async () => {
+        await pump
+        await sender.finish()
+      })(),
+      sleep(DRAIN_MS),
+    ])
 
     ttsAbort.abort()
     sender.stop()

@@ -5,6 +5,7 @@
 // 会话驱动参照官方 headless runner 的公开模式（agents/sessions +
 // agent/assistant-stream），运行在 web 宿主进程内，复用其模型与凭据。
 
+import { dirname, resolve } from 'node:path'
 import { AgentBridge } from './llm.js'
 import { VoiceServer } from './server.js'
 import { SettingsStore, defaultSettingsPath } from './settings.js'
@@ -19,7 +20,7 @@ function clampPort(value: unknown): number {
 
 export default {
   name: 'yusheng-voice',
-  inject: ['agentDefaultModel', 'agents', 'sessions'],
+  inject: ['agentDefaultModel', 'agents', 'sessions', 'sessionQuery'],
   apply(root: any, config: any = {}) {
     const unknown = Object.keys(config).filter((key) => !CONFIG_KEYS.has(key))
     if (unknown.length > 0) {
@@ -40,7 +41,7 @@ export default {
       }
     }
 
-    const bridge = new AgentBridge(root)
+    const bridge = new AgentBridge(root, resolve(dirname(settingsPath), 'sessions.json'))
     const server = new VoiceServer(store, bridge, { host, port }, log)
 
     root.effect(() => server.stop(), 'yusheng-voice: server')
