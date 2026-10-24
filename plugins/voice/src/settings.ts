@@ -25,6 +25,8 @@ export interface VoiceSettings {
   ttsPitch: number
   /** 首轮系统化提示前缀（口语化约束等），留空则不包装 */
   promptPrefix: string
+  /** dsh 会话模式（agent preset id）；空 = 跟随 profile 默认 */
+  agentPreset: string
   /** 设备接入令牌；空 = 未配置（接口开放，面板会提示生成） */
   token: string
   /** 单轮最长等待秒数（超时本地取消下发） */
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
   ttsVol: 1,
   ttsPitch: 0,
   promptPrefix: DEFAULT_PREFIX,
+  agentPreset: '',
   token: '',
   maxTurnSeconds: 180,
 }
@@ -74,6 +77,7 @@ export function mergeSettings(current: VoiceSettings, patch: Record<string, unkn
     ['ttsModel', 64],
     ['ttsVoice', 128],
     ['promptPrefix', 4000],
+    ['agentPreset', 64],
     ['token', 128],
   ]
   for (const [key, max] of strings) {
@@ -110,6 +114,7 @@ export function maskSettings(s: VoiceSettings): Record<string, unknown> {
     ttsVol: s.ttsVol,
     ttsPitch: s.ttsPitch,
     promptPrefix: s.promptPrefix,
+    agentPreset: s.agentPreset,
     token: s.token,
     maxTurnSeconds: s.maxTurnSeconds,
   }

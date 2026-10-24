@@ -145,7 +145,7 @@ function VoiceSettingsPanel() {
     const current = state.settings ?? {};
     const form = state.form;
     const patch = {};
-    const textKeys = ["minimaxGroupId", "asrModel", "ttsModel", "ttsVoice", "promptPrefix", "token"];
+    const textKeys = ["minimaxGroupId", "asrModel", "ttsModel", "ttsVoice", "promptPrefix", "agentPreset", "token"];
     for (const key of textKeys) {
       if (typeof form[key] === "string" && form[key] !== String(current[key] ?? "")) patch[key] = form[key];
     }
@@ -187,6 +187,7 @@ function VoiceSettingsPanel() {
   };
   const s = state.settings ?? {};
   const status = state.status;
+  const defaultPresetName = (status?.presets ?? []).find((preset) => preset.isDefault)?.name || (status?.presets ?? []).find((preset) => preset.isDefault)?.id || "standard";
   const hasKey = s.hasMinimaxApiKey === true;
   const sectionTitle = { margin: "18px 0 8px", fontSize: 12, fontWeight: 600, letterSpacing: 1, color: "#8b96a8", textTransform: "uppercase" };
   const button = { padding: "6px 14px", borderRadius: 6, border: 0, background: "#2f6fd0", color: "#fff", fontSize: 13, cursor: "pointer" };
@@ -250,6 +251,28 @@ function VoiceSettingsPanel() {
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { style: fieldStyle({ marginBottom: 4 }), type: "number", value: state.form[key] ?? String(s[key] ?? (key === "ttsPitch" ? 0 : 1)), onChange: (event) => setForm(key, event.target.value) })
     ] }, key)) }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "dsh \u4F1A\u8BDD\u6A21\u5F0F" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+      "select",
+      {
+        style: fieldStyle(),
+        value: state.form.agentPreset ?? String(s.agentPreset ?? ""),
+        onChange: (event) => setForm("agentPreset", event.target.value),
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: "", children: [
+            "\u8DDF\u968F\u9ED8\u8BA4\uFF08",
+            defaultPresetName,
+            "\uFF09"
+          ] }),
+          (status?.presets ?? []).map((preset) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: preset.id, children: [
+            preset.name || preset.id,
+            preset.isDefault ? "\uFF08\u9ED8\u8BA4\uFF09" : "",
+            preset.broken ? "\uFF08\u5F02\u5E38\uFF09" : ""
+          ] }, preset.id))
+        ]
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { margin: "0 0 4px", color: "#8b96a8", fontSize: 11 }, children: "\u6A21\u5F0F\u5728\u4F1A\u8BDD\u9996\u8F6E\u540E\u9501\u5B9A\uFF1A\u5207\u6362\u540E\u4E0B\u4E00\u8F6E\u5C06\u5F00\u542F\u65B0\u4F1A\u8BDD\uFF08\u4E0A\u4E0B\u6587\u91CD\u7F6E\uFF09\uFF0C\u5207\u56DE\u539F\u6A21\u5F0F\u53EF\u6062\u590D\u539F\u5BF9\u8BDD\u3002" }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "\u63D0\u793A\u8BCD\u524D\u7F00\uFF08\u9996\u8F6E\u751F\u6548\uFF09" }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       "textarea",

@@ -130,7 +130,7 @@ function VoiceSettingsPanel() {
     const current: any = state.settings ?? {}
     const form = state.form
     const patch: Record<string, unknown> = {}
-    const textKeys = ['minimaxGroupId', 'asrModel', 'ttsModel', 'ttsVoice', 'promptPrefix', 'token']
+    const textKeys = ['minimaxGroupId', 'asrModel', 'ttsModel', 'ttsVoice', 'promptPrefix', 'agentPreset', 'token']
     for (const key of textKeys) {
       if (typeof form[key] === 'string' && form[key] !== String(current[key] ?? '')) patch[key] = form[key]
     }
@@ -177,6 +177,7 @@ function VoiceSettingsPanel() {
 
   const s: any = state.settings ?? {}
   const status: any = state.status
+  const defaultPresetName = (status?.presets ?? []).find((preset: any) => preset.isDefault)?.name || (status?.presets ?? []).find((preset: any) => preset.isDefault)?.id || 'standard'
   const hasKey = s.hasMinimaxApiKey === true
   const sectionTitle: Record<string, string | number> = { margin: '18px 0 8px', fontSize: 12, fontWeight: 600, letterSpacing: 1, color: '#8b96a8', textTransform: 'uppercase' }
   const button: Record<string, string | number> = { padding: '6px 14px', borderRadius: 6, border: 0, background: '#2f6fd0', color: '#fff', fontSize: 13, cursor: 'pointer' }
@@ -227,6 +228,23 @@ function VoiceSettingsPanel() {
           </label>
         ))}
       </div>
+
+      <div style={sectionTitle}>dsh 会话模式</div>
+      <select
+        style={fieldStyle()}
+        value={state.form.agentPreset ?? String(s.agentPreset ?? '')}
+        onChange={(event) => setForm('agentPreset', event.target.value)}
+      >
+        <option value="">跟随默认（{defaultPresetName}）</option>
+        {(status?.presets ?? []).map((preset: any) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.name || preset.id}{preset.isDefault ? '（默认）' : ''}{preset.broken ? '（异常）' : ''}
+          </option>
+        ))}
+      </select>
+      <p style={{ margin: '0 0 4px', color: '#8b96a8', fontSize: 11 }}>
+        模式在会话首轮后锁定：切换后下一轮将开启新会话（上下文重置），切回原模式可恢复原对话。
+      </p>
 
       <div style={sectionTitle}>提示词前缀（首轮生效）</div>
       <textarea

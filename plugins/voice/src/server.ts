@@ -28,6 +28,7 @@ export class VoiceServer {
   private wss: WebSocketServer | undefined
   private connections = new Set<VoiceConnection>()
   private startedAt = 0
+  private presetsCache: { at: number; value: Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean }> | undefined } = { at: 0, value: undefined }
 
   constructor(store: SettingsStore, bridge: AgentBridge, config: ServerConfig, log: (level: 'info' | 'warn', message: string) => void) {
     this.store = store
@@ -142,6 +143,7 @@ export class VoiceServer {
     const route = `${req.method} ${url.pathname}`
     switch (route) {
       case 'GET /status':
+        this.refreshPresets()
         this.handleStatus(res)
         return
       case 'GET /settings':
@@ -170,6 +172,7 @@ export class VoiceServer {
   private handleStatus(res: ServerResponse) {
     const settings = this.store.get()
     const model = this.bridge.currentModel()
+    const presets = this.presetsCache.value
     json(res, 200, {
       ok: true,
       service: 'dsh-yusheng-voice',
@@ -179,11 +182,21 @@ export class VoiceServer {
       uptimeSec: Math.round((Date.now() - this.startedAt) / 1000),
       tokenConfigured: settings.token !== '',
       model,
+      presets,
       hasMinimaxApiKey: settings.minimaxApiKey !== '',
       hasMinimaxGroupId: settings.minimaxGroupId !== '',
       clients: [...this.connections].map((c) => c.describe()),
       settings: maskSettings(settings),
     })
+  }
+
+  /** 预设列表短暂缓存：compositionInventory 含逐项诊断，不宜每次状态轮询都跑。 */
+  private refreshPresets() {
+    if (Date.now() - this.presetsCache.at < 10_000 && this.presetsCache.value !== undefined) return
+    this.presetsCache.at = Date.now()
+    void this.bridge.listPresets().then((value) => {
+      if (value !== undefined) this.presetsCache.value = value
+    }).catch(() => undefined)
   }
 
   private async handlePutSettings(req: IncomingMessage, res: ServerResponse) {

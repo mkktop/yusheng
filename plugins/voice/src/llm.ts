@@ -109,8 +109,31 @@ export class AgentBridge {
     return this.cwdPromise
   }
 
-  private static sessionIdFor(deviceKey: string): string {
-    return `voice-${deviceKey}`
+  /**
+   * 会话 id 按所选 preset 派生：默认模式沿用 voice-<device>，
+   * 指定模式用 voice-<device>-p-<preset>。切换模式即开新会话（预设首轮后
+   * 锁定），切回默认则无缝恢复原对话。
+   */
+  private static sessionIdFor(deviceKey: string, presetId: string): string {
+    const preset = presetId.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '')
+    return preset === '' ? `voice-${deviceKey}` : `voice-${deviceKey}-p-${preset}`
+  }
+
+  /** 枚举可用的 dsh 会话模式（agent preset）；服务缺失返回 undefined。 */
+  async listPresets(): Promise<Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean }> | undefined> {
+    const presets = this.ctx.get('agentPresets')
+    if (presets === undefined) return undefined
+    try {
+      const inventory = await presets.compositionInventory()
+      return inventory.map((record: any) => ({
+        id: String(record.id),
+        name: typeof record.name === 'string' ? record.name : undefined,
+        isDefault: record.isDefault === true,
+        broken: record.broken === true ? true : undefined,
+      }))
+    } catch {
+      return undefined
+    }
   }
 
   /**
@@ -136,13 +159,15 @@ export class AgentBridge {
     return { agentOptions, setup }
   }
 
-  async agentFor(deviceKey: string): Promise<AnyAgent> {
-    const cached = this.agentsBySession.get(deviceKey)
+  async agentFor(deviceKey: string, presetId: string): Promise<AnyAgent> {
+    const cacheKey = presetId === '' ? deviceKey : `${deviceKey}::${presetId}`
+    const cached = this.agentsBySession.get(cacheKey)
     if (cached !== undefined) return cached
-    const sessionId = AgentBridge.sessionIdFor(deviceKey)
+    const sessionId = AgentBridge.sessionIdFor(deviceKey, presetId)
     const cwd = await this.resolveCwd()
     const model = this.modelSetup()
     let agent: AnyAgent | undefined
+    let created = false
     try {
       const resumed = await this.agents.resume({ resumeSessionId: sessionId, ...(model ?? {}) })
       agent = resumed?.agent ?? resumed
@@ -150,21 +175,35 @@ export class AgentBridge {
       agent = undefined
     }
     if (agent === undefined) {
-      const created = await this.agents.create({ sessionId, meta: { cwd }, ...(model ?? {}) })
-      agent = created?.agent ?? created
+      const createdAgent = await this.agents.create({ sessionId, meta: { cwd }, ...(model ?? {}) })
+      agent = createdAgent?.agent ?? createdAgent
+      created = true
     }
-    this.agentsBySession.set(deviceKey, agent)
+    // 指定会话模式：仅对全新会话生效（preset 首轮后锁定）；未知 preset 只告警
+    if (created && presetId !== '') {
+      const presets = this.ctx.get('agentPresets')
+      if (presets !== undefined) {
+        try {
+          await presets.select(agent, presetId)
+        } catch (error) {
+          this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${presetId}": ${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
+    }
+    this.agentsBySession.set(cacheKey, agent)
     return agent
   }
 
   /** 释放缓存引用（连接关闭时调用；会话日志持久化，下次可 resume）。 */
   release(deviceKey: string) {
-    this.agentsBySession.delete(deviceKey)
+    for (const key of [...this.agentsBySession.keys()]) {
+      if (key === deviceKey || key.startsWith(`${deviceKey}::`)) this.agentsBySession.delete(key)
+    }
   }
 
   /** 提交一轮用户消息并跟踪该 agent 的实时文本增量直至收敛。 */
-  async turn(deviceKey: string, text: string, callbacks: TurnCallbacks): Promise<TurnHandle> {
-    const agent = await this.agentFor(deviceKey)
+  async turn(deviceKey: string, text: string, callbacks: TurnCallbacks, presetId = ''): Promise<TurnHandle> {
+    const agent = await this.agentFor(deviceKey, presetId)
     let cancelled = false
     let failure: { error: unknown } | undefined
 

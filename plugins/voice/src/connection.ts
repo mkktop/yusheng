@@ -410,7 +410,7 @@ export class VoiceConnection {
         onEnd: () => {
           /* 结果经 done 聚合 */
         },
-      })
+      }, settings.agentPreset)
       this.activeTurn = turn
       outcome = await turn.done
       if (!ttsAbort.signal.aborted && outcome.kind !== 'cancelled') {

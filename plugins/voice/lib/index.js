@@ -3789,8 +3789,30 @@ var AgentBridge = class _AgentBridge {
     })();
     return this.cwdPromise;
   }
-  static sessionIdFor(deviceKey) {
-    return `voice-${deviceKey}`;
+  /**
+   * 会话 id 按所选 preset 派生：默认模式沿用 voice-<device>，
+   * 指定模式用 voice-<device>-p-<preset>。切换模式即开新会话（预设首轮后
+   * 锁定），切回默认则无缝恢复原对话。
+   */
+  static sessionIdFor(deviceKey, presetId) {
+    const preset = presetId.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "");
+    return preset === "" ? `voice-${deviceKey}` : `voice-${deviceKey}-p-${preset}`;
+  }
+  /** 枚举可用的 dsh 会话模式（agent preset）；服务缺失返回 undefined。 */
+  async listPresets() {
+    const presets = this.ctx.get("agentPresets");
+    if (presets === void 0) return void 0;
+    try {
+      const inventory = await presets.compositionInventory();
+      return inventory.map((record) => ({
+        id: String(record.id),
+        name: typeof record.name === "string" ? record.name : void 0,
+        isDefault: record.isDefault === true,
+        broken: record.broken === true ? true : void 0
+      }));
+    } catch {
+      return void 0;
+    }
   }
   /**
    * 与官方 headless runner 等价的模型选择注入（installModelSelection 的内联复刻，
@@ -3814,13 +3836,15 @@ var AgentBridge = class _AgentBridge {
     };
     return { agentOptions, setup };
   }
-  async agentFor(deviceKey) {
-    const cached = this.agentsBySession.get(deviceKey);
+  async agentFor(deviceKey, presetId) {
+    const cacheKey = presetId === "" ? deviceKey : `${deviceKey}::${presetId}`;
+    const cached = this.agentsBySession.get(cacheKey);
     if (cached !== void 0) return cached;
-    const sessionId = _AgentBridge.sessionIdFor(deviceKey);
+    const sessionId = _AgentBridge.sessionIdFor(deviceKey, presetId);
     const cwd = await this.resolveCwd();
     const model = this.modelSetup();
     let agent;
+    let created = false;
     try {
       const resumed = await this.agents.resume({ resumeSessionId: sessionId, ...model ?? {} });
       agent = resumed?.agent ?? resumed;
@@ -3828,19 +3852,32 @@ var AgentBridge = class _AgentBridge {
       agent = void 0;
     }
     if (agent === void 0) {
-      const created = await this.agents.create({ sessionId, meta: { cwd }, ...model ?? {} });
-      agent = created?.agent ?? created;
+      const createdAgent = await this.agents.create({ sessionId, meta: { cwd }, ...model ?? {} });
+      agent = createdAgent?.agent ?? createdAgent;
+      created = true;
     }
-    this.agentsBySession.set(deviceKey, agent);
+    if (created && presetId !== "") {
+      const presets = this.ctx.get("agentPresets");
+      if (presets !== void 0) {
+        try {
+          await presets.select(agent, presetId);
+        } catch (error) {
+          this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${presetId}": ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+    this.agentsBySession.set(cacheKey, agent);
     return agent;
   }
   /** 释放缓存引用（连接关闭时调用；会话日志持久化，下次可 resume）。 */
   release(deviceKey) {
-    this.agentsBySession.delete(deviceKey);
+    for (const key of [...this.agentsBySession.keys()]) {
+      if (key === deviceKey || key.startsWith(`${deviceKey}::`)) this.agentsBySession.delete(key);
+    }
   }
   /** 提交一轮用户消息并跟踪该 agent 的实时文本增量直至收敛。 */
-  async turn(deviceKey, text, callbacks) {
-    const agent = await this.agentFor(deviceKey);
+  async turn(deviceKey, text, callbacks, presetId = "") {
+    const agent = await this.agentFor(deviceKey, presetId);
     let cancelled = false;
     let failure;
     const stopStream = this.ctx.on("agent/assistant-stream", ({ agent: subject, frame }) => {
@@ -4440,7 +4477,7 @@ var VoiceConnection = class {
         },
         onEnd: () => {
         }
-      });
+      }, settings.agentPreset);
       this.activeTurn = turn;
       outcome = await turn.done;
       if (!ttsAbort.signal.aborted && outcome.kind !== "cancelled") {
@@ -4505,6 +4542,7 @@ var DEFAULT_SETTINGS = {
   ttsVol: 1,
   ttsPitch: 0,
   promptPrefix: DEFAULT_PREFIX,
+  agentPreset: "",
   token: "",
   maxTurnSeconds: 180
 };
@@ -4530,6 +4568,7 @@ function mergeSettings(current, patch) {
     ["ttsModel", 64],
     ["ttsVoice", 128],
     ["promptPrefix", 4e3],
+    ["agentPreset", 64],
     ["token", 128]
   ];
   for (const [key, max] of strings) {
@@ -4566,6 +4605,7 @@ function maskSettings(s) {
     ttsVol: s.ttsVol,
     ttsPitch: s.ttsPitch,
     promptPrefix: s.promptPrefix,
+    agentPreset: s.agentPreset,
     token: s.token,
     maxTurnSeconds: s.maxTurnSeconds
   };
@@ -4633,6 +4673,7 @@ var VoiceServer = class _VoiceServer {
   wss;
   connections = /* @__PURE__ */ new Set();
   startedAt = 0;
+  presetsCache = { at: 0, value: void 0 };
   constructor(store, bridge, config, log) {
     this.store = store;
     this.bridge = bridge;
@@ -4735,6 +4776,7 @@ var VoiceServer = class _VoiceServer {
     const route = `${req.method} ${url.pathname}`;
     switch (route) {
       case "GET /status":
+        this.refreshPresets();
         this.handleStatus(res);
         return;
       case "GET /settings":
@@ -4762,6 +4804,7 @@ var VoiceServer = class _VoiceServer {
   handleStatus(res) {
     const settings = this.store.get();
     const model = this.bridge.currentModel();
+    const presets = this.presetsCache.value;
     json(res, 200, {
       ok: true,
       service: "dsh-yusheng-voice",
@@ -4771,11 +4814,20 @@ var VoiceServer = class _VoiceServer {
       uptimeSec: Math.round((Date.now() - this.startedAt) / 1e3),
       tokenConfigured: settings.token !== "",
       model,
+      presets,
       hasMinimaxApiKey: settings.minimaxApiKey !== "",
       hasMinimaxGroupId: settings.minimaxGroupId !== "",
       clients: [...this.connections].map((c) => c.describe()),
       settings: maskSettings(settings)
     });
+  }
+  /** 预设列表短暂缓存：compositionInventory 含逐项诊断，不宜每次状态轮询都跑。 */
+  refreshPresets() {
+    if (Date.now() - this.presetsCache.at < 1e4 && this.presetsCache.value !== void 0) return;
+    this.presetsCache.at = Date.now();
+    void this.bridge.listPresets().then((value) => {
+      if (value !== void 0) this.presetsCache.value = value;
+    }).catch(() => void 0);
   }
   async handlePutSettings(req, res) {
     const body = await readBody(req);
