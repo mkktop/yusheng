@@ -43,6 +43,82 @@ var TTS_MODELS = [
   "speech-01-turbo",
   "speech-01-hd"
 ];
+var VOICE_GROUPS = [
+  {
+    label: "\u4E2D\u6587\uFF08\u666E\u901A\u8BDD\uFF09",
+    voices: [
+      ["female-shaonv", "\u5C11\u5973\u97F3\u8272"],
+      ["female-yujie", "\u5FA1\u59D0\u97F3\u8272"],
+      ["female-chengshu", "\u6210\u719F\u5973\u6027\u97F3\u8272"],
+      ["female-tianmei", "\u751C\u7F8E\u5973\u6027\u97F3\u8272"],
+      ["female-shaonv-jingpin", "\u5C11\u5973\u97F3\u8272\xB7beta"],
+      ["female-yujie-jingpin", "\u5FA1\u59D0\u97F3\u8272\xB7beta"],
+      ["female-chengshu-jingpin", "\u6210\u719F\u5973\u6027\u97F3\u8272\xB7beta"],
+      ["female-tianmei-jingpin", "\u751C\u7F8E\u5973\u6027\u97F3\u8272\xB7beta"],
+      ["male-qn-qingse", "\u9752\u6DA9\u9752\u5E74\u97F3\u8272"],
+      ["male-qn-jingying", "\u7CBE\u82F1\u9752\u5E74\u97F3\u8272"],
+      ["male-qn-badao", "\u9738\u9053\u9752\u5E74\u97F3\u8272"],
+      ["male-qn-daxuesheng", "\u9752\u5E74\u5927\u5B66\u751F\u97F3\u8272"],
+      ["male-qn-qingse-jingpin", "\u9752\u6DA9\u9752\u5E74\u97F3\u8272\xB7beta"],
+      ["male-qn-jingying-jingpin", "\u7CBE\u82F1\u9752\u5E74\u97F3\u8272\xB7beta"],
+      ["male-qn-badao-jingpin", "\u9738\u9053\u9752\u5E74\u97F3\u8272\xB7beta"],
+      ["male-qn-daxuesheng-jingpin", "\u9752\u5E74\u5927\u5B66\u751F\u97F3\u8272\xB7beta"],
+      ["clever_boy", "\u806A\u660E\u7537\u7AE5"],
+      ["cute_boy", "\u53EF\u7231\u7537\u7AE5"],
+      ["lovely_girl", "\u840C\u840C\u5973\u7AE5"],
+      ["cartoon_pig", "\u5361\u901A\u732A\u5C0F\u742A"],
+      ["bingjiao_didi", "\u75C5\u5A07\u5F1F\u5F1F"],
+      ["junlang_nanyou", "\u4FCA\u6717\u7537\u53CB"],
+      ["chunzhen_xuedi", "\u7EAF\u771F\u5B66\u5F1F"],
+      ["lengdan_xiongzhang", "\u51B7\u6DE1\u5B66\u957F"],
+      ["badao_shaoye", "\u9738\u9053\u5C11\u7237"],
+      ["tianxin_xiaoling", "\u751C\u5FC3\u5C0F\u73B2"],
+      ["qiaopi_mengmei", "\u4FCF\u76AE\u840C\u59B9"],
+      ["wumei_yujie", "\u59A9\u5A9A\u5FA1\u59D0"],
+      ["diadia_xuemei", "\u55F2\u55F2\u5B66\u59B9"],
+      ["danya_xuejie", "\u6DE1\u96C5\u5B66\u59D0"],
+      ["Chinese (Mandarin)_Reliable_Executive", "\u6C89\u7A33\u9AD8\u7BA1"],
+      ["Chinese (Mandarin)_News_Anchor", "\u65B0\u95FB\u5973\u58F0"],
+      ["Chinese (Mandarin)_Mature_Woman", "\u50B2\u5A07\u5FA1\u59D0"],
+      ["Chinese (Mandarin)_Unrestrained_Young_Man", "\u4E0D\u7F81\u9752\u5E74"],
+      ["Arrogant_Miss", "\u56A3\u5F20\u5C0F\u59D0"],
+      ["Robot_Armor", "\u673A\u68B0\u6218\u7532"],
+      ["Chinese (Mandarin)_Kind-hearted_Antie", "\u70ED\u5FC3\u5927\u5A76"],
+      ["Chinese (Mandarin)_HK_Flight_Attendant", "\u6E2F\u666E\u7A7A\u59D0"],
+      ["Chinese (Mandarin)_Humorous_Elder", "\u641E\u7B11\u5927\u7237"],
+      ["Chinese (Mandarin)_Gentleman", "\u6E29\u6DA6\u7537\u58F0"],
+      ["Chinese (Mandarin)_Warm_Bestie", "\u6E29\u6696\u95FA\u871C"],
+      ["Chinese (Mandarin)_Male_Announcer", "\u64AD\u62A5\u7537\u58F0"],
+      ["Chinese (Mandarin)_Sweet_Lady", "\u751C\u7F8E\u5973\u58F0"],
+      ["Chinese (Mandarin)_Southern_Young_Man", "\u5357\u65B9\u5C0F\u54E5"],
+      ["Chinese (Mandarin)_Wise_Women", "\u9605\u5386\u59D0\u59D0"],
+      ["Chinese (Mandarin)_Gentle_Youth", "\u6E29\u6DA6\u9752\u5E74"],
+      ["Chinese (Mandarin)_Warm_Girl", "\u6E29\u6696\u5C11\u5973"],
+      ["Chinese (Mandarin)_Kind-hearted_Elder", "\u82B1\u7532\u5976\u5976"],
+      ["Chinese (Mandarin)_Cute_Spirit", "\u61A8\u61A8\u840C\u517D"],
+      ["Chinese (Mandarin)_Radio_Host", "\u7535\u53F0\u7537\u4E3B\u64AD"],
+      ["Chinese (Mandarin)_Lyrical_Voice", "\u6292\u60C5\u7537\u58F0"],
+      ["Chinese (Mandarin)_Straightforward_Boy", "\u7387\u771F\u5F1F\u5F1F"],
+      ["Chinese (Mandarin)_Sincere_Adult", "\u771F\u8BDA\u9752\u5E74"],
+      ["Chinese (Mandarin)_Gentle_Senior", "\u6E29\u67D4\u5B66\u59D0"],
+      ["Chinese (Mandarin)_Stubborn_Friend", "\u5634\u786C\u7AF9\u9A6C"],
+      ["Chinese (Mandarin)_Crisp_Girl", "\u6E05\u8106\u5C11\u5973"],
+      ["Chinese (Mandarin)_Pure-hearted_Boy", "\u6E05\u6F88\u90BB\u5BB6\u5F1F\u5F1F"],
+      ["Chinese (Mandarin)_Soft_Girl", "\u67D4\u548C\u5C11\u5973"]
+    ]
+  },
+  {
+    label: "\u4E2D\u6587\uFF08\u7CA4\u8BED\uFF09",
+    voices: [
+      ["Cantonese_ProfessionalHost\uFF08F)", "\u4E13\u4E1A\u5973\u4E3B\u6301"],
+      ["Cantonese_GentleLady", "\u6E29\u67D4\u5973\u58F0"],
+      ["Cantonese_ProfessionalHost\uFF08M)", "\u4E13\u4E1A\u7537\u4E3B\u6301"],
+      ["Cantonese_PlayfulMan", "\u6D3B\u6CFC\u7537\u58F0"],
+      ["Cantonese_CuteGirl", "\u53EF\u7231\u5973\u5B69"],
+      ["Cantonese_KindWoman", "\u5584\u826F\u5973\u58F0"]
+    ]
+  }
+];
 var inject = ["slots"];
 function apply(ctx) {
   ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL_ID }, VoiceSettingsPanel));
@@ -198,6 +274,8 @@ function VoiceSettingsPanel() {
   const s = state.settings ?? {};
   const currentTtsModel = String(s.ttsModel ?? "speech-2.8-turbo");
   const ttsModelOptions = TTS_MODELS.includes(currentTtsModel) ? TTS_MODELS : [currentTtsModel, ...TTS_MODELS];
+  const currentTtsVoice = String(s.ttsVoice ?? "female-shaonv");
+  const knownVoiceIds = new Set(VOICE_GROUPS.flatMap((group) => group.voices.map(([id]) => id)));
   const status = state.status;
   const defaultPresetName = (status?.presets ?? []).find((preset) => preset.isDefault)?.name || (status?.presets ?? []).find((preset) => preset.isDefault)?.id || "standard";
   const hasKey = s.hasMinimaxApiKey === true;
@@ -248,7 +326,21 @@ function VoiceSettingsPanel() {
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { display: "block", color: "#8b96a8", fontSize: 11, margin: "4px 0 3px" }, children: "TTS \u6A21\u578B" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { style: fieldStyle(), value: state.form.ttsModel ?? currentTtsModel, onChange: (event) => setForm("ttsModel", event.target.value), children: ttsModelOptions.map((model) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: model, children: model }, model)) })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { style: fieldStyle(), placeholder: "\u97F3\u8272\uFF08female-shaonv\uFF09", value: state.form.ttsVoice ?? String(s.ttsVoice ?? ""), onChange: (event) => setForm("ttsVoice", event.target.value) }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "block" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { display: "block", color: "#8b96a8", fontSize: 11, margin: "4px 0 3px" }, children: "\u97F3\u8272" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { style: fieldStyle(), value: state.form.ttsVoice ?? currentTtsVoice, onChange: (event) => setForm("ttsVoice", event.target.value), children: [
+        !knownVoiceIds.has(currentTtsVoice) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: currentTtsVoice, children: [
+          currentTtsVoice,
+          "\uFF08\u81EA\u5B9A\u4E49\uFF09"
+        ] }),
+        VOICE_GROUPS.map((group) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("optgroup", { label: group.label, children: group.voices.map(([id, name]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: id, children: [
+          name,
+          "\uFF08",
+          id,
+          "\uFF09"
+        ] }, id)) }, group.label))
+      ] })
+    ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8 }, children: [["ttsSpeed", "\u8BED\u901F", "0.5\u20132"], ["ttsVol", "\u97F3\u91CF", "0\u201310"], ["ttsPitch", "\u97F3\u8C03", "\u221212\u201312"]].map(([key, label, range]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { flex: 1, display: "block" }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "block", color: "#8b96a8", fontSize: 11, margin: "4px 0 3px" }, children: [
         label,
