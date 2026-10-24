@@ -128,6 +128,11 @@ start` → (`tts sentence_start` + 音频帧)… → `llm end` → `tts stop`。
   起新话，实际采用的 id 记录在 `$DSH_HOME/yusheng-voice/sessions.json`，
   之后重连/重启都回到该会话，不再反复丢上下文。
 - 每轮结束 `sessions.flush` 持久化；首轮附加 `promptPrefix`。
+- **权限全开**：语音会话创建时应用 `danger-full-access` 预设（沙箱全访问 +
+  审批策略 never）。语音设备无人交互，默认 workspace-write + ask 会让需要
+  升权的工具调用（如沙箱外执行命令）永久挂起等审批。网页交互会话不受影响。
+- 新建会话会应用 profile 默认 agent preset（保证完整工具集）——裸
+  `agents.create` 只有 `working_directory` 等基础工具，模型会为完成任务空转。
 
 ## REST（设置面板用，令牌同 WS：`?token=` 或 `x-voice-token` 头）
 
@@ -201,6 +206,9 @@ profile HMR 会自动重组（浏览器侧需硬刷新）。
 - 仅面向局域网；本插件不提供 TLS，跨公网请放 HTTPS 反代。
 - 未配置令牌时端点开放（日志会告警）；面板可一键生成。
 - 密钥只存于服务器本地设置文件（0600），REST 永不回传，日志不落密钥。
+- **语音会话以 danger-full-access 运行**（用户决策：无人值守不能等审批），
+  意味着对话模型可在宿主机上全权执行命令——部署时请自行权衡，如需收紧可
+  改回 workspace-write + 自动应答器。
 
 ## 验证过的版本
 

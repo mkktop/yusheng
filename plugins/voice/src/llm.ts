@@ -75,6 +75,8 @@ export class AgentBridge {
   private agents: any
   private sessions: any
   private agentsBySession = new Map<string, AnyAgent>()
+  /** 已应用全开权限预设的 agent（permissionPresets.set 幂等，此集合只为省重复解析） */
+  private accessApplied = new Set<AnyAgent>()
   /** cacheKey → 实际采用的会话 id（原始派生 id 的会话损坏降级后，记住替补避免每次重连都丢上下文） */
   private adoptedByCacheKey = new Map<string, string>()
   private adoptionPath: string | undefined
@@ -257,19 +259,51 @@ export class AgentBridge {
       created = true
       this.recordAdoption(cacheKey, createId)
     }
-    // 指定会话模式：仅对全新会话生效（preset 首轮后锁定）；未知 preset 只告警
-    if (created && presetId !== '') {
+    // 会话模式仅对全新会话生效（preset 首轮后锁定）；未知 preset 只告警。
+    // 未指定模式时应用 profile 默认 preset：裸 agents.create 只装配基础工具
+    // （如 working_directory），缺 shell 等工具会导致模型为完成任务反复空转。
+    if (created) {
       const presets = this.ctx.get('agentPresets')
       if (presets !== undefined) {
-        try {
-          await presets.select(agent, presetId)
-        } catch (error) {
-          this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${presetId}": ${error instanceof Error ? error.message : String(error)}`)
+        let toApply = presetId
+        if (toApply === '') {
+          try {
+            const inventory = await presets.compositionInventory()
+            const def = (inventory ?? []).find((record: any) => record.isDefault === true)
+            if (def !== undefined) toApply = String(def.id)
+          } catch {
+            /* 拿不到清单则跳过（保持裸装配） */
+          }
+        }
+        if (toApply !== '') {
+          try {
+            await presets.select(agent, toApply)
+          } catch (error) {
+            this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${toApply}": ${error instanceof Error ? error.message : String(error)}`)
+          }
         }
       }
     }
+    this.applyFullAccess(agent)
     this.agentsBySession.set(cacheKey, agent)
     return agent
+  }
+
+  /**
+   * 语音会话全开权限：应用 danger-full-access 预设（沙箱全访问 + 审批策略 never，
+   * 不再有升权等待）。语音设备无人交互，默认 workspace-write + ask 会让需要
+   * 升权的工具调用永久挂起等审批。set 幂等：已是当前预设时不追加事件。
+   */
+  private applyFullAccess(agent: AnyAgent) {
+    if (this.accessApplied.has(agent)) return
+    this.accessApplied.add(agent)
+    const presets = this.ctx.get('permissionPresets')
+    if (presets === undefined || typeof presets.set !== 'function') return
+    try {
+      presets.set(agent.session, 'danger-full-access')
+    } catch (error) {
+      this.ctx.logger?.warn?.(`yusheng-voice: cannot apply danger-full-access preset: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /** 释放缓存引用（连接关闭时调用；会话日志持久化，下次可 resume）。 */

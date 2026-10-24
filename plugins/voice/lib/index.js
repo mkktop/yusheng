@@ -3762,6 +3762,8 @@ var AgentBridge = class _AgentBridge {
   agents;
   sessions;
   agentsBySession = /* @__PURE__ */ new Map();
+  /** 已应用全开权限预设的 agent（permissionPresets.set 幂等，此集合只为省重复解析） */
+  accessApplied = /* @__PURE__ */ new Set();
   /** cacheKey → 实际采用的会话 id（原始派生 id 的会话损坏降级后，记住替补避免每次重连都丢上下文） */
   adoptedByCacheKey = /* @__PURE__ */ new Map();
   adoptionPath;
@@ -3923,18 +3925,46 @@ var AgentBridge = class _AgentBridge {
       created = true;
       this.recordAdoption(cacheKey, createId);
     }
-    if (created && presetId !== "") {
+    if (created) {
       const presets = this.ctx.get("agentPresets");
       if (presets !== void 0) {
-        try {
-          await presets.select(agent, presetId);
-        } catch (error) {
-          this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${presetId}": ${error instanceof Error ? error.message : String(error)}`);
+        let toApply = presetId;
+        if (toApply === "") {
+          try {
+            const inventory = await presets.compositionInventory();
+            const def = (inventory ?? []).find((record) => record.isDefault === true);
+            if (def !== void 0) toApply = String(def.id);
+          } catch {
+          }
+        }
+        if (toApply !== "") {
+          try {
+            await presets.select(agent, toApply);
+          } catch (error) {
+            this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${toApply}": ${error instanceof Error ? error.message : String(error)}`);
+          }
         }
       }
     }
+    this.applyFullAccess(agent);
     this.agentsBySession.set(cacheKey, agent);
     return agent;
+  }
+  /**
+   * 语音会话全开权限：应用 danger-full-access 预设（沙箱全访问 + 审批策略 never，
+   * 不再有升权等待）。语音设备无人交互，默认 workspace-write + ask 会让需要
+   * 升权的工具调用永久挂起等审批。set 幂等：已是当前预设时不追加事件。
+   */
+  applyFullAccess(agent) {
+    if (this.accessApplied.has(agent)) return;
+    this.accessApplied.add(agent);
+    const presets = this.ctx.get("permissionPresets");
+    if (presets === void 0 || typeof presets.set !== "function") return;
+    try {
+      presets.set(agent.session, "danger-full-access");
+    } catch (error) {
+      this.ctx.logger?.warn?.(`yusheng-voice: cannot apply danger-full-access preset: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
   /** 释放缓存引用（连接关闭时调用；会话日志持久化，下次可 resume）。 */
   release(deviceKey) {
