@@ -91,7 +91,7 @@ check('带令牌可用', authed.ok === true)
 
 // 3. WS 协议
 const ws = new WebSocket(`ws://127.0.0.1:18090/voice?token=${token}`)
-ws.binaryType = 'nodebuffer'
+ws.binaryType = 'arraybuffer'
 const received = []
 const waiters = []
 ws.onmessage = (event) => {

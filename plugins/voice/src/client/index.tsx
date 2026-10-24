@@ -314,7 +314,7 @@ function VoiceSettingsPanel() {
         模式在会话首轮后锁定：切换后下一轮将开启新会话（上下文重置），切回原模式可恢复原对话。
       </p>
 
-      <div style={sectionTitle}>提示词前缀（首轮生效）</div>
+      <div style={sectionTitle}>提示词前缀（每轮附加）</div>
       <textarea
         style={fieldStyle({ height: 84, resize: 'vertical' })}
         value={state.form.promptPrefix ?? String(s.promptPrefix ?? '')}

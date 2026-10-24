@@ -9,8 +9,9 @@ import { VoiceConnection, PROTOCOL_VERSION } from './connection.js'
 import { maskSettings, type SettingsStore } from './settings.js'
 import { transcribePcm, AsrError } from './asr.js'
 import { synthesizeStream, TtsError, TTS_SAMPLE_RATE } from './tts.js'
+import { abortable } from './async.js'
 
-const VERSION = '0.1.0'
+const VERSION = '0.1.1'
 const BODY_LIMIT = 32 * 1024
 const WS_PATH = '/voice'
 
@@ -27,6 +28,7 @@ export class VoiceServer {
   private httpServer: ReturnType<typeof createServer> | undefined
   private wss: WebSocketServer | undefined
   private connections = new Set<VoiceConnection>()
+  private devices = new Map<string, VoiceConnection>()
   private startedAt = 0
   private presetsCache: { at: number; value: Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean }> | undefined } = { at: 0, value: undefined }
 
@@ -40,7 +42,7 @@ export class VoiceServer {
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
       const httpServer = createServer((req, res) => this.handleRest(req, res))
-      const wss = new WebSocketServer({ noServer: true })
+      const wss = new WebSocketServer({ noServer: true, maxPayload: 4 * 1024 * 1024 })
 
       httpServer.on('upgrade', (req, socket, head) => {
         const url = parseUrl(req)
@@ -59,10 +61,15 @@ export class VoiceServer {
       })
 
       wss.on('connection', (ws: WebSocket) => {
-        const connection = new VoiceConnection(ws as unknown as { readyState: number; send(data: never): void; close(code: number, reason: string): void }, {
+        const connection = new VoiceConnection(ws, {
           settings: () => this.store.get(),
           bridge: this.bridge,
           log: this.log,
+          claimDevice: (deviceId, incoming) => {
+            const previous = this.devices.get(deviceId)
+            if (previous !== undefined && previous !== incoming) previous.replace()
+            this.devices.set(deviceId, incoming)
+          },
         })
         this.connections.add(connection)
         ws.on('message', (data: Buffer, isBinary: boolean) => {
@@ -74,6 +81,7 @@ export class VoiceServer {
         })
         ws.on('close', () => {
           this.connections.delete(connection)
+          if (this.devices.get(connection.deviceId) === connection) this.devices.delete(connection.deviceId)
           connection.handleClosed()
         })
         ws.on('error', () => {
@@ -95,7 +103,9 @@ export class VoiceServer {
 
   stop() {
     for (const connection of this.connections) connection.handleClosed()
+    for (const ws of this.wss?.clients ?? []) ws.terminate()
     this.connections.clear()
+    this.devices.clear()
     this.wss?.close()
     this.httpServer?.close()
     this.wss = undefined
@@ -211,6 +221,10 @@ export class VoiceServer {
       json(res, 400, { ok: false, error: 'bad_json' })
       return
     }
+    if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
+      json(res, 400, { ok: false, error: 'bad_json', message: '设置必须是 JSON 对象' })
+      return
+    }
     const { settings, rejected } = this.store.update(patch)
     this.log('info', `settings updated${rejected.length > 0 ? ` (rejected: ${rejected.join(', ')})` : ''}`)
     json(res, 200, { ok: true, rejected, settings: maskSettings(settings) })
@@ -260,14 +274,15 @@ export class VoiceServer {
   private async handleTestLlm(res: ServerResponse) {
     const started = Date.now()
     let gotDelta = false
+    const signal = AbortSignal.timeout(this.store.get().maxTurnSeconds * 1000)
     try {
       const turn = await this.bridge.turn('selftest', 'Reply with exactly: OK', {
         onTextDelta: () => {
           gotDelta = true
         },
         onEnd: () => undefined,
-      })
-      const outcome = await turn.done
+      }, '', signal)
+      const outcome = await abortable(turn.done, signal)
       json(res, 200, {
         ok: outcome.kind === 'completed',
         durationMs: Date.now() - started,

@@ -372,7 +372,7 @@ function VoiceSettingsPanel() {
       }
     ),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { margin: "0 0 4px", color: "#8b96a8", fontSize: 11 }, children: "\u6A21\u5F0F\u5728\u4F1A\u8BDD\u9996\u8F6E\u540E\u9501\u5B9A\uFF1A\u5207\u6362\u540E\u4E0B\u4E00\u8F6E\u5C06\u5F00\u542F\u65B0\u4F1A\u8BDD\uFF08\u4E0A\u4E0B\u6587\u91CD\u7F6E\uFF09\uFF0C\u5207\u56DE\u539F\u6A21\u5F0F\u53EF\u6062\u590D\u539F\u5BF9\u8BDD\u3002" }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "\u63D0\u793A\u8BCD\u524D\u7F00\uFF08\u9996\u8F6E\u751F\u6548\uFF09" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "\u63D0\u793A\u8BCD\u524D\u7F00\uFF08\u6BCF\u8F6E\u9644\u52A0\uFF09" }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       "textarea",
       {

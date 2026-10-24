@@ -21,13 +21,13 @@ export interface VoiceSettings {
   ttsVol: number
   /** TTS 音调 -12–12 */
   ttsPitch: number
-  /** 首轮系统化提示前缀（口语化约束等），留空则不包装 */
+  /** 每轮用户消息附加的口语化约束；留空则不包装 */
   promptPrefix: string
   /** dsh 会话模式（agent preset id）；空 = 跟随 profile 默认 */
   agentPreset: string
   /** 设备接入令牌；空 = 未配置（接口开放，面板会提示生成） */
   token: string
-  /** 单轮最长等待秒数（超时本地取消下发） */
+  /** 整轮 deadline（含 ASR、排队、模型、TTS 与音频发送） */
   maxTurnSeconds: number
 }
 

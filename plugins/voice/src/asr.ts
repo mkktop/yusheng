@@ -38,6 +38,7 @@ export interface AsrOptions {
   apiKey: string
   model?: string
   timeoutMs?: number
+  signal?: AbortSignal
 }
 
 /**
@@ -62,13 +63,17 @@ export async function transcribePcm(pcm: Buffer, options: AsrOptions): Promise<s
       method: 'POST',
       headers: { Authorization: `Bearer ${options.apiKey}` },
       body: form,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: options.signal === undefined
+        ? AbortSignal.timeout(timeoutMs)
+        : AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)]),
     })
   } catch (error) {
     throw new AsrError('network', `语音识别请求失败：${String(error)}`)
   }
 
-  const bodyText = await response.text()
+  let bodyText: string
+  try { bodyText = await response.text() }
+  catch (error) { throw new AsrError('network', `语音识别响应中断：${String(error)}`) }
   let payload: any = undefined
   try {
     payload = JSON.parse(bodyText)
@@ -82,6 +87,6 @@ export async function transcribePcm(pcm: Buffer, options: AsrOptions): Promise<s
   if (payload?.base_resp?.status_code !== undefined && payload.base_resp.status_code !== 0) {
     throw new AsrError('api_' + String(payload.base_resp.status_code), `语音识别业务错误：${String(payload.base_resp.status_msg)}`)
   }
-  const text = typeof payload?.text === 'string' ? payload.text : ''
-  return text.trim()
+  if (typeof payload?.text !== 'string') throw new AsrError('bad_asr_response', '语音识别响应缺少 text 字段')
+  return payload.text.trim()
 }

@@ -24,7 +24,10 @@ LLM（跟随 profile 的默认模型选择）。
   注册的预设列出）。预设首轮后锁定，会话 id 按模式派生
   （`voice-<deviceId>-p-<preset>`）：切换模式下一轮自动开新会话，切回原模式
   即恢复原对话。
-- **打断**：`abort` 即时停止下发并本地取消，后台任由本轮自然收敛。
+- **打断**：`abort` 即时停止音频与回调，并尝试取消宿主任务。ASR、排队和模型
+  创建阶段都受取消信号约束。下一轮需等同一宿主会话真正空闲，防止串话。
+- **同设备重连**：同一规范化 `deviceId` 仅保留最新连接；旧连接收到
+  `device_replaced` 后以 WS code `4001` 关闭。不同设备保持独立。
 
 ## 安装（服务器上）
 
@@ -59,10 +62,10 @@ profile 配置，也不会出现在日志与 REST 返回中。
 | `ttsModel` | string ≤64 | `speech-2.8-turbo` | 合成模型；面板下拉：2.8/2.6/02/01 系 × turbo/hd |
 | `ttsVoice` | string ≤128 | `female-shaonv` | 音色 id；面板下拉为官方系统音色表中文部分（普通话 58 + 粤语 6），自定义/复刻 id 可经 PUT 写入 |
 | `ttsSpeed` / `ttsVol` / `ttsPitch` | 0.5–2 / 0–10 / −12–12 | 1 / 1 / 0 | 合成语速、音量、音调 |
-| `promptPrefix` | string ≤4000 | 口语化约束 | 每设备**首轮**用户消息前附加的提示词；留空不包装 |
+| `promptPrefix` | string ≤4000 | 口语化约束 | **每轮**用户消息前附加的提示词，重连/切模式行为一致；留空不包装 |
 | `agentPreset` | string ≤64 | 空 | dsh 会话模式（agent preset id）；空 = 跟随默认 |
 | `token` | string ≤128 | 空 | 设备接入令牌；空 = WS/REST 开放（日志告警）。`POST /token` 一键生成 |
-| `maxTurnSeconds` | 15–600 | 180 | 单轮最长等待秒数，超时本地取消并按打断收尾 |
+| `maxTurnSeconds` | 15–600 | 180 | 从请求接收到音频发送完毕的总时限（含 ASR/排队/LLM/TTS）；超时返回 `turn_timeout` + `tts stop(reason=timeout)` |
 
 PUT 提交任意字段子集，未知字段拒收（响应 `rejected` 数组点名）；**传空串等于
 清除该字段**（密钥想保持不变就不要提交它）。
@@ -72,19 +75,24 @@ PUT 提交任意字段子集，未知字段拒收（响应 `rejected` 数组点�
 端点：`ws://<host>:8090/voice?token=<令牌>`（令牌在设置面板生成；未配置时开放）
 
 音频格式：上行 **PCM 16kHz 16bit mono 小端**，下行 **PCM 24kHz 16bit mono
-小端**（约 40ms 帧节奏下发）。
+小端**（约 40ms 帧节奏下发，末帧可不足 40ms）。网络分片会先拼接再分帧，
+不会把每个小分片都当成 40ms。音频仅含 PCM，无额外二进制头。
+
+0.1.1 仍使用 v1：新增字段/事件是增量扩展。旧客户端可继续按原消息工作，
+应忽略未知事件；`hello.version` 必须为 1，`deviceId` 规范化后不得为空。
+超长文本现在明确报错，不再静默截断。
 
 ### 客户端 → 服务端
 
 | 消息 | 说明 |
 |---|---|
 | `{"type":"hello","version":1,"deviceId":"esp-01","deviceName":"客厅"}` | 握手；deviceId 规范化（小写、`[a-z0-9_-]`、≤48）后作为会话标识 |
-| `{"type":"listen","state":"start"}` | 开始拾音（清空缓冲） |
+| `{"type":"listen","state":"start"}` | 空闲时开始拾音；拾音中再次 start 返回 `busy` |
 | `{"type":"listen","state":"stop"}` | 结束拾音，触发一轮：ASR → 会话 → TTS |
-| 二进制帧 | 拾音中的 PCM，任意分片长度；单次上限 120 秒（超出报 `too_long`） |
+| 二进制帧 | 拾音中的 PCM，任意分片长度；单次上限 120 秒（字节量与实际时间都受限，超出报 `too_long` 并收尾） |
 | `{"type":"query","text":"…"}` | 文本直达：跳过 ASR，会话 → TTS（≤4000 字） |
 | `{"type":"speak","text":"…"}` | 纯 TTS 播报，不进会话（≤1000 字） |
-| `{"type":"abort"}` | 打断当前轮：停发音频、取消等待 |
+| `{"type":"abort","turnId":"可选"}` | 打断当前轮；省略 turnId 则取消当前任务/拾音，指定过期 turnId 返回 `unknown_turn`，不会误伤新轮 |
 | `{"type":"ping","time":…}` | 心跳 |
 
 ### 服务端 → 客户端
@@ -92,29 +100,48 @@ PUT 提交任意字段子集，未知字段拒收（响应 `rejected` 数组点�
 | 消息 | 说明 |
 |---|---|
 | `{"type":"welcome","version":1,"sessionId":"voice-…","sampleRateIn":16000,"sampleRateOut":24000}` | 握手成功 |
+| `{"type":"turn","state":"start","kind":"query","turnId":"…","requestId":"…","sessionId":"…"}` | 请求已接受；kind 为 listen/query/speak |
+| `{"type":"session","sessionId":"…","turnId":"…"}` | 创建时历史损坏导致换会话，更新客户端实际会话 id |
 | `{"type":"stt","text":"…"}` | 识别结果（随后进入会话轮） |
 | `{"type":"llm","state":"start"}` / `{"state":"delta","text":"…"}`（多次）/ `{"state":"end"}` | 会话轮文本流 |
 | `{"type":"tts","state":"start"}` | 本轮音频开始（首句合成前） |
-| `{"type":"tts","state":"sentence_start","text":"…"}` | 一句音频即将下发 |
-| `{"type":"tts","state":"stop","reason":"…"}` | 本轮结束。reason：`completed`（会话轮正常）/ `done`（speak 正常）/ `cancelled`（超时取消）/ `aborted` / `error` / `too_short`（拾音 <0.3s）/ `empty_asr` |
+| `{"type":"tts","state":"sentence_start","text":"…"}` | 开始合成该句；不是客户端播放位置，不能用于精确字幕同步 |
+| `{"type":"tts","state":"stop","reason":"…"}` | 本轮结束。reason：`completed`（会话轮正常）/ `done`（speak 正常）/ `cancelled`（宿主取消）/ `timeout`（整轮超时）/ `aborted` / `error` / `too_short`（拾音 <0.3s）/ `empty_asr` |
 | 二进制帧 | TTS 音频 PCM（24kHz 16bit mono） |
 | `{"type":"error","code":"…","message":"…"}` | 错误；连接可继续使用 |
 | `{"type":"pong","time":…}` | 心跳回应 |
 
-一轮时序：`listen stop` →（可选 `stt`）→ `llm start` → `llm delta…` → `tts
-start` → (`tts sentence_start` + 音频帧)… → `llm end` → `tts stop`。
-`speak`/`query` 分别省略头部/ASR 环节。忙线时新的 `listen`/`query`/`speak`
-返回 `busy`，需先 `abort`。`tts stop` 一定在所有音频帧之后到达，客户端以它
-作为播放收尾依据即可。
+请求可携带可选 `requestId`（1–128 字符的字符串）。`listen stop` 优先使用自身
+的 requestId，省略时沿用 `listen start` 的值。接受请求后返回 `turn start`，
+后续本轮 JSON 均带服务端生成的 `turnId` 与对应 `requestId`。验证失败/忙线仅
+返回 error，携带被拒请求的 requestId，不会结束正在运行的另一轮。
+
+一轮开始于 `turn start`；语音轮随后 `stt` → `llm start/delta/end`；文本 query
+省略 ASR，speak 省略 LLM。文字生成与 TTS 合成/音频发送并行，因此 `llm end`
+可能早于首段音频，也可能在播放中途到达。**整轮只以 `tts stop` 收尾一次**；
+正常情况下它位于所有 PCM 帧之后，表示传输完成，客户端仍需播完本地缓冲。
+TTS/模型出错返回 error + stop(reason=error)，不会再报 completed；移除了固定
+30 秒排空截断，受 `maxTurnSeconds` 总时限保护，TTS 单句网络等待另限 30 秒。
+每轮设置在接受请求时固定，运行中修改设置仅对后续请求生效。
+
+客户端发送 abort 时应立即停播并清空本地 PCM 队列；服务端取消后不会再下发
+该轮音频。可随即发起新请求；宿主仍在收尾时，新请求在总时限内排队，旧轮
+迟到文本不会混入新轮。二进制 PCM 属于当前 turn，按同一 WS 上的有序消息
+处理即可。拾音尚未 stop 时没有 turnId，abort 用于直接丢弃拾音缓冲。
 
 ### 常见错误码
 
 | code | 场景 |
 |---|---|
-| `no_hello` / `already_hello` | 握手次序不对 |
-| `busy` | 上一轮未结束 |
+| `no_hello` / `already_hello` / `unsupported_version` / `invalid_device_id` | 握手次序或字段不合法 |
+| `busy` | 上一轮或拾音未结束 |
+| `device_replaced` | 同设备新连接接管，旧连接将关闭（4001） |
+| `unknown_turn` / `bad_request_id` | 过期轮次或 requestId 格式不合法 |
+| `turn_timeout` | 超过 maxTurnSeconds，总时限包含音频发送 |
 | `not_listening` / `bad_listen_state` / `too_long` | 拾音状态机 |
-| `empty_text` / `bad_json` / `unknown_type` | 请求格式 |
+| `empty_text` / `text_too_long` / `bad_json` / `unknown_type` | 请求格式 |
+| `bad_audio` / `audio_overflow` | PCM 未按 16bit 对齐或待发送音频超过本轮缓冲上限 |
+| `empty_tts` / `bad_tts_response` / `tts_timeout` / `stream` | TTS 无音频、返回格式错误、超时或提前断流 |
 | `no_api_key` | minimax Key 未配置 |
 | `network` / `http_<状态>` / `api_<业务码>` | minimax ASR/TTS 调用失败（ASR 前缀亦可 `asr_failed`、TTS `tts_failed`/`stream`） |
 | `llm_error` | dsh 会话轮失败（含模型凭据缺失，message 有具体指引） |
@@ -127,7 +154,9 @@ start` → (`tts sentence_start` + 音频帧)… → `llm end` → `tts stop`。
 - **损坏会话自动降级**：历史会话校验失败（如中断轮残留）时记警告并换新 id
   起新话，实际采用的 id 记录在 `$DSH_HOME/yusheng-voice/sessions.json`，
   之后重连/重启都回到该会话，不再反复丢上下文。
-- 每轮结束 `sessions.flush` 持久化；首轮附加 `promptPrefix`。
+- 每轮宿主空闲后 `sessions.flush` 持久化。取消会立即结束客户端等待，但该会话
+  的后续请求会等宿主真正空闲后再提交，避免共享 agent 串流。
+- 每轮附加 `promptPrefix`，使重连、切换模式与连续对话都维持语音回答约束。
 - **权限全开**：语音会话创建时应用 `danger-full-access` 预设（沙箱全访问 +
   审批策略 never）。语音设备无人交互，默认 workspace-write + ask 会让需要
   升权的工具调用（如沙箱外执行命令）永久挂起等审批。网页交互会话不受影响。
@@ -195,7 +224,7 @@ node tools/test-client.mjs ws://<host>:8090/voice --token <令牌> listen 问句
 
 ```sh
 npm install && npm run build   # 产出 lib/index.js + lib/client.js（esbuild）
-node tools/smoke.mjs           # 本地冒烟（mock 宿主服务，14+ 断言）
+npm test                      # 构建 + 协议回归（含真实本地 WS）+ 冒烟，无需云端凭据
 ```
 
 宿主半边改 `src/`，浏览器半边改 `src/client/`；`link:` 安装的包文件变更后
@@ -214,3 +243,11 @@ profile HMR 会自动重组（浏览器侧需硬刷新）。
 
 - dsh 0.2.1-rc.2（GM800，ARM64，Node 22）；minimax api.minimax.cn
   （asr-1.0 / speech-2.8-turbo / MiniMax-M3.1-Flash）全链路实测通过。
+
+## 0.1.1 验证范围
+
+- 回归覆盖识别/模型创建阶段打断、旧回调迟到、立即重问、整轮超时、同设备
+  重连接管、宿主会话排队、完整 35 秒音频发送、碎片拼帧、慢客户端、TTS
+  空响应/错误/断流，以及 recap 去重与尾音保留。
+- 测试使用模拟 dsh/ASR/TTS，HTTP/WS 在本地真实监听；当前修订尚需在实际
+  dsh 宿主与设备上做 MiniMax 端到端验收。0.1.0 的部署实录不代表本修订实测。

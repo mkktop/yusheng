@@ -2271,7 +2271,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes2, createHash } = __require("crypto");
+    var { randomBytes: randomBytes2, createHash: createHash2 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2952,7 +2952,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash2("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -3321,7 +3321,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash } = __require("crypto");
+    var { createHash: createHash2 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3628,7 +3628,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash2("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -3721,6 +3721,28 @@ import { dirname as dirname3, resolve as resolve2 } from "node:path";
 // src/llm.ts
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+
+// src/async.ts
+function abortable(task, signal) {
+  if (signal === void 0) return task;
+  return new Promise((resolve3, reject) => {
+    const onAbort = () => reject(signal.reason ?? new Error("aborted"));
+    task.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve3(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      }
+    );
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+// src/llm.ts
 var SentenceSlicer = class _SentenceSlicer {
   buffer = "";
   static MAJOR = /* @__PURE__ */ new Set(["\u3002", "\uFF01", "\uFF1F", "!", "?", "\uFF1B", ";", "\n"]);
@@ -3768,6 +3790,8 @@ var AgentBridge = class _AgentBridge {
   adoptedByCacheKey = /* @__PURE__ */ new Map();
   adoptionPath;
   cwdPromise;
+  /** 取消只结束本地等待；同一会话必须等宿主真正空闲后才接下一轮。 */
+  pendingTurns = /* @__PURE__ */ new Map();
   constructor(ctx, adoptionPath) {
     this.ctx = ctx;
     this.agents = ctx.get("agents");
@@ -3831,6 +3855,10 @@ var AgentBridge = class _AgentBridge {
   static sessionIdFor(deviceKey, presetId) {
     const preset = presetId.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "");
     return preset === "" ? `voice-${deviceKey}` : `voice-${deviceKey}-p-${preset}`;
+  }
+  sessionIdFor(deviceKey, presetId = "") {
+    const cacheKey = presetId === "" ? deviceKey : `${deviceKey}::${presetId}`;
+    return this.adoptedByCacheKey.get(cacheKey) ?? _AgentBridge.sessionIdFor(deviceKey, presetId);
   }
   /** 枚举可用的 dsh 会话模式（agent preset）；服务缺失返回 undefined。 */
   async listPresets() {
@@ -3972,65 +4000,108 @@ var AgentBridge = class _AgentBridge {
       if (key === deviceKey || key.startsWith(`${deviceKey}::`)) this.agentsBySession.delete(key);
     }
   }
-  /** 提交一轮用户消息并跟踪该 agent 的实时文本增量直至收敛。 */
-  async turn(deviceKey, text, callbacks, presetId = "") {
-    const agent = await this.agentFor(deviceKey, presetId);
-    let cancelled = false;
-    let failure;
-    const stopStream = this.ctx.on("agent/assistant-stream", ({ agent: subject, frame }) => {
-      if (subject !== agent || cancelled) return;
-      const chunk = frame?.chunk;
-      if (chunk?.type === "text-delta" && typeof chunk.text === "string" && chunk.text !== "") {
-        callbacks.onTextDelta(chunk.text);
-      }
+  /** 每个持久会话串行提交；取消立即停止回调，但保留队列直到宿主收敛。 */
+  async turn(deviceKey, text, callbacks, presetId = "", signal, promptPrefix = "") {
+    const key = _AgentBridge.sessionIdFor(deviceKey, presetId);
+    const previous = this.pendingTurns.get(key) ?? Promise.resolve();
+    let release;
+    const gate = new Promise((resolve3) => {
+      release = resolve3;
     });
-    const stopErrors = this.ctx.on("agent/error", ({ agent: subject, error }) => {
-      if (subject === agent) failure = { error };
-    });
-    const done = (async () => {
-      try {
-        agent.followup({
-          content: [{ type: "text", text }],
-          source: { kind: "user" }
-        });
-        while (!cancelled) {
-          await agent.whenIdle();
-          const subagents = this.ctx.get("subagents");
-          const settled = subagents?.waitForChildren ? await subagents.waitForChildren(agent) : true;
-          if (!settled && agent.status !== "idle") continue;
-          break;
+    const tail = previous.then(() => gate);
+    this.pendingTurns.set(key, tail);
+    let released = false;
+    const unlock = () => {
+      if (released) return;
+      released = true;
+      release();
+      void tail.then(() => {
+        if (this.pendingTurns.get(key) === tail) this.pendingTurns.delete(key);
+      });
+    };
+    try {
+      await abortable(previous, signal);
+      signal?.throwIfAborted();
+      const agent = await this.agentFor(deviceKey, presetId);
+      signal?.throwIfAborted();
+      let cancelled = false;
+      let reported = false;
+      let collected = "";
+      let failure;
+      let resolveDone;
+      const done = new Promise((resolve3) => {
+        resolveDone = resolve3;
+      });
+      const stopStream = this.ctx.on("agent/assistant-stream", ({ agent: subject, frame }) => {
+        if (subject !== agent || reported) return;
+        const chunk = frame?.chunk;
+        if (chunk?.type === "text-delta" && typeof chunk.text === "string" && chunk.text !== "") {
+          collected += chunk.text;
+          callbacks.onTextDelta(chunk.text);
         }
-        await this.sessions.flush(agent.session).catch(() => void 0);
-        if (cancelled) {
-          const result2 = { kind: "cancelled", text: "" };
-          callbacks.onEnd(result2);
-          return result2;
-        }
-        if (failure !== void 0) {
-          const error = failure.error instanceof Error ? failure.error.message : String(failure.error);
-          const result2 = { kind: "error", text: "", error };
-          callbacks.onEnd(result2);
-          return result2;
-        }
-        const result = { kind: "completed", text: "" };
-        callbacks.onEnd(result);
-        return result;
-      } finally {
+      });
+      const stopErrors = this.ctx.on("agent/error", ({ agent: subject, error }) => {
+        if (subject === agent && !reported) failure = error;
+      });
+      const finalize = (result) => {
+        if (reported) return;
+        reported = true;
         stopStream();
         stopErrors();
-      }
-    })();
-    return {
-      cancel: () => {
-        if (cancelled) return;
-        cancelled = true;
+        signal?.removeEventListener("abort", onAbort);
         try {
-          agent.abort?.("yusheng-voice: user aborted");
+          callbacks.onEnd(result);
         } catch {
         }
-      },
-      done
-    };
+        resolveDone(result);
+      };
+      const handle = {
+        sessionId: this.sessionIdFor(deviceKey, presetId),
+        done,
+        cancel: () => {
+          if (reported) return;
+          cancelled = true;
+          finalize({ kind: "cancelled", text: collected });
+          try {
+            void Promise.resolve(agent.abort?.("yusheng-voice: user aborted")).catch(() => void 0);
+          } catch {
+          }
+        }
+      };
+      const onAbort = () => handle.cancel();
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) handle.cancel();
+      void (async () => {
+        try {
+          if (cancelled) return;
+          const prompt = promptPrefix.trim() === "" ? text : `${promptPrefix.trim()}
+
+\u7528\u6237\u8BF4\uFF1A${text}`;
+          await agent.followup({ content: [{ type: "text", text: prompt }], source: { kind: "user" } });
+          while (true) {
+            await agent.whenIdle();
+            const subagents = this.ctx.get("subagents");
+            const settled = subagents?.waitForChildren ? await subagents.waitForChildren(agent) : true;
+            if (!settled && agent.status !== "idle") continue;
+            break;
+          }
+          await this.sessions.flush(agent.session);
+          if (failure !== void 0) throw failure;
+          finalize({ kind: "completed", text: collected });
+        } catch (error) {
+          finalize({ kind: "error", text: collected, error: error instanceof Error ? error.message : String(error) });
+        } finally {
+          stopStream();
+          stopErrors();
+          signal?.removeEventListener("abort", onAbort);
+          unlock();
+        }
+      })();
+      return handle;
+    } catch (error) {
+      unlock();
+      throw error;
+    }
   }
 };
 
@@ -4050,6 +4121,7 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // src/connection.ts
 import { Buffer as Buffer4 } from "node:buffer";
+import { randomUUID } from "node:crypto";
 
 // src/asr.ts
 import { Buffer as Buffer2 } from "node:buffer";
@@ -4096,12 +4168,17 @@ async function transcribePcm(pcm, options) {
       method: "POST",
       headers: { Authorization: `Bearer ${options.apiKey}` },
       body: form,
-      signal: AbortSignal.timeout(timeoutMs)
+      signal: options.signal === void 0 ? AbortSignal.timeout(timeoutMs) : AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)])
     });
   } catch (error) {
     throw new AsrError("network", `\u8BED\u97F3\u8BC6\u522B\u8BF7\u6C42\u5931\u8D25\uFF1A${String(error)}`);
   }
-  const bodyText = await response.text();
+  let bodyText;
+  try {
+    bodyText = await response.text();
+  } catch (error) {
+    throw new AsrError("network", `\u8BED\u97F3\u8BC6\u522B\u54CD\u5E94\u4E2D\u65AD\uFF1A${String(error)}`);
+  }
   let payload = void 0;
   try {
     payload = JSON.parse(bodyText);
@@ -4114,12 +4191,13 @@ async function transcribePcm(pcm, options) {
   if (payload?.base_resp?.status_code !== void 0 && payload.base_resp.status_code !== 0) {
     throw new AsrError("api_" + String(payload.base_resp.status_code), `\u8BED\u97F3\u8BC6\u522B\u4E1A\u52A1\u9519\u8BEF\uFF1A${String(payload.base_resp.status_msg)}`);
   }
-  const text = typeof payload?.text === "string" ? payload.text : "";
-  return text.trim();
+  if (typeof payload?.text !== "string") throw new AsrError("bad_asr_response", "\u8BED\u97F3\u8BC6\u522B\u54CD\u5E94\u7F3A\u5C11 text \u5B57\u6BB5");
+  return payload.text.trim();
 }
 
 // src/tts.ts
 import { Buffer as Buffer3 } from "node:buffer";
+import { createHash } from "node:crypto";
 var TTS_SAMPLE_RATE = 24e3;
 var TTS_FRAME_BYTES = TTS_SAMPLE_RATE * 2 * 40 / 1e3;
 var TtsError = class extends Error {
@@ -4133,6 +4211,8 @@ var TTS_ENDPOINT = "https://api.minimax.cn/v1/t2a_v2";
 async function* synthesizeStream(text, options) {
   const apiKey = options.apiKey;
   if (apiKey === "") throw new TtsError("no_api_key", "minimax API key \u672A\u914D\u7F6E\uFF08\u8BBE\u7F6E\u9762\u677F \u2192 MiniMax \u51ED\u636E\uFF09");
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? 3e4);
+  const signal = options.signal === void 0 ? timeout : AbortSignal.any([options.signal, timeout]);
   const body = {
     model: options.model || "speech-2.8-turbo",
     text,
@@ -4160,10 +4240,11 @@ async function* synthesizeStream(text, options) {
         Accept: "text/event-stream"
       },
       body: JSON.stringify(body),
-      signal: options.signal
+      signal
     });
   } catch (error) {
     if (options.signal?.aborted) return;
+    if (timeout.aborted) throw new TtsError("tts_timeout", "\u8BED\u97F3\u5408\u6210\u8BF7\u6C42\u8D85\u65F6");
     throw new TtsError("network", `\u8BED\u97F3\u5408\u6210\u8BF7\u6C42\u5931\u8D25\uFF1A${String(error)}`);
   }
   if (!response.ok || !response.body) {
@@ -4175,45 +4256,68 @@ async function* synthesizeStream(text, options) {
   let buffer = "";
   let finished = false;
   let yieldedBytes = 0;
+  const incrementalHash = createHash("sha256");
+  function decodeLine(line) {
+    line = line.trim();
+    if (!line.startsWith("data:")) return void 0;
+    const text2 = line.slice(5).trim();
+    if (text2 === "") return void 0;
+    if (text2 === "[DONE]") {
+      finished = true;
+      return void 0;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(text2);
+    } catch {
+      throw new TtsError("bad_tts_response", "\u8BED\u97F3\u5408\u6210\u6D41\u8FD4\u56DE\u65E0\u6548 JSON");
+    }
+    if (payload?.base_resp?.status_code !== void 0 && payload.base_resp.status_code !== 0) {
+      throw new TtsError("api_" + String(payload.base_resp.status_code), `\u8BED\u97F3\u5408\u6210\u4E1A\u52A1\u9519\u8BEF\uFF1A${String(payload.base_resp.status_msg)}`);
+    }
+    const terminal = payload?.data?.status === 2;
+    if (terminal) finished = true;
+    const hex = payload?.data?.audio;
+    if (hex === void 0 || hex === "") return void 0;
+    if (typeof hex !== "string" || hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) {
+      throw new TtsError("bad_tts_response", "\u8BED\u97F3\u5408\u6210\u6D41\u8FD4\u56DE\u65E0\u6548 PCM hex");
+    }
+    let chunk = Buffer3.from(hex, "hex");
+    if (terminal && yieldedBytes > 0 && chunk.length >= yieldedBytes) {
+      const prefixHash = createHash("sha256").update(chunk.subarray(0, yieldedBytes)).digest("hex");
+      if (prefixHash === incrementalHash.copy().digest("hex")) chunk = chunk.subarray(yieldedBytes);
+    }
+    if (chunk.length === 0) return void 0;
+    incrementalHash.update(chunk);
+    yieldedBytes += chunk.length;
+    return chunk;
+  }
   try {
     while (!finished) {
       if (options.signal?.aborted) return;
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        buffer += decoder.decode();
+        if (buffer.trim() !== "") {
+          const chunk = decodeLine(buffer);
+          if (chunk !== void 0) yield chunk;
+        }
+        break;
+      }
       buffer += decoder.decode(value, { stream: true });
-      let newlineIndex;
-      while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, newlineIndex).trim();
-        buffer = buffer.slice(newlineIndex + 1);
-        if (!line.startsWith("data:")) continue;
-        const payloadText = line.slice(5).trim();
-        if (payloadText === "" || payloadText === "[DONE]") continue;
-        let payload;
-        try {
-          payload = JSON.parse(payloadText);
-        } catch {
-          continue;
-        }
-        if (payload?.base_resp?.status_code !== void 0 && payload.base_resp.status_code !== 0) {
-          throw new TtsError(
-            "api_" + String(payload.base_resp.status_code),
-            `\u8BED\u97F3\u5408\u6210\u4E1A\u52A1\u9519\u8BEF\uFF1A${String(payload.base_resp.status_msg)}`
-          );
-        }
-        const audioHex = payload?.data?.audio;
-        if (typeof audioHex === "string" && audioHex !== "") {
-          const chunk = Buffer3.from(audioHex, "hex");
-          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes;
-          if (chunk.length > 0 && !isFullRecap) {
-            yieldedBytes += chunk.length;
-            yield chunk;
-          }
-        }
-        if (payload?.data?.status === 2) finished = true;
+      let newline;
+      while (!finished && (newline = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        const chunk = decodeLine(line);
+        if (chunk !== void 0) yield chunk;
       }
     }
+    if (!finished && !options.signal?.aborted) throw new TtsError("stream", "\u8BED\u97F3\u5408\u6210\u6D41\u5728\u5B8C\u6210\u6807\u8BB0\u524D\u4E2D\u65AD");
+    if (yieldedBytes === 0 && !options.signal?.aborted) throw new TtsError("empty_tts", "TTS \u672A\u8FD4\u56DE\u97F3\u9891");
   } catch (error) {
     if (options.signal?.aborted) return;
+    if (timeout.aborted) throw new TtsError("tts_timeout", "\u8BED\u97F3\u5408\u6210\u6D41\u8D85\u65F6");
     if (error instanceof TtsError) throw error;
     throw new TtsError("stream", `\u8BED\u97F3\u5408\u6210\u6D41\u4E2D\u65AD\uFF1A${String(error)}`);
   } finally {
@@ -4228,70 +4332,103 @@ async function* synthesizeStream(text, options) {
 var PROTOCOL_VERSION = 1;
 var SAMPLE_RATE_IN = 16e3;
 var SAMPLE_RATE_OUT = 24e3;
-var MAX_CAPTURE_MS = 12e4;
-var DRAIN_MS = 3e4;
-var sleep = (ms) => new Promise((resolve3) => {
-  const timer = setTimeout(resolve3, ms);
-  if (typeof timer.unref === "function") timer.unref();
-});
-function createPacedSender(ws) {
-  const PREBUFFER_FRAMES = 6;
-  const TICK_MS = 40;
-  let frames = [];
+var MAX_CAPTURE_BYTES = SAMPLE_RATE_IN * 2 * 120;
+var SOCKET_HIGH_WATER = 256 * 1024;
+var PipelineError = class extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+};
+function createPacedSender(ws, maxBytes) {
+  const frames = [];
+  let head = 0;
+  let tail = Buffer4.alloc(0);
+  let queuedBytes = 0;
   let timer;
   let closed = false;
   let finishing = false;
+  let failure;
   let waiters = [];
-  const stopTimer = () => {
-    if (timer !== void 0) {
-      clearInterval(timer);
-      timer = void 0;
+  const wake = () => {
+    for (const waiter of waiters.splice(0)) {
+      if (failure !== void 0) waiter.reject(failure);
+      else waiter.resolve();
     }
   };
-  const wake = () => {
-    const pending = waiters.splice(0);
-    for (const resolve3 of pending) resolve3();
+  const stopTimer = () => {
+    if (timer !== void 0) clearInterval(timer);
+    timer = void 0;
   };
   const start = () => {
     if (timer !== void 0 || closed) return;
     timer = setInterval(() => {
-      if (closed || ws.readyState !== 1) {
+      if (closed) return;
+      if (ws.readyState !== 1) {
+        failure = new PipelineError("connection_closed", "\u97F3\u9891\u8FDE\u63A5\u5DF2\u5173\u95ED");
         stopTimer();
-        if (finishing) wake();
+        wake();
         return;
       }
-      const frame = frames.shift();
+      if ((ws.bufferedAmount ?? 0) > SOCKET_HIGH_WATER) return;
+      const frame = frames[head];
       if (frame === void 0) {
         stopTimer();
         if (finishing) wake();
         return;
       }
-      ws.send(frame);
-    }, TICK_MS);
-    if (typeof timer.unref === "function") timer.unref();
+      try {
+        ws.send(frame);
+      } catch (error) {
+        failure = error instanceof Error ? error : new Error(String(error));
+        stopTimer();
+        wake();
+        return;
+      }
+      queuedBytes -= frame.length;
+      head += 1;
+      if (head >= 256) {
+        frames.splice(0, head);
+        head = 0;
+      }
+    }, 40);
+    timer.unref?.();
   };
   return {
     push(chunk) {
       if (closed) return;
+      if (failure !== void 0) throw failure;
+      if (queuedBytes + tail.length + chunk.length > maxBytes)
+        throw new PipelineError("audio_overflow", "\u5F85\u64AD\u653E\u97F3\u9891\u8D85\u8FC7\u672C\u8F6E\u7F13\u51B2\u4E0A\u9650");
+      const data = tail.length === 0 ? chunk : Buffer4.concat([tail, chunk]);
       let offset = 0;
-      while (offset < chunk.length) {
-        const end = Math.min(offset + TTS_FRAME_BYTES, chunk.length);
-        frames.push(chunk.subarray(offset, end));
-        offset = end;
+      while (offset + TTS_FRAME_BYTES <= data.length) {
+        frames.push(data.subarray(offset, offset + TTS_FRAME_BYTES));
+        queuedBytes += TTS_FRAME_BYTES;
+        offset += TTS_FRAME_BYTES;
       }
-      if (frames.length >= PREBUFFER_FRAMES && timer === void 0) start();
+      tail = Buffer4.from(data.subarray(offset));
+      if (frames.length - head >= 6) start();
     },
     async finish() {
+      if (failure !== void 0) throw failure;
       if (closed) return;
+      if (tail.length % 2 !== 0) throw new PipelineError("bad_audio", "TTS PCM \u5B57\u8282\u6570\u672A\u6309 16bit \u6837\u672C\u5BF9\u9F50");
       finishing = true;
-      if (frames.length === 0 && timer === void 0) return;
+      if (tail.length > 0) {
+        frames.push(tail);
+        queuedBytes += tail.length;
+        tail = Buffer4.alloc(0);
+      }
+      if (head === frames.length && timer === void 0) return;
       start();
-      await new Promise((resolve3) => waiters.push(resolve3));
+      await new Promise((resolve3, reject) => waiters.push({ resolve: resolve3, reject }));
     },
     stop() {
       closed = true;
       stopTimer();
-      frames = [];
+      frames.length = 0;
+      tail = Buffer4.alloc(0);
       wake();
     }
   };
@@ -4299,59 +4436,60 @@ function createPacedSender(ws) {
 var SentenceQueue = class {
   pending = [];
   closed = false;
-  waiters = [];
-  push(sentence) {
-    if (this.closed || sentence === "") return;
-    this.pending.push(sentence);
-    this.wake();
+  wake;
+  push(text) {
+    if (!this.closed && text !== "") {
+      this.pending.push(text);
+      this.wake?.();
+    }
   }
   close() {
     this.closed = true;
-    this.wake();
-  }
-  wake() {
-    while (this.waiters.length > 0) {
-      const resolve3 = this.waiters.shift();
-      if (resolve3 !== void 0) resolve3();
-    }
+    this.wake?.();
   }
   async next() {
-    while (true) {
-      const sentence = this.pending.shift();
-      if (sentence !== void 0) return sentence;
-      if (this.closed) return null;
-      await new Promise((resolve3) => this.waiters.push(resolve3));
-    }
+    while (this.pending.length === 0 && !this.closed)
+      await new Promise((resolve3) => {
+        this.wake = resolve3;
+      });
+    return this.pending.shift() ?? null;
   }
 };
 var VoiceConnection = class {
-  deps;
-  ws;
+  constructor(ws, deps) {
+    this.ws = ws;
+    this.deps = deps;
+  }
   state = "init";
   deviceId = "";
   deviceName = "";
   pcmChunks = [];
   pcmBytes = 0;
-  turnCount = 0;
-  activeTurn;
-  activeTtsAbort;
-  activeSender;
-  constructor(ws, deps) {
-    this.ws = ws;
-    this.deps = deps;
-  }
+  captureRequestId;
+  captureTimer;
+  active;
   describe() {
     return { deviceId: this.deviceId, deviceName: this.deviceName, state: this.state };
   }
   sendJson(value) {
-    if (this.ws.readyState !== 1) return;
-    this.ws.send(JSON.stringify(value));
+    if (this.ws.readyState !== 1 || this.state === "closed") return;
+    try {
+      this.ws.send(JSON.stringify(value));
+    } catch {
+      this.handleClosed();
+    }
   }
-  sendError(code, message) {
-    this.sendJson({ type: "error", code, message });
+  sendError(code, message, requestId) {
+    this.sendJson({ type: "error", code, message, requestId });
   }
-  /** 文本消息入口。 */
+  current(turn) {
+    return this.active === turn && !turn.controller.signal.aborted && this.state !== "closed";
+  }
+  emit(turn, value) {
+    if (this.current(turn)) this.sendJson({ ...value, turnId: turn.id, requestId: turn.requestId });
+  }
   handleMessage(raw) {
+    if (this.state === "closed") return;
     let message;
     try {
       message = JSON.parse(raw);
@@ -4359,289 +4497,320 @@ var VoiceConnection = class {
       this.sendError("bad_json", "\u6D88\u606F\u4E0D\u662F\u5408\u6CD5 JSON");
       return;
     }
-    switch (message?.type) {
+    if (message === null || typeof message !== "object" || Array.isArray(message)) {
+      this.sendError("bad_json", "\u6D88\u606F\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
+      return;
+    }
+    if (message.requestId !== void 0 && (typeof message.requestId !== "string" || message.requestId.length === 0 || message.requestId.length > 128)) {
+      this.sendError("bad_request_id", "requestId \u5FC5\u987B\u662F 1\u2013128 \u5B57\u7B26\u7684\u5B57\u7B26\u4E32");
+      return;
+    }
+    switch (message.type) {
       case "hello":
         this.handleHello(message);
-        return;
+        break;
       case "listen":
         this.handleListen(message);
-        return;
+        break;
       case "query":
-        this.handleQuery(message);
-        return;
       case "speak":
-        this.handleSpeak(message);
-        return;
+        this.handleText(message);
+        break;
       case "abort":
-        this.handleAbort();
-        return;
+        this.handleAbort(message.turnId, message.requestId);
+        break;
       case "ping":
-        this.sendJson({ type: "pong", time: typeof message.time === "number" ? message.time : Date.now() });
-        return;
+        this.sendJson({
+          type: "pong",
+          time: typeof message.time === "number" ? message.time : Date.now(),
+          requestId: message.requestId
+        });
+        break;
       default:
-        this.sendError("unknown_type", `\u672A\u77E5\u6D88\u606F type\uFF1A${String(message?.type)}`);
+        this.sendError("unknown_type", `\u672A\u77E5\u6D88\u606F type\uFF1A${String(message.type)}`, message.requestId);
     }
   }
-  requireReady() {
+  requireReady(requestId) {
     if (this.state === "init") {
-      this.sendError("no_hello", "\u8BF7\u5148\u53D1\u9001 hello");
+      this.sendError("no_hello", "\u8BF7\u5148\u53D1\u9001 hello", requestId);
+      return false;
+    }
+    return this.state !== "closed";
+  }
+  requireIdle(requestId) {
+    if (this.state !== "ready") {
+      this.sendError("busy", "\u4E0A\u4E00\u8F6E\u6216\u62FE\u97F3\u5C1A\u672A\u7ED3\u675F\uFF0C\u5148\u53D1\u9001 abort", requestId);
       return false;
     }
     return true;
   }
-  requireIdle() {
-    if (this.state === "busy") {
-      this.sendError("busy", "\u4E0A\u4E00\u8F6E\u5C1A\u672A\u7ED3\u675F\uFF0C\u5148\u53D1\u9001 abort");
-      return false;
-    }
-    return true;
+  sessionId(settings = this.deps.settings()) {
+    return this.deps.bridge.sessionIdFor(this.deviceId, settings.agentPreset);
   }
   handleHello(message) {
     if (this.state !== "init") {
-      this.sendError("already_hello", "hello \u53EA\u80FD\u53D1\u9001\u4E00\u6B21");
+      this.sendError("already_hello", "hello \u53EA\u80FD\u53D1\u9001\u4E00\u6B21", message.requestId);
       return;
     }
-    this.deviceId = sanitizeDeviceId(message.deviceId);
+    if (message.version !== PROTOCOL_VERSION) {
+      this.sendError("unsupported_version", "\u4EC5\u652F\u6301\u534F\u8BAE version=1", message.requestId);
+      return;
+    }
+    const deviceId = sanitizeDeviceId(message.deviceId);
+    if (deviceId === "") {
+      this.sendError("invalid_device_id", "deviceId \u89C4\u8303\u5316\u540E\u4E0D\u80FD\u4E3A\u7A7A", message.requestId);
+      return;
+    }
+    this.deviceId = deviceId;
     this.deviceName = typeof message.deviceName === "string" ? message.deviceName.slice(0, 64) : "";
+    this.deps.claimDevice?.(deviceId, this);
     this.state = "ready";
     this.sendJson({
       type: "welcome",
       version: PROTOCOL_VERSION,
-      sessionId: `voice-${this.deviceId}`,
+      sessionId: this.sessionId(),
+      deviceId,
       sampleRateIn: SAMPLE_RATE_IN,
-      sampleRateOut: SAMPLE_RATE_OUT
+      sampleRateOut: SAMPLE_RATE_OUT,
+      audioFormat: "pcm_s16le",
+      channels: 1,
+      capabilities: ["turn-id", "request-id", "abort", "query", "speak"],
+      requestId: message.requestId
     });
-    this.deps.log("info", `device connected: ${this.deviceId || "(anonymous)"} ${this.deviceName}`);
+    this.deps.log("info", `device connected: ${deviceId} ${this.deviceName}`);
+  }
+  clearCapture() {
+    if (this.captureTimer !== void 0) clearTimeout(this.captureTimer);
+    this.captureTimer = void 0;
+    this.pcmChunks = [];
+    this.pcmBytes = 0;
+    this.captureRequestId = void 0;
   }
   handleListen(message) {
-    if (!this.requireReady()) return;
-    if (message?.state === "start") {
-      if (!this.requireIdle()) return;
+    if (!this.requireReady(message.requestId)) return;
+    if (message.state === "start") {
+      if (!this.requireIdle(message.requestId)) return;
+      this.clearCapture();
       this.state = "listening";
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
+      this.captureRequestId = message.requestId;
+      this.captureTimer = setTimeout(() => {
+        if (this.state !== "listening") return;
+        this.sendError("too_long", "\u5355\u6B21\u62FE\u97F3\u8D85\u8FC7 120 \u79D2\u4E0A\u9650", this.captureRequestId);
+        this.sendJson({ type: "tts", state: "stop", reason: "timeout", requestId: this.captureRequestId });
+        this.clearCapture();
+        this.state = "ready";
+      }, 12e4);
+      this.captureTimer.unref?.();
       return;
     }
-    if (message?.state === "stop") {
+    if (message.state === "stop") {
       if (this.state !== "listening") {
-        this.sendError("not_listening", "\u5F53\u524D\u6CA1\u6709\u5904\u4E8E\u62FE\u97F3\u72B6\u6001");
+        this.sendError("not_listening", "\u5F53\u524D\u6CA1\u6709\u5904\u4E8E\u62FE\u97F3\u72B6\u6001", message.requestId);
         return;
       }
       const pcm = Buffer4.concat(this.pcmChunks);
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
-      if (pcm.length < SAMPLE_RATE_IN * 2 * 0.3) {
-        this.state = "ready";
-        this.sendJson({ type: "tts", state: "stop", reason: "too_short" });
-        return;
+      const requestId = message.requestId ?? this.captureRequestId;
+      this.clearCapture();
+      this.launch("listen", requestId, async (turn) => {
+        if (pcm.length < SAMPLE_RATE_IN * 2 * 0.3) return "too_short";
+        if (pcm.length % 2 !== 0) throw new PipelineError("bad_audio", "\u4E0A\u884C PCM \u5B57\u8282\u6570\u5FC5\u987B\u6309 16bit \u6837\u672C\u5BF9\u9F50");
+        const text = await transcribePcm(pcm, {
+          apiKey: turn.settings.minimaxApiKey,
+          model: turn.settings.asrModel,
+          signal: turn.controller.signal
+        });
+        if (!this.current(turn)) return "cancelled";
+        this.emit(turn, { type: "stt", text });
+        return text === "" ? "empty_asr" : this.runLlmPipeline(turn, text);
+      });
+      return;
+    }
+    this.sendError("bad_listen_state", "listen.state \u5FC5\u987B\u662F start \u6216 stop", message.requestId);
+  }
+  handleText(message) {
+    if (!this.requireReady(message.requestId) || !this.requireIdle(message.requestId)) return;
+    const limit = message.type === "query" ? 4e3 : 1e3;
+    const text = typeof message.text === "string" ? message.text.trim() : "";
+    if (text === "") {
+      this.sendError("empty_text", `${message.type}.text \u4E0D\u80FD\u4E3A\u7A7A`, message.requestId);
+      return;
+    }
+    if (text.length > limit) {
+      this.sendError("text_too_long", `\u6587\u672C\u8D85\u8FC7 ${limit} \u5B57\u7B26\u4E0A\u9650`, message.requestId);
+      return;
+    }
+    this.launch(message.type, message.requestId, async (turn) => {
+      if (message.type === "query") return this.runLlmPipeline(turn, text);
+      await this.speakSentence(turn, text);
+      await turn.sender.finish();
+      return "done";
+    });
+  }
+  launch(kind, requestId, run) {
+    const settings = { ...this.deps.settings() };
+    const turn = {
+      id: randomUUID(),
+      requestId,
+      controller: new AbortController(),
+      settings,
+      sender: createPacedSender(this.ws, SAMPLE_RATE_OUT * 2 * settings.maxTurnSeconds),
+      ttsStarted: false,
+      sessionId: this.sessionId(settings)
+    };
+    this.active = turn;
+    this.state = "busy";
+    turn.timer = setTimeout(() => {
+      this.finish(turn, "timeout", { code: "turn_timeout", message: `\u672C\u8F6E\u8D85\u8FC7 ${settings.maxTurnSeconds} \u79D2\u4E0A\u9650` });
+    }, settings.maxTurnSeconds * 1e3);
+    turn.timer.unref?.();
+    this.emit(turn, { type: "turn", state: "start", kind, sessionId: turn.sessionId });
+    void (async () => {
+      try {
+        this.finish(turn, await abortable(run(turn), turn.controller.signal));
+      } catch (error) {
+        if (!this.current(turn)) return;
+        const code = error instanceof PipelineError || error instanceof AsrError || error instanceof TtsError ? error.code : "internal_error";
+        this.finish(turn, "error", { code, message: error instanceof Error ? error.message : String(error) });
       }
-      void this.runVoiceTurn(pcm);
+    })();
+  }
+  /** 终止只有一个出口；先使上下文失效，再取消依赖，旧任务不会碰到下一轮。 */
+  finish(turn, reason, error) {
+    if (this.active !== turn) return;
+    this.active = void 0;
+    if (turn.timer !== void 0) clearTimeout(turn.timer);
+    turn.controller.abort();
+    turn.sender.stop();
+    if (reason !== "completed" && reason !== "done") turn.handle?.cancel();
+    if (this.state !== "closed") this.state = "ready";
+    if (error !== void 0) this.sendJson({ type: "error", ...error, turnId: turn.id, requestId: turn.requestId });
+    this.sendJson({ type: "tts", state: "stop", reason, turnId: turn.id, requestId: turn.requestId });
+  }
+  handleAbort(turnId, requestId) {
+    if (!this.requireReady(requestId)) return;
+    if (turnId !== void 0 && (typeof turnId !== "string" || this.active?.id !== turnId)) {
+      this.sendError("unknown_turn", "turnId \u4E0D\u662F\u5F53\u524D\u6D3B\u52A8\u8F6E\u6B21", requestId);
       return;
     }
-    this.sendError("bad_listen_state", "listen.state \u5FC5\u987B\u662F start \u6216 stop");
-  }
-  handleQuery(message) {
-    if (!this.requireReady() || !this.requireIdle()) return;
-    const text = typeof message?.text === "string" ? message.text.trim().slice(0, 4e3) : "";
-    if (text === "") {
-      this.sendError("empty_text", "query.text \u4E0D\u80FD\u4E3A\u7A7A");
+    if (this.active !== void 0) {
+      this.finish(this.active, "aborted");
       return;
     }
-    void this.runLlmTurn(text);
+    const captureId = this.captureRequestId;
+    this.clearCapture();
+    this.state = "ready";
+    this.sendJson({ type: "tts", state: "stop", reason: "aborted", requestId: requestId ?? captureId });
   }
-  handleSpeak(message) {
-    if (!this.requireReady() || !this.requireIdle()) return;
-    const text = typeof message?.text === "string" ? message.text.trim().slice(0, 1e3) : "";
-    if (text === "") {
-      this.sendError("empty_text", "speak.text \u4E0D\u80FD\u4E3A\u7A7A");
-      return;
-    }
-    void this.runSpeakOnly(text);
-  }
-  handleAbort() {
-    this.cancelActive();
-    if (this.state === "listening") {
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
-    }
-    if (this.state !== "init") this.state = "ready";
-    this.sendJson({ type: "tts", state: "stop", reason: "aborted" });
-  }
-  /** 二进制帧入口（拾音中累积 PCM）。 */
   handleBinary(data) {
     if (this.state !== "listening") return;
-    const maxBytes = SAMPLE_RATE_IN * 2 * MAX_CAPTURE_MS / 1e3;
-    if (this.pcmBytes + data.length > maxBytes) {
-      this.sendError("too_long", "\u5355\u6B21\u62FE\u97F3\u8D85\u8FC7 120 \u79D2\u4E0A\u9650");
+    if (this.pcmBytes + data.length > MAX_CAPTURE_BYTES) {
+      this.sendError("too_long", "\u5355\u6B21\u62FE\u97F3\u8D85\u8FC7 120 \u79D2\u4E0A\u9650", this.captureRequestId);
+      this.sendJson({ type: "tts", state: "stop", reason: "error", requestId: this.captureRequestId });
+      this.clearCapture();
       this.state = "ready";
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
       return;
     }
     this.pcmChunks.push(data);
     this.pcmBytes += data.length;
   }
+  replace() {
+    this.sendError("device_replaced", "\u540C\u4E00 deviceId \u5DF2\u5728\u53E6\u4E00\u8FDE\u63A5\u63A5\u5165");
+    this.handleClosed();
+    this.ws.close(4001, "device_replaced");
+  }
   handleClosed() {
-    this.cancelActive();
+    if (this.state === "closed") return;
+    this.state = "closed";
+    this.clearCapture();
+    if (this.active !== void 0) this.finish(this.active, "aborted");
     if (this.deviceId !== "") this.deps.bridge.release(this.deviceId);
   }
-  cancelActive() {
-    this.activeTtsAbort?.abort();
-    this.activeTtsAbort = void 0;
-    this.activeSender?.stop();
-    this.activeSender = void 0;
-    this.activeTurn?.cancel();
-    this.activeTurn = void 0;
-  }
-  ttsOptions(signal) {
-    const s = this.deps.settings();
-    return {
+  async speakSentence(turn, text) {
+    if (!this.current(turn)) return;
+    if (!turn.ttsStarted) {
+      turn.ttsStarted = true;
+      this.emit(turn, { type: "tts", state: "start" });
+    }
+    this.emit(turn, { type: "tts", state: "sentence_start", text });
+    const s = turn.settings;
+    let bytes = 0;
+    for await (const chunk of synthesizeStream(text, {
       apiKey: s.minimaxApiKey,
       model: s.ttsModel,
       voiceId: s.ttsVoice,
       speed: s.ttsSpeed,
       vol: s.ttsVol,
       pitch: s.ttsPitch,
-      signal
-    };
+      signal: turn.controller.signal
+    })) {
+      if (!this.current(turn)) return;
+      bytes += chunk.length;
+      turn.sender.push(chunk);
+    }
+    if (this.current(turn) && bytes === 0) throw new PipelineError("empty_tts", "TTS \u672A\u8FD4\u56DE\u97F3\u9891");
   }
-  /** 合成一句并把 PCM 送入节奏发送器；返回是否完整成功（中断/失败为 false）。 */
-  async speakSentence(sentence, signal, sender, ttsStarted) {
-    if (sentence === "" || signal.aborted) return false;
-    if (!ttsStarted.value) {
-      ttsStarted.value = true;
-      this.sendJson({ type: "tts", state: "start" });
-    }
-    this.sendJson({ type: "tts", state: "sentence_start", text: sentence });
-    try {
-      for await (const chunk of synthesizeStream(sentence, this.ttsOptions(signal))) {
-        if (signal.aborted) return false;
-        sender.push(chunk);
-      }
-      return true;
-    } catch (error) {
-      if (signal.aborted) return false;
-      if (error instanceof TtsError) {
-        this.deps.log("warn", `tts failed: ${error.code} ${error.message}`);
-        this.sendError(error.code, error.message);
-      } else {
-        this.sendError("tts_failed", error instanceof Error ? error.message : String(error));
-      }
-      return false;
-    }
-  }
-  /** 完整语音轮：ASR → LLM 流式 → TTS。 */
-  async runVoiceTurn(pcm) {
-    this.state = "busy";
-    const settings = this.deps.settings();
-    let text;
-    try {
-      text = await transcribePcm(pcm, { apiKey: settings.minimaxApiKey, model: settings.asrModel });
-    } catch (error) {
-      if (error instanceof AsrError) this.sendError(error.code, error.message);
-      else this.sendError("asr_failed", error instanceof Error ? error.message : String(error));
-      this.sendJson({ type: "tts", state: "stop", reason: "error" });
-      this.state = "ready";
-      return;
-    }
-    this.sendJson({ type: "stt", text });
-    if (text === "") {
-      this.sendJson({ type: "tts", state: "stop", reason: "empty_asr" });
-      this.state = "ready";
-      return;
-    }
-    await this.runLlmPipeline(text);
-  }
-  /** query 入口：文本 → LLM 流式 → TTS。 */
-  async runLlmTurn(text) {
-    this.state = "busy";
-    try {
-      await this.runLlmPipeline(text);
-    } catch (error) {
-      this.sendError("llm_error", error instanceof Error ? error.message : String(error));
-      this.sendJson({ type: "tts", state: "stop", reason: "error" });
-      this.state = "ready";
-    }
-  }
-  async runLlmPipeline(userText) {
-    const settings = this.deps.settings();
-    this.turnCount += 1;
-    const prompt = this.turnCount === 1 && settings.promptPrefix.trim() !== "" ? `${settings.promptPrefix.trim()}
-
-\u7528\u6237\u8BF4\uFF1A${userText}` : userText;
-    const ttsAbort = new AbortController();
-    const sender = createPacedSender(this.ws);
+  async runLlmPipeline(turn, text) {
     const queue = new SentenceQueue();
-    const ttsStarted = { value: false };
-    this.activeTtsAbort = ttsAbort;
-    this.activeSender = sender;
+    const signal = turn.controller.signal;
+    const onAbort = () => queue.close();
+    signal.addEventListener("abort", onAbort, { once: true });
     const pump = (async () => {
-      while (!ttsAbort.signal.aborted) {
+      while (this.current(turn)) {
         const sentence = await queue.next();
-        if (sentence === null) break;
-        await this.speakSentence(sentence, ttsAbort.signal, sender, ttsStarted);
+        if (sentence === null || !this.current(turn)) return;
+        await this.speakSentence(turn, sentence);
       }
-    })().catch(() => void 0);
-    let outcome;
-    try {
-      this.sendJson({ type: "llm", state: "start" });
+    })();
+    const model = (async () => {
       const slicer = new SentenceSlicer();
-      const turn = await this.deps.bridge.turn(this.deviceId, prompt, {
-        onTextDelta: (delta) => {
-          if (ttsAbort.signal.aborted) return;
-          this.sendJson({ type: "llm", state: "delta", text: delta });
-          for (const sentence of slicer.feed(delta)) queue.push(sentence);
-        },
-        onEnd: () => {
-        }
-      }, settings.agentPreset);
-      this.activeTurn = turn;
-      outcome = await turn.done;
-      if (!ttsAbort.signal.aborted && outcome.kind !== "cancelled") {
-        const rest = slicer.flush();
-        if (rest !== "") queue.push(rest);
+      this.emit(turn, { type: "llm", state: "start", sessionId: turn.sessionId });
+      let handle;
+      try {
+        handle = await this.deps.bridge.turn(
+          this.deviceId,
+          text,
+          {
+            onTextDelta: (delta) => {
+              if (!this.current(turn)) return;
+              this.emit(turn, { type: "llm", state: "delta", text: delta });
+              for (const sentence of slicer.feed(delta)) queue.push(sentence);
+            },
+            onEnd() {
+            }
+          },
+          turn.settings.agentPreset,
+          signal,
+          turn.settings.promptPrefix
+        );
+      } catch (error) {
+        throw new PipelineError("llm_error", error instanceof Error ? error.message : String(error));
       }
-    } catch (error) {
-      outcome = { kind: "error", error: error instanceof Error ? error.message : String(error) };
+      if (!this.current(turn)) {
+        handle.cancel();
+        return "cancelled";
+      }
+      turn.handle = handle;
+      if (handle.sessionId !== void 0 && handle.sessionId !== turn.sessionId) {
+        turn.sessionId = handle.sessionId;
+        this.emit(turn, { type: "session", sessionId: handle.sessionId });
+      }
+      const outcome = await abortable(handle.done, signal);
+      if (!this.current(turn)) return "cancelled";
+      if (outcome.kind === "error") throw new PipelineError("llm_error", outcome.error ?? "dsh \u4F1A\u8BDD\u51FA\u9519");
+      if (outcome.kind === "completed") queue.push(slicer.flush());
+      this.emit(turn, { type: "llm", state: "end" });
+      queue.close();
+      return outcome.kind;
+    })();
+    try {
+      const [outcome] = await Promise.all([model, pump]);
+      if (outcome === "cancelled") return "cancelled";
+      await turn.sender.finish();
+      return "completed";
     } finally {
-      this.activeTurn = void 0;
+      queue.close();
+      signal.removeEventListener("abort", onAbort);
     }
-    if (outcome.kind === "error") {
-      this.sendError("llm_error", outcome.error ?? "dsh \u4F1A\u8BDD\u51FA\u9519");
-    }
-    this.sendJson({ type: "llm", state: "end" });
-    queue.close();
-    await Promise.race([
-      (async () => {
-        await pump;
-        await sender.finish();
-      })(),
-      sleep(DRAIN_MS)
-    ]);
-    ttsAbort.abort();
-    sender.stop();
-    this.activeSender = void 0;
-    this.activeTtsAbort = void 0;
-    this.sendJson({ type: "tts", state: "stop", reason: outcome.kind });
-    this.state = "ready";
-  }
-  /** speak 入口：纯 TTS（不走 LLM），用于测试与播报。 */
-  async runSpeakOnly(text) {
-    this.state = "busy";
-    const ttsAbort = new AbortController();
-    const sender = createPacedSender(this.ws);
-    const ttsStarted = { value: false };
-    this.activeTtsAbort = ttsAbort;
-    this.activeSender = sender;
-    const ok = await this.speakSentence(text, ttsAbort.signal, sender, ttsStarted);
-    await Promise.race([sender.finish(), sleep(DRAIN_MS)]);
-    const aborted = ttsAbort.signal.aborted;
-    ttsAbort.abort();
-    sender.stop();
-    this.activeSender = void 0;
-    this.activeTtsAbort = void 0;
-    this.sendJson({ type: "tts", state: "stop", reason: aborted ? "aborted" : ok ? "done" : "error" });
-    this.state = "ready";
   }
 };
 function sanitizeDeviceId(value) {
@@ -4781,7 +4950,7 @@ var SettingsStore = class {
 };
 
 // src/server.ts
-var VERSION = "0.1.0";
+var VERSION = "0.1.1";
 var BODY_LIMIT = 32 * 1024;
 var WS_PATH = "/voice";
 var VoiceServer = class _VoiceServer {
@@ -4792,6 +4961,7 @@ var VoiceServer = class _VoiceServer {
   httpServer;
   wss;
   connections = /* @__PURE__ */ new Set();
+  devices = /* @__PURE__ */ new Map();
   startedAt = 0;
   presetsCache = { at: 0, value: void 0 };
   constructor(store, bridge, config, log) {
@@ -4803,7 +4973,7 @@ var VoiceServer = class _VoiceServer {
   start() {
     return new Promise((resolve3, reject) => {
       const httpServer = createServer((req, res) => this.handleRest(req, res));
-      const wss = new import_websocket_server.default({ noServer: true });
+      const wss = new import_websocket_server.default({ noServer: true, maxPayload: 4 * 1024 * 1024 });
       httpServer.on("upgrade", (req, socket, head) => {
         const url = parseUrl(req);
         if (url?.pathname !== WS_PATH) {
@@ -4823,7 +4993,12 @@ var VoiceServer = class _VoiceServer {
         const connection = new VoiceConnection(ws, {
           settings: () => this.store.get(),
           bridge: this.bridge,
-          log: this.log
+          log: this.log,
+          claimDevice: (deviceId, incoming) => {
+            const previous = this.devices.get(deviceId);
+            if (previous !== void 0 && previous !== incoming) previous.replace();
+            this.devices.set(deviceId, incoming);
+          }
         });
         this.connections.add(connection);
         ws.on("message", (data, isBinary) => {
@@ -4835,6 +5010,7 @@ var VoiceServer = class _VoiceServer {
         });
         ws.on("close", () => {
           this.connections.delete(connection);
+          if (this.devices.get(connection.deviceId) === connection) this.devices.delete(connection.deviceId);
           connection.handleClosed();
         });
         ws.on("error", () => {
@@ -4853,7 +5029,9 @@ var VoiceServer = class _VoiceServer {
   }
   stop() {
     for (const connection of this.connections) connection.handleClosed();
+    for (const ws of this.wss?.clients ?? []) ws.terminate();
     this.connections.clear();
+    this.devices.clear();
     this.wss?.close();
     this.httpServer?.close();
     this.wss = void 0;
@@ -4961,6 +5139,10 @@ var VoiceServer = class _VoiceServer {
       json(res, 400, { ok: false, error: "bad_json" });
       return;
     }
+    if (patch === null || typeof patch !== "object" || Array.isArray(patch)) {
+      json(res, 400, { ok: false, error: "bad_json", message: "\u8BBE\u7F6E\u5FC5\u987B\u662F JSON \u5BF9\u8C61" });
+      return;
+    }
     const { settings, rejected } = this.store.update(patch);
     this.log("info", `settings updated${rejected.length > 0 ? ` (rejected: ${rejected.join(", ")})` : ""}`);
     json(res, 200, { ok: true, rejected, settings: maskSettings(settings) });
@@ -5007,14 +5189,15 @@ var VoiceServer = class _VoiceServer {
   async handleTestLlm(res) {
     const started = Date.now();
     let gotDelta = false;
+    const signal = AbortSignal.timeout(this.store.get().maxTurnSeconds * 1e3);
     try {
       const turn = await this.bridge.turn("selftest", "Reply with exactly: OK", {
         onTextDelta: () => {
           gotDelta = true;
         },
         onEnd: () => void 0
-      });
-      const outcome = await turn.done;
+      }, "", signal);
+      const outcome = await abortable(turn.done, signal);
       json(res, 200, {
         ok: outcome.kind === "completed",
         durationMs: Date.now() - started,

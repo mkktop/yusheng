@@ -28,11 +28,15 @@ ws.binaryType = 'arraybuffer'
 const audioChunks = []
 let llmText = ''
 let stopped = false
+let turnId
+let failed = false
+const requestId = `test-${Date.now()}`
 const startedAt = Date.now()
 
-const finishTimer = setTimeout(() => reallyDone('timeout 120s'), 120_000)
+// 覆盖最长拾音 120s + 最长整轮 600s。
+const finishTimer = setTimeout(() => reallyDone('timeout 750s', 1), 750_000)
 
-function reallyDone(reason) {
+function reallyDone(reason, code = 0) {
   if (stopped) return
   stopped = true
   clearTimeout(finishTimer)
@@ -47,7 +51,7 @@ function reallyDone(reason) {
   }
   console.log(`llm text: ${JSON.stringify(llmText)}`)
   console.log(`done (${reason}, ${(Date.now() - startedAt) / 1000 | 0}s)`)
-  process.exit(0)
+  process.exit(code)
 }
 
 ws.onopen = () => {
@@ -75,7 +79,7 @@ ws.onmessage = async (event) => {
   if (message.type === 'welcome') {
     console.log('welcome:', JSON.stringify(message))
     if (command === 'speak' || command === 'query') {
-      ws.send(JSON.stringify({ type: command, text: rest.join(' ') }))
+      ws.send(JSON.stringify({ type: command, text: rest.join(' '), requestId }))
     } else if (command === 'listen') {
       const file = rest[0]
       if (file === undefined) {
@@ -83,13 +87,13 @@ ws.onmessage = async (event) => {
         process.exit(2)
       }
       const pcm = readFileSync(file)
-      ws.send(JSON.stringify({ type: 'listen', state: 'start' }))
+      ws.send(JSON.stringify({ type: 'listen', state: 'start', requestId }))
       const CHUNK = 3200 // 100ms
       let offset = 0
       const timer = setInterval(() => {
         if (offset >= pcm.length) {
           clearInterval(timer)
-          ws.send(JSON.stringify({ type: 'listen', state: 'stop' }))
+          ws.send(JSON.stringify({ type: 'listen', state: 'stop', requestId }))
           return
         }
         ws.send(pcm.subarray(offset, offset + CHUNK))
@@ -102,9 +106,15 @@ ws.onmessage = async (event) => {
     return
   }
   console.log('<<', JSON.stringify(message))
-  if ((message.type === 'tts' && message.state === 'stop') || message.type === 'error') {
-    // 等 40ms 帧节奏发送收尾
-    setTimeout(() => reallyDone(message.reason ?? message.type), 2500)
+  if (message.type === 'turn' && message.state === 'start') turnId = message.turnId
+  if (message.type === 'error') {
+    failed = true
+    if (turnId === undefined) reallyDone(message.code ?? 'error', 1)
+  }
+  if (message.type === 'tts' && message.state === 'stop') {
+    // WS 有序，stop 之后没有该轮 PCM；无需再猜一个排空等待时间。
+    const success = ['completed', 'done'].includes(message.reason)
+    reallyDone(message.reason, failed || !success ? 1 : 0)
   }
 }
 
@@ -114,5 +124,5 @@ ws.onerror = (event) => {
 
 ws.onclose = (event) => {
   console.log(`closed: code=${event.code} reason=${event.reason}`)
-  reallyDone('closed')
+  reallyDone('closed', 1)
 }

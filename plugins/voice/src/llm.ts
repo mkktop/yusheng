@@ -5,6 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { abortable } from './async.js'
 
 export interface TurnCallbacks {
   /** 收到一段实时文本增量（已过滤非文本帧） */
@@ -14,6 +15,8 @@ export interface TurnCallbacks {
 }
 
 export interface TurnHandle {
+  /** 实际接管的持久会话 id（包含模式和损坏历史的替补 id）。 */
+  sessionId?: string
   /** 本地取消：停止等待与回调（后台任由其自然收敛） */
   cancel(): void
   /** 等待本轮结束（含取消） */
@@ -81,6 +84,8 @@ export class AgentBridge {
   private adoptedByCacheKey = new Map<string, string>()
   private adoptionPath: string | undefined
   private cwdPromise: Promise<string> | undefined
+  /** 取消只结束本地等待；同一会话必须等宿主真正空闲后才接下一轮。 */
+  private pendingTurns = new Map<string, Promise<void>>()
 
   constructor(ctx: any, adoptionPath?: string) {
     this.ctx = ctx
@@ -152,6 +157,11 @@ export class AgentBridge {
   private static sessionIdFor(deviceKey: string, presetId: string): string {
     const preset = presetId.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '')
     return preset === '' ? `voice-${deviceKey}` : `voice-${deviceKey}-p-${preset}`
+  }
+
+  sessionIdFor(deviceKey: string, presetId = ''): string {
+    const cacheKey = presetId === '' ? deviceKey : `${deviceKey}::${presetId}`
+    return this.adoptedByCacheKey.get(cacheKey) ?? AgentBridge.sessionIdFor(deviceKey, presetId)
   }
 
   /** 枚举可用的 dsh 会话模式（agent preset）；服务缺失返回 undefined。 */
@@ -313,68 +323,96 @@ export class AgentBridge {
     }
   }
 
-  /** 提交一轮用户消息并跟踪该 agent 的实时文本增量直至收敛。 */
-  async turn(deviceKey: string, text: string, callbacks: TurnCallbacks, presetId = ''): Promise<TurnHandle> {
-    const agent = await this.agentFor(deviceKey, presetId)
-    let cancelled = false
-    let failure: { error: unknown } | undefined
+  /** 每个持久会话串行提交；取消立即停止回调，但保留队列直到宿主收敛。 */
+  async turn(deviceKey: string, text: string, callbacks: TurnCallbacks, presetId = '', signal?: AbortSignal, promptPrefix = ''): Promise<TurnHandle> {
+    const key = AgentBridge.sessionIdFor(deviceKey, presetId)
+    const previous = this.pendingTurns.get(key) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    // 即使排队中的请求被取消，后续请求也仍需等待 previous，不能越过旧轮。
+    const tail = previous.then(() => gate)
+    this.pendingTurns.set(key, tail)
+    let released = false
+    const unlock = () => {
+      if (released) return
+      released = true
+      release()
+      void tail.then(() => { if (this.pendingTurns.get(key) === tail) this.pendingTurns.delete(key) })
+    }
 
-    const stopStream = this.ctx.on('agent/assistant-stream', ({ agent: subject, frame }: any) => {
-      if (subject !== agent || cancelled) return
-      const chunk = frame?.chunk
-      if (chunk?.type === 'text-delta' && typeof chunk.text === 'string' && chunk.text !== '') {
-        callbacks.onTextDelta(chunk.text)
+    try {
+      await abortable(previous, signal)
+      signal?.throwIfAborted()
+      const agent = await this.agentFor(deviceKey, presetId)
+      signal?.throwIfAborted()
+      let cancelled = false
+      let reported = false
+      let collected = ''
+      let failure: unknown
+      type Outcome = { kind: 'completed' | 'error' | 'cancelled'; text: string; error?: string }
+      let resolveDone!: (result: Outcome) => void
+      const done = new Promise<Outcome>(resolve => { resolveDone = resolve })
+      const stopStream = this.ctx.on('agent/assistant-stream', ({ agent: subject, frame }: any) => {
+        if (subject !== agent || reported) return
+        const chunk = frame?.chunk
+        if (chunk?.type === 'text-delta' && typeof chunk.text === 'string' && chunk.text !== '') {
+          collected += chunk.text
+          callbacks.onTextDelta(chunk.text)
+        }
+      })
+      const stopErrors = this.ctx.on('agent/error', ({ agent: subject, error }: any) => {
+        if (subject === agent && !reported) failure = error
+      })
+      const finalize = (result: Outcome) => {
+        if (reported) return
+        reported = true
+        stopStream(); stopErrors()
+        signal?.removeEventListener('abort', onAbort)
+        try { callbacks.onEnd(result) } catch { /* 外部回调不可阻塞会话清理 */ }
+        resolveDone(result)
       }
-    })
-    const stopErrors = this.ctx.on('agent/error', ({ agent: subject, error }: any) => {
-      if (subject === agent) failure = { error }
-    })
-
-    const done = (async () => {
-      try {
-        agent.followup({
-          content: [{ type: 'text', text }],
-          source: { kind: 'user' },
-        })
-        while (!cancelled) {
-          await agent.whenIdle()
-          const subagents = this.ctx.get('subagents')
-          const settled = subagents?.waitForChildren ? await subagents.waitForChildren(agent) : true
-          if (!settled && agent.status !== 'idle') continue
-          break
-        }
-        await this.sessions.flush(agent.session).catch(() => undefined)
-        if (cancelled) {
-          const result = { kind: 'cancelled' as const, text: '' }
-          callbacks.onEnd(result)
-          return result
-        }
-        if (failure !== undefined) {
-          const error = failure.error instanceof Error ? failure.error.message : String(failure.error)
-          const result = { kind: 'error' as const, text: '', error }
-          callbacks.onEnd(result)
-          return result
-        }
-        const result = { kind: 'completed' as const, text: '' }
-        callbacks.onEnd(result)
-        return result
-      } finally {
-        stopStream()
-        stopErrors()
+      const handle: TurnHandle = {
+        sessionId: this.sessionIdFor(deviceKey, presetId),
+        done,
+        cancel: () => {
+          if (reported) return
+          cancelled = true
+          finalize({ kind: 'cancelled', text: collected })
+          try { void Promise.resolve(agent.abort?.('yusheng-voice: user aborted')).catch(() => undefined) }
+          catch { /* 旧宿主无 abort API 时等待其自然收敛；不把文字转给下一轮 */ }
+        },
       }
-    })()
+      const onAbort = () => handle.cancel()
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) handle.cancel()
 
-    return {
-      cancel: () => {
-        if (cancelled) return
-        cancelled = true
+      void (async () => {
         try {
-          agent.abort?.('yusheng-voice: user aborted')
-        } catch {
-          /* 旧版 agent 无 abort API 时仅本地放弃 */
+          if (cancelled) return
+          const prompt = promptPrefix.trim() === '' ? text : `${promptPrefix.trim()}\n\n用户说：${text}`
+          await agent.followup({ content: [{ type: 'text', text: prompt }], source: { kind: 'user' } })
+          while (true) {
+            await agent.whenIdle()
+            const subagents = this.ctx.get('subagents')
+            const settled = subagents?.waitForChildren ? await subagents.waitForChildren(agent) : true
+            if (!settled && agent.status !== 'idle') continue
+            break
+          }
+          await this.sessions.flush(agent.session)
+          if (failure !== undefined) throw failure
+          finalize({ kind: 'completed', text: collected })
+        } catch (error) {
+          finalize({ kind: 'error', text: collected, error: error instanceof Error ? error.message : String(error) })
+        } finally {
+          stopStream(); stopErrors()
+          signal?.removeEventListener('abort', onAbort)
+          unlock()
         }
-      },
-      done,
+      })()
+      return handle
+    } catch (error) {
+      unlock()
+      throw error
     }
   }
 }
