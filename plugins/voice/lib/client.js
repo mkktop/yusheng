@@ -33,6 +33,16 @@ var import_react = require("react");
 var import_jsx_runtime = require("react/jsx-runtime");
 var PANEL_ID = "dsh-yusheng-voice";
 var DEFAULT_PORT = 8090;
+var TTS_MODELS = [
+  "speech-2.8-turbo",
+  "speech-2.8-hd",
+  "speech-2.6-turbo",
+  "speech-2.6-hd",
+  "speech-02-turbo",
+  "speech-02-hd",
+  "speech-01-turbo",
+  "speech-01-hd"
+];
 var inject = ["slots"];
 function apply(ctx) {
   ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL_ID }, VoiceSettingsPanel));
@@ -145,7 +155,7 @@ function VoiceSettingsPanel() {
     const current = state.settings ?? {};
     const form = state.form;
     const patch = {};
-    const textKeys = ["minimaxGroupId", "asrModel", "ttsModel", "ttsVoice", "promptPrefix", "agentPreset", "token"];
+    const textKeys = ["asrModel", "ttsModel", "ttsVoice", "promptPrefix", "agentPreset", "token"];
     for (const key of textKeys) {
       if (typeof form[key] === "string" && form[key] !== String(current[key] ?? "")) patch[key] = form[key];
     }
@@ -186,6 +196,8 @@ function VoiceSettingsPanel() {
     }
   };
   const s = state.settings ?? {};
+  const currentTtsModel = String(s.ttsModel ?? "speech-2.8-turbo");
+  const ttsModelOptions = TTS_MODELS.includes(currentTtsModel) ? TTS_MODELS : [currentTtsModel, ...TTS_MODELS];
   const status = state.status;
   const defaultPresetName = (status?.presets ?? []).find((preset) => preset.isDefault)?.name || (status?.presets ?? []).find((preset) => preset.isDefault)?.id || "standard";
   const hasKey = s.hasMinimaxApiKey === true;
@@ -197,7 +209,7 @@ function VoiceSettingsPanel() {
       "minimax ",
       s.asrModel || "asr-1.0",
       " \u8BC6\u522B \xB7 ",
-      s.ttsModel || "speech-01-turbo",
+      s.ttsModel || "speech-2.8-turbo",
       " \u5408\u6210 \xB7 dsh \u4F1A\u8BDD\u5BF9\u8BDD"
     ] }),
     state.loadError !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { ...fieldStyle({ display: "block" }), color: "#ff8f8f", border: "1px solid #5c2f2f", background: "#1f1416" }, children: state.loadError }),
@@ -218,7 +230,7 @@ function VoiceSettingsPanel() {
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: `ws://${typeof location !== "undefined" ? location.hostname : "127.0.0.1"}:${DEFAULT_PORT}/voice` })
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "MiniMax \u51ED\u636E\uFF08\u56FD\u5185\u7248\uFF09" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "MiniMax \u51ED\u636E\uFF08api.minimax.cn\uFF09" }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       "input",
       {
@@ -229,18 +241,13 @@ function VoiceSettingsPanel() {
         onChange: (event) => setForm("minimaxApiKey", event.target.value)
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-      "input",
-      {
-        style: fieldStyle(),
-        placeholder: "GroupId\uFF08t2a_v2 \u5FC5\u586B\uFF09",
-        value: state.form.minimaxGroupId ?? String(s.minimaxGroupId ?? ""),
-        onChange: (event) => setForm("minimaxGroupId", event.target.value)
-      }
-    ),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { margin: "0 0 4px", color: "#8b96a8", fontSize: 11 }, children: "Key \u5728\u65B0\u7248\u5F00\u653E\u5E73\u53F0\u300C\u8D26\u6237\u7BA1\u7406 \u203A \u63A5\u53E3\u5BC6\u94A5\u300D\u83B7\u53D6\uFF1B\u65B0\u7248 API \u65E0\u9700 GroupId\u3002" }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: sectionTitle, children: "\u8BED\u97F3\u53C2\u6570" }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { style: fieldStyle(), placeholder: "ASR \u6A21\u578B\uFF08asr-1.0\uFF09", value: state.form.asrModel ?? String(s.asrModel ?? ""), onChange: (event) => setForm("asrModel", event.target.value) }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { style: fieldStyle(), placeholder: "TTS \u6A21\u578B\uFF08speech-01-turbo\uFF09", value: state.form.ttsModel ?? String(s.ttsModel ?? ""), onChange: (event) => setForm("ttsModel", event.target.value) }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "block" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { display: "block", color: "#8b96a8", fontSize: 11, margin: "4px 0 3px" }, children: "TTS \u6A21\u578B" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { style: fieldStyle(), value: state.form.ttsModel ?? currentTtsModel, onChange: (event) => setForm("ttsModel", event.target.value), children: ttsModelOptions.map((model) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: model, children: model }, model)) })
+    ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { style: fieldStyle(), placeholder: "\u97F3\u8272\uFF08female-shaonv\uFF09", value: state.form.ttsVoice ?? String(s.ttsVoice ?? ""), onChange: (event) => setForm("ttsVoice", event.target.value) }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8 }, children: [["ttsSpeed", "\u8BED\u901F", "0.5\u20132"], ["ttsVol", "\u97F3\u91CF", "0\u201310"], ["ttsPitch", "\u97F3\u8C03", "\u221212\u201312"]].map(([key, label, range]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { flex: 1, display: "block" }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "block", color: "#8b96a8", fontSize: 11, margin: "4px 0 3px" }, children: [

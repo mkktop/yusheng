@@ -184,7 +184,6 @@ export class VoiceServer {
       model,
       presets,
       hasMinimaxApiKey: settings.minimaxApiKey !== '',
-      hasMinimaxGroupId: settings.minimaxGroupId !== '',
       clients: [...this.connections].map((c) => c.describe()),
       settings: maskSettings(settings),
     })
@@ -240,7 +239,6 @@ export class VoiceServer {
     try {
       for await (const chunk of synthesizeStream('你好。', {
         apiKey: settings.minimaxApiKey,
-        groupId: settings.minimaxGroupId,
         model: settings.ttsModel,
         voiceId: settings.ttsVoice,
         speed: settings.ttsSpeed,

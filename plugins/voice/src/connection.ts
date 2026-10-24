@@ -14,11 +14,19 @@ export const SAMPLE_RATE_OUT = 24_000
 
 /** 单次拾音时长上限 */
 const MAX_CAPTURE_MS = 120_000
-/** 取消后等待收尾的兜底时长 */
-const DRAIN_MS = 4_000
+/** 收尾兜底上限：覆盖尾句合成 + 已入队音频按实时节奏发完（TTS 卡死时止损） */
+const DRAIN_MS = 30_000
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    if (typeof timer.unref === 'function') timer.unref()
+  })
 
 interface PacedSender {
   push(chunk: Buffer): void
+  /** 等待已入队帧全部按节奏发完（stop/连接关闭立即返回）。 */
+  finish(): Promise<void>
   stop(): void
 }
 
@@ -29,23 +37,31 @@ function createPacedSender(ws: { readyState: number; send(data: Buffer): void })
   let frames: Buffer[] = []
   let timer: ReturnType<typeof setInterval> | undefined
   let closed = false
+  let finishing = false
+  let waiters: Array<() => void> = []
 
-  const stop = () => {
+  const stopTimer = () => {
     if (timer !== undefined) {
       clearInterval(timer)
       timer = undefined
     }
   }
+  const wake = () => {
+    const pending = waiters.splice(0)
+    for (const resolve of pending) resolve()
+  }
   const start = () => {
     if (timer !== undefined || closed) return
     timer = setInterval(() => {
       if (closed || ws.readyState !== 1) {
-        stop()
+        stopTimer()
+        if (finishing) wake()
         return
       }
       const frame = frames.shift()
       if (frame === undefined) {
-        stop()
+        stopTimer()
+        if (finishing) wake()
         return
       }
       ws.send(frame)
@@ -64,10 +80,18 @@ function createPacedSender(ws: { readyState: number; send(data: Buffer): void })
       }
       if (frames.length >= PREBUFFER_FRAMES && timer === undefined) start()
     },
+    async finish() {
+      if (closed) return
+      finishing = true
+      if (frames.length === 0 && timer === undefined) return
+      start()
+      await new Promise<void>((resolve) => waiters.push(resolve))
+    },
     stop() {
       closed = true
-      stop()
+      stopTimer()
       frames = []
+      wake()
     },
   }
 }
@@ -303,7 +327,6 @@ export class VoiceConnection {
     const s = this.deps.settings()
     return {
       apiKey: s.minimaxApiKey,
-      groupId: s.minimaxGroupId,
       model: s.ttsModel,
       voiceId: s.ttsVoice,
       speed: s.ttsSpeed,
@@ -429,7 +452,7 @@ export class VoiceConnection {
     this.sendJson({ type: 'llm', state: 'end' })
 
     queue.close()
-    await Promise.race([pump, new Promise((resolve) => setTimeout(resolve, DRAIN_MS).unref?.() ?? resolve(null))])
+    await Promise.race([Promise.all([pump, sender.finish()]), sleep(DRAIN_MS)])
 
     ttsAbort.abort()
     sender.stop()
@@ -448,8 +471,8 @@ export class VoiceConnection {
     this.activeTtsAbort = ttsAbort
     this.activeSender = sender
     const ok = await this.speakSentence(text, ttsAbort.signal, sender, ttsStarted)
-    // 预留时间让已入队帧按节奏发完
-    await new Promise((resolve) => setTimeout(resolve, 400))
+    // 等已入队帧按实时节奏发完再收尾（兜底防 TTS/发送卡死）
+    await Promise.race([sender.finish(), sleep(DRAIN_MS)])
     const aborted = ttsAbort.signal.aborted
     ttsAbort.abort()
     sender.stop()

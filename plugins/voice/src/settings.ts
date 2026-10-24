@@ -7,13 +7,11 @@ import { dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 
 export interface VoiceSettings {
-  /** minimax 国内版 API Key（ASR 与 TTS 共用） */
+  /** minimax API Key（api.minimax.cn，ASR 与 TTS 共用） */
   minimaxApiKey: string
-  /** minimax 国内版 GroupId（t2a_v2 需要） */
-  minimaxGroupId: string
-  /** ASR 模型，国内版当前枚举 asr-1.0 */
+  /** ASR 模型，当前枚举 asr-1.0 */
   asrModel: string
-  /** TTS 模型，如 speech-01-turbo / speech-02-hd */
+  /** TTS 模型，如 speech-2.8-turbo / speech-2.6-hd */
   ttsModel: string
   /** TTS 音色 id */
   ttsVoice: string
@@ -38,9 +36,8 @@ const DEFAULT_PREFIX =
 
 export const DEFAULT_SETTINGS: VoiceSettings = {
   minimaxApiKey: '',
-  minimaxGroupId: '',
   asrModel: 'asr-1.0',
-  ttsModel: 'speech-01-turbo',
+  ttsModel: 'speech-2.8-turbo',
   ttsVoice: 'female-shaonv',
   ttsSpeed: 1,
   ttsVol: 1,
@@ -72,7 +69,6 @@ export function mergeSettings(current: VoiceSettings, patch: Record<string, unkn
   const rejected: string[] = []
   const strings: Array<[keyof VoiceSettings, number]> = [
     ['minimaxApiKey', 256],
-    ['minimaxGroupId', 64],
     ['asrModel', 64],
     ['ttsModel', 64],
     ['ttsVoice', 128],
@@ -106,7 +102,6 @@ export function maskSettings(s: VoiceSettings): Record<string, unknown> {
   return {
     minimaxApiKey: '',
     hasMinimaxApiKey: s.minimaxApiKey !== '',
-    minimaxGroupId: s.minimaxGroupId,
     asrModel: s.asrModel,
     ttsModel: s.ttsModel,
     ttsVoice: s.ttsVoice,

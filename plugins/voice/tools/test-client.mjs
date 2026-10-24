@@ -22,7 +22,8 @@ const [command, ...rest] = args
 
 const wsUrl = token !== '' ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : url
 const ws = new WebSocket(wsUrl)
-ws.binaryType = 'nodebuffer'
+// Node 内置 WebSocket 只认 blob（默认）/arraybuffer；blob 路径在 onmessage 里转
+ws.binaryType = 'arraybuffer'
 
 const audioChunks = []
 let llmText = ''
@@ -53,8 +54,12 @@ ws.onopen = () => {
   ws.send(JSON.stringify({ type: 'hello', version: 1, deviceId: 'test-client', deviceName: 'test-client' }))
 }
 
-ws.onmessage = (event) => {
+ws.onmessage = async (event) => {
   const data = event.data
+  if (data instanceof Blob) {
+    audioChunks.push(Buffer.from(await data.arrayBuffer()))
+    return
+  }
   if (Buffer.isBuffer(data) || data instanceof ArrayBuffer || Array.isArray(data)) {
     audioChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data))
     return

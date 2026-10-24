@@ -74,9 +74,9 @@ check('status.model 来自宿主选择', status1.model?.model === 'mock-model')
 // 2. 写入令牌后未授权 401
 const put = await (await fetch(`${base}/settings`, {
   method: 'PUT', headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ minimaxGroupId: '12345', ttsSpeed: 1.5, bogus: 'x' }),
+  body: JSON.stringify({ ttsVoice: 'female-yujie', ttsSpeed: 1.5, bogus: 'x' }),
 })).json()
-check('PUT /settings 合法字段生效', put.ok === true && put.settings.minimaxGroupId === '12345' && put.settings.ttsSpeed === 1.5, `rejected=${JSON.stringify(put.rejected)}`)
+check('PUT /settings 合法字段生效', put.ok === true && put.settings.ttsVoice === 'female-yujie' && put.settings.ttsSpeed === 1.5, `rejected=${JSON.stringify(put.rejected)}`)
 check('未知字段被拒绝并保留其余', put.rejected.includes('bogus'))
 check('脱敏视图不含密钥', !('minimaxApiKey' in put.settings) || typeof put.settings.minimaxApiKey === 'string')
 

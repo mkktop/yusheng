@@ -1,7 +1,7 @@
 # dsh-yusheng-voice — 语声语音后端
 
 dsh（DeepSeek Harness）插件：语音交互系统的后端服务。设备通过 WebSocket 接入，
-语音识别与合成走 **minimax 国内版**（`asr-1.0` / `t2a_v2` 流式），对话在宿主
+语音识别与合成走 **minimax 新版开放平台 api.minimax.cn**（`asr-1.0` / `t2a_v2` 流式，仅需 Bearer API Key，无需 GroupId），对话在宿主
 dsh 进程内直接驱动**会话**调用模型（与网页端同一默认模型与凭据，无需另配 Key）。
 设置面板入口挂在 dsh 网页**左侧边栏「全局面板」**（「语声语音」按钮，位于「自动化任务」上方）。
 

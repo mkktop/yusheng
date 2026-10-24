@@ -1,4 +1,4 @@
-// minimax 国内版语音合成（t2a_v2，HTTP + SSE 流式）：
+// minimax 语音合成（t2a_v2，HTTP + SSE 流式，api.minimax.cn 新版平台，仅需 Bearer Key）：
 // 逐句合成，audio 为 hex 编码的裸 PCM（默认 24kHz 16bit mono），按帧下发。
 
 import { Buffer } from 'node:buffer'
@@ -17,7 +17,6 @@ export class TtsError extends Error {
 
 export interface TtsOptions {
   apiKey: string
-  groupId: string
   model?: string
   voiceId?: string
   speed?: number
@@ -26,9 +25,7 @@ export interface TtsOptions {
   signal?: AbortSignal
 }
 
-function t2aEndpoint(groupId: string): string {
-  return `https://api.minimaxi.com/v1/t2a_v2?GroupId=${encodeURIComponent(groupId)}`
-}
+const TTS_ENDPOINT = 'https://api.minimax.cn/v1/t2a_v2'
 
 /**
  * 流式合成一句文本，异步产出 PCM 片段（24kHz 16bit mono）。
@@ -36,12 +33,10 @@ function t2aEndpoint(groupId: string): string {
  */
 export async function* synthesizeStream(text: string, options: TtsOptions): AsyncGenerator<Buffer> {
   const apiKey = options.apiKey
-  const groupId = options.groupId
   if (apiKey === '') throw new TtsError('no_api_key', 'minimax API key 未配置（设置面板 → MiniMax 凭据）')
-  if (groupId === '') throw new TtsError('no_group_id', 'minimax GroupId 未配置（设置面板 → MiniMax 凭据）')
 
   const body = {
-    model: options.model || 'speech-01-turbo',
+    model: options.model || 'speech-2.8-turbo',
     text,
     stream: true,
     voice_setting: {
@@ -60,7 +55,7 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
 
   let response: Response
   try {
-    response = await fetch(t2aEndpoint(groupId), {
+    response = await fetch(TTS_ENDPOINT, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -84,6 +79,7 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
   const decoder = new TextDecoder()
   let buffer = ''
   let finished = false
+  let yieldedBytes = 0
 
   try {
     while (!finished) {
@@ -113,7 +109,13 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
         const audioHex = payload?.data?.audio
         if (typeof audioHex === 'string' && audioHex !== '') {
           const chunk = Buffer.from(audioHex, 'hex')
-          if (chunk.length > 0) yield chunk
+          // api.minimax.cn 流式的 status=2 末事件会重发整段完整音频；
+          // 已收到增量时跳过重发（长度不足视为普通尾片段，兼容旧接口）
+          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes
+          if (chunk.length > 0 && !isFullRecap) {
+            yieldedBytes += chunk.length
+            yield chunk
+          }
         }
         if (payload?.data?.status === 2) finished = true
       }

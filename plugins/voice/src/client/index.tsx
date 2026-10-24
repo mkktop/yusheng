@@ -9,6 +9,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 const PANEL_ID = 'dsh-yusheng-voice'
 const DEFAULT_PORT = 8090
+/** api.minimax.cn t2a_v2 官方模型枚举（speech-2.8 最新，turbo 为低延迟档） */
+const TTS_MODELS = [
+  'speech-2.8-turbo', 'speech-2.8-hd',
+  'speech-2.6-turbo', 'speech-2.6-hd',
+  'speech-02-turbo', 'speech-02-hd',
+  'speech-01-turbo', 'speech-01-hd',
+]
 
 export const inject = ['slots']
 
@@ -130,7 +137,7 @@ function VoiceSettingsPanel() {
     const current: any = state.settings ?? {}
     const form = state.form
     const patch: Record<string, unknown> = {}
-    const textKeys = ['minimaxGroupId', 'asrModel', 'ttsModel', 'ttsVoice', 'promptPrefix', 'agentPreset', 'token']
+    const textKeys = ['asrModel', 'ttsModel', 'ttsVoice', 'promptPrefix', 'agentPreset', 'token']
     for (const key of textKeys) {
       if (typeof form[key] === 'string' && form[key] !== String(current[key] ?? '')) patch[key] = form[key]
     }
@@ -176,6 +183,8 @@ function VoiceSettingsPanel() {
   }
 
   const s: any = state.settings ?? {}
+  const currentTtsModel = String(s.ttsModel ?? 'speech-2.8-turbo')
+  const ttsModelOptions = TTS_MODELS.includes(currentTtsModel) ? TTS_MODELS : [currentTtsModel, ...TTS_MODELS]
   const status: any = state.status
   const defaultPresetName = (status?.presets ?? []).find((preset: any) => preset.isDefault)?.name || (status?.presets ?? []).find((preset: any) => preset.isDefault)?.id || 'standard'
   const hasKey = s.hasMinimaxApiKey === true
@@ -186,7 +195,7 @@ function VoiceSettingsPanel() {
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 28px 48px', fontSize: 13, lineHeight: 1.7, color: '#e6e9ef' }}>
       <h2 style={{ margin: '0 0 4px', fontSize: 16 }}>语声语音</h2>
       <p style={{ margin: '0 0 8px', color: '#8b96a8', fontSize: 12 }}>
-        minimax {s.asrModel || 'asr-1.0'} 识别 · {s.ttsModel || 'speech-01-turbo'} 合成 · dsh 会话对话
+        minimax {s.asrModel || 'asr-1.0'} 识别 · {s.ttsModel || 'speech-2.8-turbo'} 合成 · dsh 会话对话
       </p>
 
       {state.loadError !== '' && (
@@ -201,7 +210,7 @@ function VoiceSettingsPanel() {
         <div style={{ wordBreak: 'break-all' }}>接入端点：<code>{`ws://${typeof location !== 'undefined' ? location.hostname : '127.0.0.1'}:${DEFAULT_PORT}/voice`}</code></div>
       </div>
 
-      <div style={sectionTitle}>MiniMax 凭据（国内版）</div>
+      <div style={sectionTitle}>MiniMax 凭据（api.minimax.cn）</div>
       <input
         style={fieldStyle()}
         type="password"
@@ -209,16 +218,20 @@ function VoiceSettingsPanel() {
         value={state.form.minimaxApiKey ?? ''}
         onChange={(event) => setForm('minimaxApiKey', event.target.value)}
       />
-      <input
-        style={fieldStyle()}
-        placeholder="GroupId（t2a_v2 必填）"
-        value={state.form.minimaxGroupId ?? String(s.minimaxGroupId ?? '')}
-        onChange={(event) => setForm('minimaxGroupId', event.target.value)}
-      />
+      <p style={{ margin: '0 0 4px', color: '#8b96a8', fontSize: 11 }}>
+        Key 在新版开放平台「账户管理 › 接口密钥」获取；新版 API 无需 GroupId。
+      </p>
 
       <div style={sectionTitle}>语音参数</div>
       <input style={fieldStyle()} placeholder="ASR 模型（asr-1.0）" value={state.form.asrModel ?? String(s.asrModel ?? '')} onChange={(event) => setForm('asrModel', event.target.value)} />
-      <input style={fieldStyle()} placeholder="TTS 模型（speech-01-turbo）" value={state.form.ttsModel ?? String(s.ttsModel ?? '')} onChange={(event) => setForm('ttsModel', event.target.value)} />
+      <label style={{ display: 'block' }}>
+        <span style={{ display: 'block', color: '#8b96a8', fontSize: 11, margin: '4px 0 3px' }}>TTS 模型</span>
+        <select style={fieldStyle()} value={state.form.ttsModel ?? currentTtsModel} onChange={(event) => setForm('ttsModel', event.target.value)}>
+          {ttsModelOptions.map((model) => (
+            <option key={model} value={model}>{model}</option>
+          ))}
+        </select>
+      </label>
       <input style={fieldStyle()} placeholder="音色（female-shaonv）" value={state.form.ttsVoice ?? String(s.ttsVoice ?? '')} onChange={(event) => setForm('ttsVoice', event.target.value)} />
       <div style={{ display: 'flex', gap: 8 }}>
         {([['ttsSpeed', '语速', '0.5–2'], ['ttsVol', '音量', '0–10'], ['ttsPitch', '音调', '−12–12']] as const).map(([key, label, range]) => (

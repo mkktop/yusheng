@@ -1,9 +1,9 @@
-// minimax 国内版语音识别（speech_to_text）：
+// minimax 语音识别（speech_to_text，api.minimax.cn 新版平台，仅需 Bearer Key）：
 // 整段音频 multipart 上传，模型 asr-1.0；说完一句再识别，非流式。
 
 import { Buffer } from 'node:buffer'
 
-const ASR_ENDPOINT = 'https://api.minimaxi.com/v1/speech_to_text'
+const ASR_ENDPOINT = 'https://api.minimax.cn/v1/speech_to_text'
 
 export class AsrError extends Error {
   code: string

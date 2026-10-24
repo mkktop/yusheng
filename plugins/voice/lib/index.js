@@ -3956,7 +3956,7 @@ import { Buffer as Buffer4 } from "node:buffer";
 
 // src/asr.ts
 import { Buffer as Buffer2 } from "node:buffer";
-var ASR_ENDPOINT = "https://api.minimaxi.com/v1/speech_to_text";
+var ASR_ENDPOINT = "https://api.minimax.cn/v1/speech_to_text";
 var AsrError = class extends Error {
   code;
   constructor(code, message) {
@@ -4032,16 +4032,12 @@ var TtsError = class extends Error {
     this.code = code;
   }
 };
-function t2aEndpoint(groupId) {
-  return `https://api.minimaxi.com/v1/t2a_v2?GroupId=${encodeURIComponent(groupId)}`;
-}
+var TTS_ENDPOINT = "https://api.minimax.cn/v1/t2a_v2";
 async function* synthesizeStream(text, options) {
   const apiKey = options.apiKey;
-  const groupId = options.groupId;
   if (apiKey === "") throw new TtsError("no_api_key", "minimax API key \u672A\u914D\u7F6E\uFF08\u8BBE\u7F6E\u9762\u677F \u2192 MiniMax \u51ED\u636E\uFF09");
-  if (groupId === "") throw new TtsError("no_group_id", "minimax GroupId \u672A\u914D\u7F6E\uFF08\u8BBE\u7F6E\u9762\u677F \u2192 MiniMax \u51ED\u636E\uFF09");
   const body = {
-    model: options.model || "speech-01-turbo",
+    model: options.model || "speech-2.8-turbo",
     text,
     stream: true,
     voice_setting: {
@@ -4059,7 +4055,7 @@ async function* synthesizeStream(text, options) {
   };
   let response;
   try {
-    response = await fetch(t2aEndpoint(groupId), {
+    response = await fetch(TTS_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -4081,6 +4077,7 @@ async function* synthesizeStream(text, options) {
   const decoder = new TextDecoder();
   let buffer = "";
   let finished = false;
+  let yieldedBytes = 0;
   try {
     while (!finished) {
       if (options.signal?.aborted) return;
@@ -4109,7 +4106,11 @@ async function* synthesizeStream(text, options) {
         const audioHex = payload?.data?.audio;
         if (typeof audioHex === "string" && audioHex !== "") {
           const chunk = Buffer3.from(audioHex, "hex");
-          if (chunk.length > 0) yield chunk;
+          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes;
+          if (chunk.length > 0 && !isFullRecap) {
+            yieldedBytes += chunk.length;
+            yield chunk;
+          }
         }
         if (payload?.data?.status === 2) finished = true;
       }
@@ -4131,29 +4132,41 @@ var PROTOCOL_VERSION = 1;
 var SAMPLE_RATE_IN = 16e3;
 var SAMPLE_RATE_OUT = 24e3;
 var MAX_CAPTURE_MS = 12e4;
-var DRAIN_MS = 4e3;
+var DRAIN_MS = 3e4;
+var sleep = (ms) => new Promise((resolve2) => {
+  const timer = setTimeout(resolve2, ms);
+  if (typeof timer.unref === "function") timer.unref();
+});
 function createPacedSender(ws) {
   const PREBUFFER_FRAMES = 6;
   const TICK_MS = 40;
   let frames = [];
   let timer;
   let closed = false;
-  const stop = () => {
+  let finishing = false;
+  let waiters = [];
+  const stopTimer = () => {
     if (timer !== void 0) {
       clearInterval(timer);
       timer = void 0;
     }
   };
+  const wake = () => {
+    const pending = waiters.splice(0);
+    for (const resolve2 of pending) resolve2();
+  };
   const start = () => {
     if (timer !== void 0 || closed) return;
     timer = setInterval(() => {
       if (closed || ws.readyState !== 1) {
-        stop();
+        stopTimer();
+        if (finishing) wake();
         return;
       }
       const frame = frames.shift();
       if (frame === void 0) {
-        stop();
+        stopTimer();
+        if (finishing) wake();
         return;
       }
       ws.send(frame);
@@ -4171,10 +4184,18 @@ function createPacedSender(ws) {
       }
       if (frames.length >= PREBUFFER_FRAMES && timer === void 0) start();
     },
+    async finish() {
+      if (closed) return;
+      finishing = true;
+      if (frames.length === 0 && timer === void 0) return;
+      start();
+      await new Promise((resolve2) => waiters.push(resolve2));
+    },
     stop() {
       closed = true;
-      stop();
+      stopTimer();
       frames = [];
+      wake();
     }
   };
 }
@@ -4379,7 +4400,6 @@ var VoiceConnection = class {
     const s = this.deps.settings();
     return {
       apiKey: s.minimaxApiKey,
-      groupId: s.minimaxGroupId,
       model: s.ttsModel,
       voiceId: s.ttsVoice,
       speed: s.ttsSpeed,
@@ -4494,7 +4514,7 @@ var VoiceConnection = class {
     }
     this.sendJson({ type: "llm", state: "end" });
     queue.close();
-    await Promise.race([pump, new Promise((resolve2) => setTimeout(resolve2, DRAIN_MS).unref?.() ?? resolve2(null))]);
+    await Promise.race([Promise.all([pump, sender.finish()]), sleep(DRAIN_MS)]);
     ttsAbort.abort();
     sender.stop();
     this.activeSender = void 0;
@@ -4511,7 +4531,7 @@ var VoiceConnection = class {
     this.activeTtsAbort = ttsAbort;
     this.activeSender = sender;
     const ok = await this.speakSentence(text, ttsAbort.signal, sender, ttsStarted);
-    await new Promise((resolve2) => setTimeout(resolve2, 400));
+    await Promise.race([sender.finish(), sleep(DRAIN_MS)]);
     const aborted = ttsAbort.signal.aborted;
     ttsAbort.abort();
     sender.stop();
@@ -4534,9 +4554,8 @@ import { homedir } from "node:os";
 var DEFAULT_PREFIX = "\u4F60\u662F\u8BED\u97F3\u52A9\u624B\u3002\u59CB\u7EC8\u7528\u7B80\u77ED\u3001\u53E3\u8BED\u5316\u7684\u4E2D\u6587\u56DE\u7B54\uFF08\u901A\u5E38\u4E0D\u8D85\u8FC7\u4E09\u53E5\u8BDD\uFF09\uFF0C\u4E0D\u8981\u4F7F\u7528 Markdown\u3001\u4EE3\u7801\u5757\u6216\u5217\u8868\u3002";
 var DEFAULT_SETTINGS = {
   minimaxApiKey: "",
-  minimaxGroupId: "",
   asrModel: "asr-1.0",
-  ttsModel: "speech-01-turbo",
+  ttsModel: "speech-2.8-turbo",
   ttsVoice: "female-shaonv",
   ttsSpeed: 1,
   ttsVol: 1,
@@ -4563,7 +4582,6 @@ function mergeSettings(current, patch) {
   const rejected = [];
   const strings = [
     ["minimaxApiKey", 256],
-    ["minimaxGroupId", 64],
     ["asrModel", 64],
     ["ttsModel", 64],
     ["ttsVoice", 128],
@@ -4597,7 +4615,6 @@ function maskSettings(s) {
   return {
     minimaxApiKey: "",
     hasMinimaxApiKey: s.minimaxApiKey !== "",
-    minimaxGroupId: s.minimaxGroupId,
     asrModel: s.asrModel,
     ttsModel: s.ttsModel,
     ttsVoice: s.ttsVoice,
@@ -4816,7 +4833,6 @@ var VoiceServer = class _VoiceServer {
       model,
       presets,
       hasMinimaxApiKey: settings.minimaxApiKey !== "",
-      hasMinimaxGroupId: settings.minimaxGroupId !== "",
       clients: [...this.connections].map((c) => c.describe()),
       settings: maskSettings(settings)
     });
@@ -4868,7 +4884,6 @@ var VoiceServer = class _VoiceServer {
     try {
       for await (const chunk of synthesizeStream("\u4F60\u597D\u3002", {
         apiKey: settings.minimaxApiKey,
-        groupId: settings.minimaxGroupId,
         model: settings.ttsModel,
         voiceId: settings.ttsVoice,
         speed: settings.ttsSpeed,
