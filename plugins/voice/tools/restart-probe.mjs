@@ -1,3 +1,4 @@
+import {fixtureToken} from './device-fixtures.mjs'
 // Run `write`, restart dsh, then run `read`. No credentials are printed or copied.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -10,7 +11,7 @@ const path=process.env.VOICE_RESTART_STATE??'/tmp/yusheng-restart-state.json'
 const settings=JSON.parse(readFileSync(process.env.VOICE_SETTINGS??join(process.env.DSH_HOME??join(homedir(),'.dsh'),'yusheng-voice/settings.json'),'utf8'))
 const state=mode==='read'?JSON.parse(readFileSync(path,'utf8')):{deviceId:`validation-restart-${Date.now()}`,marker:'星河七十九'}
 const messages=[]
-const ws=new WebSocket(`ws://127.0.0.1:8090/voice?token=${encodeURIComponent(settings.token)}`)
+const ws=new WebSocket(`ws://127.0.0.1:8090/voice?token=${encodeURIComponent(await fixtureToken(state.deviceId))}`)
 ws.onmessage=ev=>{if(typeof ev.data==='string')messages.push(JSON.parse(ev.data))}
 const until=async fn=>{const start=Date.now();while(!fn()){if(Date.now()-start>60000)throw new Error('probe timeout');await new Promise(r=>setTimeout(r,20))}return fn()}
 try {

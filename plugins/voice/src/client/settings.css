@@ -69,11 +69,35 @@
 .ys-settings .ys-help[open] summary svg { transform: rotate(90deg); }
 .ys-settings .ys-help p { margin-top: 6px; }
 .ys-settings .ys-tabs { display: flex; gap: 4px; padding: 4px; width: fit-content; max-width: 100%; border-radius: 11px; background: var(--ys-fill); margin: 0 0 22px; border: 1px solid var(--ys-border); }
+.ys-settings .ys-tabs { overflow-x: auto; scrollbar-width: thin; }
+.ys-settings .ys-client-selection { display: grid; grid-template-columns: minmax(200px,270px) minmax(0,1fr) auto; align-items: center; gap: 20px; padding: 18px 20px; margin-bottom: 22px; border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-panel); }
+.ys-settings .ys-client-scope { min-width: 0; }
+.ys-settings .ys-client-scope strong { display: block; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.ys-settings .ys-client-scope p { color: var(--ys-muted); font-size: 12px; line-height: 1.7; margin-top: 5px; }
 .ys-settings .ys-tab { display: inline-flex; gap: 7px; align-items: center; justify-content: center; padding: 7px 15px; border: 1px solid transparent; background: transparent; color: var(--ys-muted); border-radius: 8px; font-size: 13px; font-weight: 550; cursor: pointer; white-space: nowrap; }
 .ys-settings .ys-tab[aria-selected=true] { color: var(--ys-fg); background: var(--ys-panel); border-color: var(--ys-border); box-shadow: 0 1px 3px #00000005; }
 .ys-settings .ys-count { display: inline-grid; place-items: center; font-size: 11px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 5px; background: var(--ys-hover); }
 .ys-settings .ys-stack { display: grid; gap: 20px; }
 .ys-settings .ys-voice-grid { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 20px; align-items: start; }
+.ys-settings .ys-persona-layout { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(260px,1fr); gap: 20px; align-items: start; }
+.ys-settings .ys-role { min-height: 76px; }
+.ys-settings .ys-personality-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.ys-settings .ys-personality-option { display: block; text-align: left; padding: 13px 14px; color: var(--ys-fg); border: 1px solid var(--ys-border); background: var(--ys-panel); border-radius: 10px; cursor: pointer; }
+.ys-settings .ys-personality-option:hover:not(:disabled) { background: var(--ys-fill); }
+.ys-settings .ys-personality-option[aria-pressed=true] { background: var(--ys-fill); border-color: var(--ys-muted); box-shadow: inset 0 0 0 1px var(--ys-muted); }
+.ys-settings .ys-personality-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.ys-settings .ys-personality-radio { width: 13px; height: 13px; border: 1px solid var(--ys-subtle); border-radius: 50%; flex-shrink: 0; }
+.ys-settings [aria-pressed=true] .ys-personality-radio { border: 4px solid var(--ys-fg); }
+.ys-settings .ys-personality-description { display: block; margin-top: 6px; font-size: 12px; line-height: 1.7; color: var(--ys-muted); }
+.ys-settings .ys-persona-preview { padding: 23px; text-align: center; }
+.ys-settings .ys-persona-preview-label { text-align: left; color: var(--ys-muted); font-size: 12px; }
+.ys-settings .ys-persona-avatar { display: grid; place-items: center; width: 66px; height: 66px; margin: 22px auto 14px; border: 1px solid var(--ys-border); border-radius: 22px; background: var(--ys-fill); font-size: 26px; font-weight: 550; }
+.ys-settings .ys-persona-caption { color: var(--ys-muted); font-size: 12px; margin-top: 5px; }
+.ys-settings .ys-persona-bubble { margin: 22px 0 15px; padding: 17px; border: 1px solid var(--ys-border); border-radius: 12px 12px 12px 3px; background: var(--ys-fill); text-align: left; font-size: 14px; line-height: 1.9; overflow-wrap: anywhere; }
+.ys-settings .ys-persona-preview > .ys-field-help { text-align: left; }
+.ys-settings .ys-persona-guidance { padding: 23px; }
+.ys-settings .ys-persona-guidance p { color: var(--ys-muted); font-size: 12px; line-height: 1.8; margin-top: 8px; }
+.ys-settings .ys-persona-guidance .ys-btn,.ys-settings .ys-persona-guidance .ys-inline-status { margin-top: 14px; }
 .ys-settings .ys-connection[data-collapsed=true] .ys-connection-top { padding-top: 11px; padding-bottom: 11px; }
 .ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy { display: flex; align-items: center; gap: 12px; }
 .ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy strong { flex-shrink: 0; }
@@ -161,8 +185,10 @@
 .ys-settings .ys-bottom-note { font-size: 11px; line-height: 1.8; color: var(--ys-subtle); padding: 20px 0 26px; }
 .ys-settings .ys-spin { animation: ys-settings-spin 1s linear infinite; }
 @keyframes ys-settings-spin { to { transform: rotate(360deg); } }
-@container (max-width: 900px) { .ys-settings .ys-voice-grid { grid-template-columns: 1fr; } }
+@container (max-width: 900px) { .ys-settings .ys-voice-grid,.ys-settings .ys-persona-layout { grid-template-columns: 1fr; } }
 @container (max-width: 760px) {
+  .ys-settings .ys-client-selection { grid-template-columns: 1fr auto; }
+  .ys-settings .ys-client-selection > .ys-field { grid-column: 1 / -1; }
   .ys-settings .ys-wrap { padding: 26px 24px 0; }
   .ys-settings .ys-connect-grid { grid-template-columns: 1fr 1fr; }
   .ys-settings .ys-connect-grid > button { grid-column: span 2; justify-self: end; }
@@ -190,9 +216,11 @@
   .ys-settings .ys-connect-grid > button { grid-column: auto; width: 100%; }
   .ys-settings .ys-sliders { grid-template-columns: 1fr; gap: 22px; }
   .ys-settings .ys-slider-top { margin-bottom: 12px; }
-  .ys-settings .ys-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; }
-  .ys-settings .ys-tab { padding: 8px 7px; gap: 5px; }
+  .ys-settings .ys-tabs { display: flex; width: 100%; }
+  .ys-settings .ys-tab { flex: 0 0 auto; min-width: 86px; padding: 8px 7px; gap: 3px; font-size: 12px; }
   .ys-settings .ys-tab > svg { display: none; }
+  .ys-settings .ys-tab .ys-count { display: none; }
+  .ys-settings .ys-personality-options { grid-template-columns: 1fr; }
   .ys-settings .ys-card-header { padding: 18px 17px 0; }
   .ys-settings .ys-card-body { padding: 18px 17px 20px; }
   .ys-settings .ys-device-form { flex-direction: column; align-items: stretch; }

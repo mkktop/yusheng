@@ -1,0 +1,55 @@
+{
+  "at": "2026-10-25T09:05:30.293Z",
+  "checks": [
+    {
+      "name": "dsh signed login cookie reads voice settings without an admin header",
+      "ok": true,
+      "durationMs": 420,
+      "version": "0.5.0",
+      "onlineClients": 1,
+      "assistantName": "木偶",
+      "adminCredentialExposed": false
+    },
+    {
+      "name": "dsh owner can save settings through the same login session",
+      "ok": true,
+      "durationMs": 295,
+      "persisted": true,
+      "credentialsPreserved": true
+    },
+    {
+      "name": "missing login, expired login and device tokens cannot use the dsh management route",
+      "ok": true,
+      "durationMs": 104,
+      "missing": 401,
+      "expired": 401,
+      "deviceToken": 401
+    },
+    {
+      "name": "cross-origin access is refused even with a valid login cookie",
+      "ok": true,
+      "durationMs": 30,
+      "crossOrigin": 403
+    },
+    {
+      "name": "unsupported destinations and operations are refused",
+      "ok": true,
+      "durationMs": 88,
+      "unsupported": 400
+    },
+    {
+      "name": "oversized operations return a bounded error response",
+      "ok": true,
+      "durationMs": 42,
+      "oversized": 413
+    },
+    {
+      "name": "standalone REST continues to require its independent admin token",
+      "ok": true,
+      "durationMs": 115,
+      "anonymous": 401,
+      "device": 401,
+      "admin": 200
+    }
+  ]
+}

@@ -31,7 +31,7 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // src/client/settings-panel.tsx
-var import_react = require("react");
+var import_react2 = require("react");
 
 // src/client/catalog.ts
 var TTS_MODELS = [
@@ -122,91 +122,370 @@ var VOICE_GROUPS = [
 ];
 
 // src/client/settings.css
-var settings_default = ".ys-settings {\n  --ys-fg: var(--dsw-alias-label-primary, CanvasText);\n  --ys-muted: var(--dsw-alias-label-secondary, color-mix(in srgb, CanvasText 63%, Canvas));\n  --ys-subtle: var(--dsw-alias-label-tertiary, color-mix(in srgb, CanvasText 48%, Canvas));\n  --ys-bg: var(--dsw-alias-bg-base, Canvas);\n  --ys-panel: var(--dsw-alias-bg-layer-1, Canvas);\n  --ys-border: var(--dsw-alias-border-l2, color-mix(in srgb, CanvasText 13%, Canvas));\n  --ys-fill: color-mix(in srgb, var(--ys-fg) 3%, var(--ys-panel));\n  --ys-hover: color-mix(in srgb, var(--ys-fg) 6%, var(--ys-panel));\n  --ys-primary: var(--dsw-alias-button-primary-fill, #5366d8);\n  --ys-on-primary: var(--dsw-alias-label-primary-foreground, #fff);\n  --ys-green: var(--dsw-alias-state-success-primary, #32a676);\n  --ys-red: var(--dsw-alias-state-error-primary, #db6864);\n  --ys-focus: #8592ef;\n  color: var(--ys-fg);\n  background: var(--ys-bg);\n  font: inherit;\n  font-size: 14px;\n  line-height: 1.6;\n  width: 100%;\n  min-width: 0;\n  container-type: inline-size;\n}\n.ys-settings *, .ys-settings *::before, .ys-settings *::after { box-sizing: border-box; }\n.ys-settings .ys-wrap { max-width: 1056px; margin: 0 auto; padding: 36px 40px 0; }\n.ys-settings h1,.ys-settings h2,.ys-settings h3,.ys-settings p { margin: 0; }\n.ys-settings button,.ys-settings input,.ys-settings select,.ys-settings textarea { font: inherit; }\n.ys-settings button,.ys-settings a,.ys-settings input,.ys-settings select,.ys-settings textarea,.ys-settings summary { -webkit-tap-highlight-color: transparent; }\n.ys-settings :is(button,a,input,select,textarea,summary):focus-visible { outline: 2px solid var(--ys-focus); outline-offset: 3px; }\n.ys-settings .ys-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }\n.ys-settings .ys-title { display: flex; align-items: center; gap: 14px; }\n.ys-settings .ys-brand { display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 15px; background: var(--ys-fill); border: 1px solid var(--ys-border); }\n.ys-settings .ys-brand svg { width: 25px; height: 25px; }\n.ys-settings h1 { font-size: 25px; line-height: 1.3; letter-spacing: -.035em; font-weight: 650; }\n.ys-settings .ys-subtitle { color: var(--ys-muted); font-size: 13px; margin-top: 5px; }\n.ys-settings .ys-header-actions { display: flex; align-items: center; gap: 8px; }\n.ys-settings .ys-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 35px; padding: 7px 13px; border: 1px solid var(--ys-border); border-radius: 9px; background: var(--ys-panel); color: var(--ys-fg); font-size: 13px; font-weight: 550; line-height: 1.5; cursor: pointer; text-decoration: none; white-space: nowrap; transition: background .15s, border-color .15s, opacity .15s; }\n.ys-settings .ys-btn:hover:not(:disabled) { background: var(--ys-hover); }\n.ys-settings .ys-btn-primary { color: var(--ys-on-primary); background: var(--ys-primary); border-color: transparent; }\n.ys-settings .ys-btn-primary:hover:not(:disabled) { background: var(--ys-primary); filter: brightness(.94); }\n.ys-settings .ys-btn-quiet { background: transparent; border-color: transparent; color: var(--ys-muted); }\n.ys-settings .ys-btn-danger:hover:not(:disabled) { color: var(--ys-red); background: color-mix(in srgb, var(--ys-red) 8%, var(--ys-panel)); }\n.ys-settings .ys-btn-icon { width: 34px; min-width: 34px; padding: 7px; }\n.ys-settings button:disabled { opacity: .42; cursor: not-allowed; }\n.ys-settings svg { flex-shrink: 0; }\n.ys-settings .ys-badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ys-border); border-radius: 24px; padding: 3px 9px; color: var(--ys-muted); font-size: 12px; font-weight: 550; white-space: nowrap; }\n.ys-settings .ys-badge[data-tone=success] { color: var(--ys-fg); background: color-mix(in srgb, var(--ys-green) 7%, var(--ys-panel)); border-color: color-mix(in srgb, var(--ys-green) 24%, var(--ys-panel)); }\n.ys-settings .ys-badge[data-tone=error] { color: var(--ys-fg); background: color-mix(in srgb, var(--ys-red) 7%, var(--ys-panel)); border-color: color-mix(in srgb, var(--ys-red) 24%, var(--ys-panel)); }\n.ys-settings .ys-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ys-subtle); }\n.ys-settings [data-tone=success] > .ys-dot { background: var(--ys-green); }\n.ys-settings [data-tone=error] > .ys-dot { background: var(--ys-red); }\n.ys-settings .ys-overview { display: grid; grid-template-columns: 1fr 1.4fr .8fr; margin-bottom: 22px; border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-fill); }\n.ys-settings .ys-stat { min-width: 0; padding: 16px 20px; }\n.ys-settings .ys-stat + .ys-stat { border-left: 1px solid var(--ys-border); }\n.ys-settings .ys-stat-label { display: flex; align-items: center; gap: 7px; color: var(--ys-muted); font-size: 12px; margin-bottom: 7px; }\n.ys-settings .ys-stat-value { font-size: 15px; line-height: 1.5; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.ys-settings .ys-stat-detail { color: var(--ys-subtle); font-size: 12px; margin-top: 2px; }\n.ys-settings .ys-connection { border: 1px solid var(--ys-border); border-radius: 13px; margin-bottom: 24px; background: var(--ys-panel); }\n.ys-settings .ys-connection-top { display: flex; align-items: center; gap: 11px; padding: 15px 18px; }\n.ys-settings .ys-connection-icon { color: var(--ys-muted); display: grid; place-items: center; }\n.ys-settings .ys-connection-copy { flex: 1; min-width: 0; }\n.ys-settings .ys-connection-copy strong { display: block; font-size: 13px; font-weight: 600; }\n.ys-settings .ys-connection-copy p { color: var(--ys-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.ys-settings .ys-connection-body { border-top: 1px solid var(--ys-border); padding: 18px; }\n.ys-settings .ys-connect-grid { display: grid; grid-template-columns: 1.1fr 1.2fr auto; gap: 14px; align-items: end; }\n.ys-settings .ys-help { color: var(--ys-muted); font-size: 12px; line-height: 1.7; margin-top: 10px; }\n.ys-settings .ys-help summary { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; list-style: none; }\n.ys-settings .ys-help summary::-webkit-details-marker { display: none; }\n.ys-settings .ys-help[open] summary svg { transform: rotate(90deg); }\n.ys-settings .ys-help p { margin-top: 6px; }\n.ys-settings .ys-tabs { display: flex; gap: 4px; padding: 4px; width: fit-content; max-width: 100%; border-radius: 11px; background: var(--ys-fill); margin: 0 0 22px; border: 1px solid var(--ys-border); }\n.ys-settings .ys-tab { display: inline-flex; gap: 7px; align-items: center; justify-content: center; padding: 7px 15px; border: 1px solid transparent; background: transparent; color: var(--ys-muted); border-radius: 8px; font-size: 13px; font-weight: 550; cursor: pointer; white-space: nowrap; }\n.ys-settings .ys-tab[aria-selected=true] { color: var(--ys-fg); background: var(--ys-panel); border-color: var(--ys-border); box-shadow: 0 1px 3px #00000005; }\n.ys-settings .ys-count { display: inline-grid; place-items: center; font-size: 11px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 5px; background: var(--ys-hover); }\n.ys-settings .ys-stack { display: grid; gap: 20px; }\n.ys-settings .ys-voice-grid { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 20px; align-items: start; }\n.ys-settings .ys-connection[data-collapsed=true] .ys-connection-top { padding-top: 11px; padding-bottom: 11px; }\n.ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy { display: flex; align-items: center; gap: 12px; }\n.ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy strong { flex-shrink: 0; }\n.ys-settings .ys-card { border: 1px solid var(--ys-border); border-radius: 14px; background: var(--ys-panel); min-width: 0; }\n.ys-settings .ys-card-header { display: flex; align-items: flex-start; gap: 11px; padding: 21px 24px 0; }\n.ys-settings .ys-card-symbol { color: var(--ys-muted); padding-top: 2px; }\n.ys-settings .ys-card-heading { flex: 1; min-width: 0; }\n.ys-settings h2 { font-size: 15px; font-weight: 650; letter-spacing: -.015em; }\n.ys-settings .ys-card-heading p { color: var(--ys-muted); font-size: 12px; margin-top: 3px; }\n.ys-settings .ys-card-body { padding: 21px 24px 24px; }\n.ys-settings .ys-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }\n.ys-settings .ys-field { display: block; min-width: 0; }\n.ys-settings .ys-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ys-fg); font-size: 13px; font-weight: 550; margin-bottom: 7px; }\n.ys-settings .ys-label-meta { color: var(--ys-subtle); font-size: 12px; font-weight: 400; }\n.ys-settings .ys-input,.ys-settings .ys-select,.ys-settings .ys-textarea { width: 100%; min-width: 0; min-height: 37px; padding: 9px 11px; color: var(--ys-fg); background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 8px; font-size: 13px; line-height: 1.5; transition: border-color .15s, background .15s; }\n.ys-settings .ys-input::placeholder,.ys-settings .ys-textarea::placeholder { color: var(--ys-subtle); opacity: .85; }\n.ys-settings .ys-input:hover:not(:disabled),.ys-settings .ys-select:hover:not(:disabled),.ys-settings .ys-textarea:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ys-fg) 26%, var(--ys-panel)); }\n.ys-settings .ys-select { cursor: pointer; padding-right: 30px; }\n.ys-settings option,.ys-settings optgroup { color: var(--ys-fg); background: var(--ys-panel); }\n.ys-settings .ys-textarea { display: block; resize: vertical; min-height: 100px; line-height: 1.85; }\n.ys-settings .ys-control { display: flex; align-items: center; border: 1px solid var(--ys-border); border-radius: 8px; background: var(--ys-fill); padding-right: 3px; }\n.ys-settings .ys-control:focus-within { outline: 2px solid var(--ys-focus); outline-offset: 2px; }\n.ys-settings .ys-control .ys-input { border: 0; background: transparent; outline: none; }\n.ys-settings .ys-control .ys-btn-icon { background: transparent; border: 0; color: var(--ys-muted); min-width: 30px; width: 30px; }\n.ys-settings .ys-field-help { color: var(--ys-muted); font-size: 12px; line-height: 1.65; margin-top: 6px; }\n.ys-settings .ys-row { display: flex; align-items: center; gap: 9px; }\n.ys-settings .ys-between { justify-content: space-between; }\n.ys-settings .ys-separator { height: 1px; background: var(--ys-border); margin: 21px 0; }\n.ys-settings .ys-sliders { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 25px; }\n.ys-settings .ys-slider-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 13px; }\n.ys-settings .ys-slider-top label { font-size: 13px; font-weight: 550; }\n.ys-settings .ys-number { width: 64px; color: var(--ys-fg); background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 6px; padding: 3px 5px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }\n.ys-settings input[type=range] { appearance: none; display: block; width: 100%; height: 4px; border-radius: 5px; margin: 0; background: color-mix(in srgb,var(--ys-fg) 14%,var(--ys-panel)); accent-color: var(--ys-primary); cursor: pointer; }\n.ys-settings input[type=range]::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--ys-primary); border: 2px solid var(--ys-panel); box-shadow: 0 0 0 1px var(--ys-border); }\n.ys-settings input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--ys-primary); border: 2px solid var(--ys-panel); }\n.ys-settings .ys-slider-captions { display: flex; justify-content: space-between; color: var(--ys-subtle); font-size: 11px; margin-top: 9px; }\n.ys-settings fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }\n.ys-settings fieldset:disabled :is(input,select,textarea) { opacity: .5; cursor: not-allowed; }\n.ys-settings .ys-inline-status { display: inline-flex; align-items: center; gap: 5px; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-inline-status[data-tone=error] { color: var(--ys-red); }\n.ys-settings .ys-mono { font-family: var(--ds-font-family-code,ui-monospace,SFMono-Regular,Consolas,monospace); font-size: 12px; }\n.ys-settings .ys-code { color: var(--ys-muted); background: var(--ys-fill); border-radius: 5px; padding: 2px 6px; overflow-wrap: anywhere; }\n.ys-settings .ys-custom { padding: 12px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 8px; margin-top: 10px; }\n.ys-settings .ys-timeout { max-width: 270px; }\n.ys-settings .ys-unit { padding: 0 10px; font-size: 12px; color: var(--ys-muted); white-space: nowrap; }\n.ys-settings .ys-note { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--ys-border); background: var(--ys-fill); border-radius: 9px; font-size: 13px; color: var(--ys-muted); }\n.ys-settings .ys-note > svg { margin-top: 2px; }\n.ys-settings .ys-note[data-tone=error] { border-color: color-mix(in srgb,var(--ys-red) 30%,var(--ys-panel)); background: color-mix(in srgb,var(--ys-red) 5%,var(--ys-panel)); color: var(--ys-fg); }\n.ys-settings .ys-note[data-tone=success] { border-color: color-mix(in srgb,var(--ys-green) 27%,var(--ys-panel)); background: color-mix(in srgb,var(--ys-green) 5%,var(--ys-panel)); color: var(--ys-fg); }\n.ys-settings .ys-note-content { flex: 1; min-width: 0; overflow-wrap: anywhere; }\n.ys-settings .ys-device-form { display: flex; gap: 10px; align-items: end; }\n.ys-settings .ys-device-form .ys-field { flex: 1; }\n.ys-settings .ys-devices { border-top: 1px solid var(--ys-border); margin-top: 20px; }\n.ys-settings .ys-device { display: flex; align-items: center; gap: 12px; padding: 14px 0; }\n.ys-settings .ys-device + .ys-device { border-top: 1px solid var(--ys-border); }\n.ys-settings .ys-device-symbol { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 36px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-muted); }\n.ys-settings .ys-device-info { flex: 1; min-width: 0; }\n.ys-settings .ys-device-name { font-weight: 550; overflow-wrap: anywhere; font-size: 13px; }\n.ys-settings .ys-device-detail { font-size: 12px; color: var(--ys-subtle); }\n.ys-settings .ys-empty { text-align: center; color: var(--ys-muted); padding: 24px 10px 10px; font-size: 13px; }\n.ys-settings .ys-empty p { margin-top: 4px; font-size: 12px; color: var(--ys-subtle); }\n.ys-settings .ys-token { margin-top: 17px; padding: 15px; border: 1px solid color-mix(in srgb,var(--ys-green) 28%,var(--ys-panel)); border-radius: 10px; background: color-mix(in srgb,var(--ys-green) 4%,var(--ys-panel)); }\n.ys-settings .ys-token .ys-label { margin-bottom: 8px; }\n.ys-settings .ys-advanced { border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-panel); }\n.ys-settings .ys-advanced > summary { display: flex; align-items: center; gap: 9px; padding: 17px 22px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 550; }\n.ys-settings .ys-advanced > summary::-webkit-details-marker { display: none; }\n.ys-settings .ys-advanced > summary > svg:last-child { margin-left: auto; color: var(--ys-muted); }\n.ys-settings .ys-advanced[open] > summary > svg:last-child { transform: rotate(90deg); }\n.ys-settings .ys-advanced-body { padding: 0 22px 22px; border-top: 1px solid var(--ys-border); }\n.ys-settings .ys-advanced-body > p { margin: 15px 0; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-diag-intro { display: flex; align-items: center; gap: 20px; justify-content: space-between; margin-bottom: 20px; }\n.ys-settings .ys-diag-intro p { font-size: 13px; color: var(--ys-muted); }\n.ys-settings .ys-diagnostics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }\n.ys-settings .ys-diagnostic { padding: 21px; display: flex; flex-direction: column; min-width: 0; }\n.ys-settings .ys-diagnostic-symbol { display: grid; place-items: center; width: 35px; height: 35px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-muted); margin-bottom: 16px; }\n.ys-settings .ys-diagnostic h3 { font-size: 14px; font-weight: 600; }\n.ys-settings .ys-diagnostic-description { color: var(--ys-muted); font-size: 12px; min-height: 39px; margin-top: 5px; }\n.ys-settings .ys-diagnostic .ys-btn { margin-top: 17px; width: 100%; }\n.ys-settings .ys-diagnostic-result { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 16px; color: var(--ys-muted); }\n.ys-settings .ys-diagnostic-message { font-size: 12px; overflow-wrap: anywhere; color: var(--ys-muted); line-height: 1.7; margin-top: 7px; }\n.ys-settings .ys-footer { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 0; margin-top: 24px; background: var(--ys-bg); border-top: 1px solid var(--ys-border); }\n.ys-settings .ys-footer-copy { display: flex; align-items: center; gap: 7px; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-footer-actions { display: flex; gap: 8px; }\n.ys-settings .ys-footer .ys-btn-primary { min-width: 96px; }\n.ys-settings .ys-bottom-note { font-size: 11px; line-height: 1.8; color: var(--ys-subtle); padding: 20px 0 26px; }\n.ys-settings .ys-spin { animation: ys-settings-spin 1s linear infinite; }\n@keyframes ys-settings-spin { to { transform: rotate(360deg); } }\n@container (max-width: 900px) { .ys-settings .ys-voice-grid { grid-template-columns: 1fr; } }\n@container (max-width: 760px) {\n  .ys-settings .ys-wrap { padding: 26px 24px 0; }\n  .ys-settings .ys-connect-grid { grid-template-columns: 1fr 1fr; }\n  .ys-settings .ys-connect-grid > button { grid-column: span 2; justify-self: end; }\n  .ys-settings .ys-card-header { padding: 19px 20px 0; }\n  .ys-settings .ys-card-body { padding: 19px 20px 20px; }\n  .ys-settings .ys-stat { padding: 14px 15px; }\n  .ys-settings .ys-diagnostics { grid-template-columns: 1fr; }\n  .ys-settings .ys-diagnostic { display: grid; grid-template-columns: auto 1fr auto; gap: 0 13px; align-items: center; }\n  .ys-settings .ys-diagnostic-symbol { margin: 0; grid-row: span 2; }\n  .ys-settings .ys-diagnostic-description { min-height: 0; grid-column: 2; }\n  .ys-settings .ys-diagnostic .ys-btn { grid-column: 3; grid-row: 1 / span 2; margin: 0; width: auto; }\n  .ys-settings .ys-diagnostic-result,.ys-settings .ys-diagnostic-message { grid-column: 2 / -1; }\n}\n@container (max-width: 520px) {\n  .ys-settings .ys-wrap { padding: 22px 16px 0; }\n  .ys-settings .ys-header { align-items: flex-start; gap: 12px; margin-bottom: 22px; }\n  .ys-settings h1 { font-size: 22px; }\n  .ys-settings .ys-brand { width: 40px; height: 40px; flex-basis: 40px; border-radius: 12px; }\n  .ys-settings .ys-header-actions .ys-btn span { display: none; }\n  .ys-settings .ys-header-actions .ys-btn { width: 34px; padding: 8px; }\n  .ys-settings .ys-overview { grid-template-columns: 1fr 1fr; }\n  .ys-settings .ys-stat:nth-child(2) { grid-column: 1 / -1; grid-row: 2; border: 0; border-top: 1px solid var(--ys-border); }\n  .ys-settings .ys-stat:last-child { grid-column: 2; grid-row: 1; }\n  .ys-settings .ys-connect-grid,.ys-settings .ys-grid { grid-template-columns: 1fr; gap: 16px; }\n  .ys-settings .ys-connect-grid > button { grid-column: auto; width: 100%; }\n  .ys-settings .ys-sliders { grid-template-columns: 1fr; gap: 22px; }\n  .ys-settings .ys-slider-top { margin-bottom: 12px; }\n  .ys-settings .ys-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; }\n  .ys-settings .ys-tab { padding: 8px 7px; gap: 5px; }\n  .ys-settings .ys-tab > svg { display: none; }\n  .ys-settings .ys-card-header { padding: 18px 17px 0; }\n  .ys-settings .ys-card-body { padding: 18px 17px 20px; }\n  .ys-settings .ys-device-form { flex-direction: column; align-items: stretch; }\n  .ys-settings .ys-diag-intro { align-items: flex-start; gap: 10px; flex-direction: column; }\n  .ys-settings .ys-footer { padding: 14px 0; }\n  .ys-settings .ys-footer-copy { max-width: 45%; font-size: 11px; }\n  .ys-settings .ys-footer-actions { gap: 3px; }\n  .ys-settings .ys-footer .ys-btn { padding: 7px 10px; }\n}\n@media (prefers-reduced-motion: reduce) { .ys-settings *, .ys-settings *::before, .ys-settings *::after { animation: none !important; transition: none !important; } }\n";
+var settings_default = ".ys-settings {\n  --ys-fg: var(--dsw-alias-label-primary, CanvasText);\n  --ys-muted: var(--dsw-alias-label-secondary, color-mix(in srgb, CanvasText 63%, Canvas));\n  --ys-subtle: var(--dsw-alias-label-tertiary, color-mix(in srgb, CanvasText 48%, Canvas));\n  --ys-bg: var(--dsw-alias-bg-base, Canvas);\n  --ys-panel: var(--dsw-alias-bg-layer-1, Canvas);\n  --ys-border: var(--dsw-alias-border-l2, color-mix(in srgb, CanvasText 13%, Canvas));\n  --ys-fill: color-mix(in srgb, var(--ys-fg) 3%, var(--ys-panel));\n  --ys-hover: color-mix(in srgb, var(--ys-fg) 6%, var(--ys-panel));\n  --ys-primary: var(--dsw-alias-button-primary-fill, #5366d8);\n  --ys-on-primary: var(--dsw-alias-label-primary-foreground, #fff);\n  --ys-green: var(--dsw-alias-state-success-primary, #32a676);\n  --ys-red: var(--dsw-alias-state-error-primary, #db6864);\n  --ys-focus: #8592ef;\n  color: var(--ys-fg);\n  background: var(--ys-bg);\n  font: inherit;\n  font-size: 14px;\n  line-height: 1.6;\n  width: 100%;\n  min-width: 0;\n  container-type: inline-size;\n}\n.ys-settings *, .ys-settings *::before, .ys-settings *::after { box-sizing: border-box; }\n.ys-settings .ys-wrap { max-width: 1056px; margin: 0 auto; padding: 36px 40px 0; }\n.ys-settings h1,.ys-settings h2,.ys-settings h3,.ys-settings p { margin: 0; }\n.ys-settings button,.ys-settings input,.ys-settings select,.ys-settings textarea { font: inherit; }\n.ys-settings button,.ys-settings a,.ys-settings input,.ys-settings select,.ys-settings textarea,.ys-settings summary { -webkit-tap-highlight-color: transparent; }\n.ys-settings :is(button,a,input,select,textarea,summary):focus-visible { outline: 2px solid var(--ys-focus); outline-offset: 3px; }\n.ys-settings .ys-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }\n.ys-settings .ys-title { display: flex; align-items: center; gap: 14px; }\n.ys-settings .ys-brand { display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 15px; background: var(--ys-fill); border: 1px solid var(--ys-border); }\n.ys-settings .ys-brand svg { width: 25px; height: 25px; }\n.ys-settings h1 { font-size: 25px; line-height: 1.3; letter-spacing: -.035em; font-weight: 650; }\n.ys-settings .ys-subtitle { color: var(--ys-muted); font-size: 13px; margin-top: 5px; }\n.ys-settings .ys-header-actions { display: flex; align-items: center; gap: 8px; }\n.ys-settings .ys-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 35px; padding: 7px 13px; border: 1px solid var(--ys-border); border-radius: 9px; background: var(--ys-panel); color: var(--ys-fg); font-size: 13px; font-weight: 550; line-height: 1.5; cursor: pointer; text-decoration: none; white-space: nowrap; transition: background .15s, border-color .15s, opacity .15s; }\n.ys-settings .ys-btn:hover:not(:disabled) { background: var(--ys-hover); }\n.ys-settings .ys-btn-primary { color: var(--ys-on-primary); background: var(--ys-primary); border-color: transparent; }\n.ys-settings .ys-btn-primary:hover:not(:disabled) { background: var(--ys-primary); filter: brightness(.94); }\n.ys-settings .ys-btn-quiet { background: transparent; border-color: transparent; color: var(--ys-muted); }\n.ys-settings .ys-btn-danger:hover:not(:disabled) { color: var(--ys-red); background: color-mix(in srgb, var(--ys-red) 8%, var(--ys-panel)); }\n.ys-settings .ys-btn-icon { width: 34px; min-width: 34px; padding: 7px; }\n.ys-settings button:disabled { opacity: .42; cursor: not-allowed; }\n.ys-settings svg { flex-shrink: 0; }\n.ys-settings .ys-badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ys-border); border-radius: 24px; padding: 3px 9px; color: var(--ys-muted); font-size: 12px; font-weight: 550; white-space: nowrap; }\n.ys-settings .ys-badge[data-tone=success] { color: var(--ys-fg); background: color-mix(in srgb, var(--ys-green) 7%, var(--ys-panel)); border-color: color-mix(in srgb, var(--ys-green) 24%, var(--ys-panel)); }\n.ys-settings .ys-badge[data-tone=error] { color: var(--ys-fg); background: color-mix(in srgb, var(--ys-red) 7%, var(--ys-panel)); border-color: color-mix(in srgb, var(--ys-red) 24%, var(--ys-panel)); }\n.ys-settings .ys-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ys-subtle); }\n.ys-settings [data-tone=success] > .ys-dot { background: var(--ys-green); }\n.ys-settings [data-tone=error] > .ys-dot { background: var(--ys-red); }\n.ys-settings .ys-overview { display: grid; grid-template-columns: 1fr 1.4fr .8fr; margin-bottom: 22px; border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-fill); }\n.ys-settings .ys-stat { min-width: 0; padding: 16px 20px; }\n.ys-settings .ys-stat + .ys-stat { border-left: 1px solid var(--ys-border); }\n.ys-settings .ys-stat-label { display: flex; align-items: center; gap: 7px; color: var(--ys-muted); font-size: 12px; margin-bottom: 7px; }\n.ys-settings .ys-stat-value { font-size: 15px; line-height: 1.5; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.ys-settings .ys-stat-detail { color: var(--ys-subtle); font-size: 12px; margin-top: 2px; }\n.ys-settings .ys-connection { border: 1px solid var(--ys-border); border-radius: 13px; margin-bottom: 24px; background: var(--ys-panel); }\n.ys-settings .ys-connection-top { display: flex; align-items: center; gap: 11px; padding: 15px 18px; }\n.ys-settings .ys-connection-icon { color: var(--ys-muted); display: grid; place-items: center; }\n.ys-settings .ys-connection-copy { flex: 1; min-width: 0; }\n.ys-settings .ys-connection-copy strong { display: block; font-size: 13px; font-weight: 600; }\n.ys-settings .ys-connection-copy p { color: var(--ys-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.ys-settings .ys-connection-body { border-top: 1px solid var(--ys-border); padding: 18px; }\n.ys-settings .ys-connect-grid { display: grid; grid-template-columns: 1.1fr 1.2fr auto; gap: 14px; align-items: end; }\n.ys-settings .ys-help { color: var(--ys-muted); font-size: 12px; line-height: 1.7; margin-top: 10px; }\n.ys-settings .ys-help summary { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; list-style: none; }\n.ys-settings .ys-help summary::-webkit-details-marker { display: none; }\n.ys-settings .ys-help[open] summary svg { transform: rotate(90deg); }\n.ys-settings .ys-help p { margin-top: 6px; }\n.ys-settings .ys-tabs { display: flex; gap: 4px; padding: 4px; width: fit-content; max-width: 100%; border-radius: 11px; background: var(--ys-fill); margin: 0 0 22px; border: 1px solid var(--ys-border); }\n.ys-settings .ys-tabs { overflow-x: auto; scrollbar-width: thin; }\n.ys-settings .ys-client-selection { display: grid; grid-template-columns: minmax(200px,270px) minmax(0,1fr) auto; align-items: center; gap: 20px; padding: 18px 20px; margin-bottom: 22px; border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-panel); }\n.ys-settings .ys-client-scope { min-width: 0; }\n.ys-settings .ys-client-scope strong { display: block; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }\n.ys-settings .ys-client-scope p { color: var(--ys-muted); font-size: 12px; line-height: 1.7; margin-top: 5px; }\n.ys-settings .ys-tab { display: inline-flex; gap: 7px; align-items: center; justify-content: center; padding: 7px 15px; border: 1px solid transparent; background: transparent; color: var(--ys-muted); border-radius: 8px; font-size: 13px; font-weight: 550; cursor: pointer; white-space: nowrap; }\n.ys-settings .ys-tab[aria-selected=true] { color: var(--ys-fg); background: var(--ys-panel); border-color: var(--ys-border); box-shadow: 0 1px 3px #00000005; }\n.ys-settings .ys-count { display: inline-grid; place-items: center; font-size: 11px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 5px; background: var(--ys-hover); }\n.ys-settings .ys-stack { display: grid; gap: 20px; }\n.ys-settings .ys-voice-grid { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 20px; align-items: start; }\n.ys-settings .ys-persona-layout { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(260px,1fr); gap: 20px; align-items: start; }\n.ys-settings .ys-role { min-height: 76px; }\n.ys-settings .ys-personality-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }\n.ys-settings .ys-personality-option { display: block; text-align: left; padding: 13px 14px; color: var(--ys-fg); border: 1px solid var(--ys-border); background: var(--ys-panel); border-radius: 10px; cursor: pointer; }\n.ys-settings .ys-personality-option:hover:not(:disabled) { background: var(--ys-fill); }\n.ys-settings .ys-personality-option[aria-pressed=true] { background: var(--ys-fill); border-color: var(--ys-muted); box-shadow: inset 0 0 0 1px var(--ys-muted); }\n.ys-settings .ys-personality-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }\n.ys-settings .ys-personality-radio { width: 13px; height: 13px; border: 1px solid var(--ys-subtle); border-radius: 50%; flex-shrink: 0; }\n.ys-settings [aria-pressed=true] .ys-personality-radio { border: 4px solid var(--ys-fg); }\n.ys-settings .ys-personality-description { display: block; margin-top: 6px; font-size: 12px; line-height: 1.7; color: var(--ys-muted); }\n.ys-settings .ys-persona-preview { padding: 23px; text-align: center; }\n.ys-settings .ys-persona-preview-label { text-align: left; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-persona-avatar { display: grid; place-items: center; width: 66px; height: 66px; margin: 22px auto 14px; border: 1px solid var(--ys-border); border-radius: 22px; background: var(--ys-fill); font-size: 26px; font-weight: 550; }\n.ys-settings .ys-persona-caption { color: var(--ys-muted); font-size: 12px; margin-top: 5px; }\n.ys-settings .ys-persona-bubble { margin: 22px 0 15px; padding: 17px; border: 1px solid var(--ys-border); border-radius: 12px 12px 12px 3px; background: var(--ys-fill); text-align: left; font-size: 14px; line-height: 1.9; overflow-wrap: anywhere; }\n.ys-settings .ys-persona-preview > .ys-field-help { text-align: left; }\n.ys-settings .ys-persona-guidance { padding: 23px; }\n.ys-settings .ys-persona-guidance p { color: var(--ys-muted); font-size: 12px; line-height: 1.8; margin-top: 8px; }\n.ys-settings .ys-persona-guidance .ys-btn,.ys-settings .ys-persona-guidance .ys-inline-status { margin-top: 14px; }\n.ys-settings .ys-connection[data-collapsed=true] .ys-connection-top { padding-top: 11px; padding-bottom: 11px; }\n.ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy { display: flex; align-items: center; gap: 12px; }\n.ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy strong { flex-shrink: 0; }\n.ys-settings .ys-card { border: 1px solid var(--ys-border); border-radius: 14px; background: var(--ys-panel); min-width: 0; }\n.ys-settings .ys-card-header { display: flex; align-items: flex-start; gap: 11px; padding: 21px 24px 0; }\n.ys-settings .ys-card-symbol { color: var(--ys-muted); padding-top: 2px; }\n.ys-settings .ys-card-heading { flex: 1; min-width: 0; }\n.ys-settings h2 { font-size: 15px; font-weight: 650; letter-spacing: -.015em; }\n.ys-settings .ys-card-heading p { color: var(--ys-muted); font-size: 12px; margin-top: 3px; }\n.ys-settings .ys-card-body { padding: 21px 24px 24px; }\n.ys-settings .ys-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }\n.ys-settings .ys-field { display: block; min-width: 0; }\n.ys-settings .ys-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ys-fg); font-size: 13px; font-weight: 550; margin-bottom: 7px; }\n.ys-settings .ys-label-meta { color: var(--ys-subtle); font-size: 12px; font-weight: 400; }\n.ys-settings .ys-input,.ys-settings .ys-select,.ys-settings .ys-textarea { width: 100%; min-width: 0; min-height: 37px; padding: 9px 11px; color: var(--ys-fg); background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 8px; font-size: 13px; line-height: 1.5; transition: border-color .15s, background .15s; }\n.ys-settings .ys-input::placeholder,.ys-settings .ys-textarea::placeholder { color: var(--ys-subtle); opacity: .85; }\n.ys-settings .ys-input:hover:not(:disabled),.ys-settings .ys-select:hover:not(:disabled),.ys-settings .ys-textarea:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ys-fg) 26%, var(--ys-panel)); }\n.ys-settings .ys-select { cursor: pointer; padding-right: 30px; }\n.ys-settings option,.ys-settings optgroup { color: var(--ys-fg); background: var(--ys-panel); }\n.ys-settings .ys-textarea { display: block; resize: vertical; min-height: 100px; line-height: 1.85; }\n.ys-settings .ys-control { display: flex; align-items: center; border: 1px solid var(--ys-border); border-radius: 8px; background: var(--ys-fill); padding-right: 3px; }\n.ys-settings .ys-control:focus-within { outline: 2px solid var(--ys-focus); outline-offset: 2px; }\n.ys-settings .ys-control .ys-input { border: 0; background: transparent; outline: none; }\n.ys-settings .ys-control .ys-btn-icon { background: transparent; border: 0; color: var(--ys-muted); min-width: 30px; width: 30px; }\n.ys-settings .ys-field-help { color: var(--ys-muted); font-size: 12px; line-height: 1.65; margin-top: 6px; }\n.ys-settings .ys-row { display: flex; align-items: center; gap: 9px; }\n.ys-settings .ys-between { justify-content: space-between; }\n.ys-settings .ys-separator { height: 1px; background: var(--ys-border); margin: 21px 0; }\n.ys-settings .ys-sliders { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 25px; }\n.ys-settings .ys-slider-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 13px; }\n.ys-settings .ys-slider-top label { font-size: 13px; font-weight: 550; }\n.ys-settings .ys-number { width: 64px; color: var(--ys-fg); background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 6px; padding: 3px 5px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }\n.ys-settings input[type=range] { appearance: none; display: block; width: 100%; height: 4px; border-radius: 5px; margin: 0; background: color-mix(in srgb,var(--ys-fg) 14%,var(--ys-panel)); accent-color: var(--ys-primary); cursor: pointer; }\n.ys-settings input[type=range]::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--ys-primary); border: 2px solid var(--ys-panel); box-shadow: 0 0 0 1px var(--ys-border); }\n.ys-settings input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--ys-primary); border: 2px solid var(--ys-panel); }\n.ys-settings .ys-slider-captions { display: flex; justify-content: space-between; color: var(--ys-subtle); font-size: 11px; margin-top: 9px; }\n.ys-settings fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }\n.ys-settings fieldset:disabled :is(input,select,textarea) { opacity: .5; cursor: not-allowed; }\n.ys-settings .ys-inline-status { display: inline-flex; align-items: center; gap: 5px; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-inline-status[data-tone=error] { color: var(--ys-red); }\n.ys-settings .ys-mono { font-family: var(--ds-font-family-code,ui-monospace,SFMono-Regular,Consolas,monospace); font-size: 12px; }\n.ys-settings .ys-code { color: var(--ys-muted); background: var(--ys-fill); border-radius: 5px; padding: 2px 6px; overflow-wrap: anywhere; }\n.ys-settings .ys-custom { padding: 12px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 8px; margin-top: 10px; }\n.ys-settings .ys-timeout { max-width: 270px; }\n.ys-settings .ys-unit { padding: 0 10px; font-size: 12px; color: var(--ys-muted); white-space: nowrap; }\n.ys-settings .ys-note { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--ys-border); background: var(--ys-fill); border-radius: 9px; font-size: 13px; color: var(--ys-muted); }\n.ys-settings .ys-note > svg { margin-top: 2px; }\n.ys-settings .ys-note[data-tone=error] { border-color: color-mix(in srgb,var(--ys-red) 30%,var(--ys-panel)); background: color-mix(in srgb,var(--ys-red) 5%,var(--ys-panel)); color: var(--ys-fg); }\n.ys-settings .ys-note[data-tone=success] { border-color: color-mix(in srgb,var(--ys-green) 27%,var(--ys-panel)); background: color-mix(in srgb,var(--ys-green) 5%,var(--ys-panel)); color: var(--ys-fg); }\n.ys-settings .ys-note-content { flex: 1; min-width: 0; overflow-wrap: anywhere; }\n.ys-settings .ys-device-form { display: flex; gap: 10px; align-items: end; }\n.ys-settings .ys-device-form .ys-field { flex: 1; }\n.ys-settings .ys-devices { border-top: 1px solid var(--ys-border); margin-top: 20px; }\n.ys-settings .ys-device { display: flex; align-items: center; gap: 12px; padding: 14px 0; }\n.ys-settings .ys-device + .ys-device { border-top: 1px solid var(--ys-border); }\n.ys-settings .ys-device-symbol { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 36px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-muted); }\n.ys-settings .ys-device-info { flex: 1; min-width: 0; }\n.ys-settings .ys-device-name { font-weight: 550; overflow-wrap: anywhere; font-size: 13px; }\n.ys-settings .ys-device-detail { font-size: 12px; color: var(--ys-subtle); }\n.ys-settings .ys-empty { text-align: center; color: var(--ys-muted); padding: 24px 10px 10px; font-size: 13px; }\n.ys-settings .ys-empty p { margin-top: 4px; font-size: 12px; color: var(--ys-subtle); }\n.ys-settings .ys-token { margin-top: 17px; padding: 15px; border: 1px solid color-mix(in srgb,var(--ys-green) 28%,var(--ys-panel)); border-radius: 10px; background: color-mix(in srgb,var(--ys-green) 4%,var(--ys-panel)); }\n.ys-settings .ys-token .ys-label { margin-bottom: 8px; }\n.ys-settings .ys-advanced { border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-panel); }\n.ys-settings .ys-advanced > summary { display: flex; align-items: center; gap: 9px; padding: 17px 22px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 550; }\n.ys-settings .ys-advanced > summary::-webkit-details-marker { display: none; }\n.ys-settings .ys-advanced > summary > svg:last-child { margin-left: auto; color: var(--ys-muted); }\n.ys-settings .ys-advanced[open] > summary > svg:last-child { transform: rotate(90deg); }\n.ys-settings .ys-advanced-body { padding: 0 22px 22px; border-top: 1px solid var(--ys-border); }\n.ys-settings .ys-advanced-body > p { margin: 15px 0; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-diag-intro { display: flex; align-items: center; gap: 20px; justify-content: space-between; margin-bottom: 20px; }\n.ys-settings .ys-diag-intro p { font-size: 13px; color: var(--ys-muted); }\n.ys-settings .ys-diagnostics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }\n.ys-settings .ys-diagnostic { padding: 21px; display: flex; flex-direction: column; min-width: 0; }\n.ys-settings .ys-diagnostic-symbol { display: grid; place-items: center; width: 35px; height: 35px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-muted); margin-bottom: 16px; }\n.ys-settings .ys-diagnostic h3 { font-size: 14px; font-weight: 600; }\n.ys-settings .ys-diagnostic-description { color: var(--ys-muted); font-size: 12px; min-height: 39px; margin-top: 5px; }\n.ys-settings .ys-diagnostic .ys-btn { margin-top: 17px; width: 100%; }\n.ys-settings .ys-diagnostic-result { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 16px; color: var(--ys-muted); }\n.ys-settings .ys-diagnostic-message { font-size: 12px; overflow-wrap: anywhere; color: var(--ys-muted); line-height: 1.7; margin-top: 7px; }\n.ys-settings .ys-footer { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 0; margin-top: 24px; background: var(--ys-bg); border-top: 1px solid var(--ys-border); }\n.ys-settings .ys-footer-copy { display: flex; align-items: center; gap: 7px; color: var(--ys-muted); font-size: 12px; }\n.ys-settings .ys-footer-actions { display: flex; gap: 8px; }\n.ys-settings .ys-footer .ys-btn-primary { min-width: 96px; }\n.ys-settings .ys-bottom-note { font-size: 11px; line-height: 1.8; color: var(--ys-subtle); padding: 20px 0 26px; }\n.ys-settings .ys-spin { animation: ys-settings-spin 1s linear infinite; }\n@keyframes ys-settings-spin { to { transform: rotate(360deg); } }\n@container (max-width: 900px) { .ys-settings .ys-voice-grid,.ys-settings .ys-persona-layout { grid-template-columns: 1fr; } }\n@container (max-width: 760px) {\n  .ys-settings .ys-client-selection { grid-template-columns: 1fr auto; }\n  .ys-settings .ys-client-selection > .ys-field { grid-column: 1 / -1; }\n  .ys-settings .ys-wrap { padding: 26px 24px 0; }\n  .ys-settings .ys-connect-grid { grid-template-columns: 1fr 1fr; }\n  .ys-settings .ys-connect-grid > button { grid-column: span 2; justify-self: end; }\n  .ys-settings .ys-card-header { padding: 19px 20px 0; }\n  .ys-settings .ys-card-body { padding: 19px 20px 20px; }\n  .ys-settings .ys-stat { padding: 14px 15px; }\n  .ys-settings .ys-diagnostics { grid-template-columns: 1fr; }\n  .ys-settings .ys-diagnostic { display: grid; grid-template-columns: auto 1fr auto; gap: 0 13px; align-items: center; }\n  .ys-settings .ys-diagnostic-symbol { margin: 0; grid-row: span 2; }\n  .ys-settings .ys-diagnostic-description { min-height: 0; grid-column: 2; }\n  .ys-settings .ys-diagnostic .ys-btn { grid-column: 3; grid-row: 1 / span 2; margin: 0; width: auto; }\n  .ys-settings .ys-diagnostic-result,.ys-settings .ys-diagnostic-message { grid-column: 2 / -1; }\n}\n@container (max-width: 520px) {\n  .ys-settings .ys-wrap { padding: 22px 16px 0; }\n  .ys-settings .ys-header { align-items: flex-start; gap: 12px; margin-bottom: 22px; }\n  .ys-settings h1 { font-size: 22px; }\n  .ys-settings .ys-brand { width: 40px; height: 40px; flex-basis: 40px; border-radius: 12px; }\n  .ys-settings .ys-header-actions .ys-btn span { display: none; }\n  .ys-settings .ys-header-actions .ys-btn { width: 34px; padding: 8px; }\n  .ys-settings .ys-overview { grid-template-columns: 1fr 1fr; }\n  .ys-settings .ys-stat:nth-child(2) { grid-column: 1 / -1; grid-row: 2; border: 0; border-top: 1px solid var(--ys-border); }\n  .ys-settings .ys-stat:last-child { grid-column: 2; grid-row: 1; }\n  .ys-settings .ys-connect-grid,.ys-settings .ys-grid { grid-template-columns: 1fr; gap: 16px; }\n  .ys-settings .ys-connect-grid > button { grid-column: auto; width: 100%; }\n  .ys-settings .ys-sliders { grid-template-columns: 1fr; gap: 22px; }\n  .ys-settings .ys-slider-top { margin-bottom: 12px; }\n  .ys-settings .ys-tabs { display: flex; width: 100%; }\n  .ys-settings .ys-tab { flex: 0 0 auto; min-width: 86px; padding: 8px 7px; gap: 3px; font-size: 12px; }\n  .ys-settings .ys-tab > svg { display: none; }\n  .ys-settings .ys-tab .ys-count { display: none; }\n  .ys-settings .ys-personality-options { grid-template-columns: 1fr; }\n  .ys-settings .ys-card-header { padding: 18px 17px 0; }\n  .ys-settings .ys-card-body { padding: 18px 17px 20px; }\n  .ys-settings .ys-device-form { flex-direction: column; align-items: stretch; }\n  .ys-settings .ys-diag-intro { align-items: flex-start; gap: 10px; flex-direction: column; }\n  .ys-settings .ys-footer { padding: 14px 0; }\n  .ys-settings .ys-footer-copy { max-width: 45%; font-size: 11px; }\n  .ys-settings .ys-footer-actions { gap: 3px; }\n  .ys-settings .ys-footer .ys-btn { padding: 7px 10px; }\n}\n@media (prefers-reduced-motion: reduce) { .ys-settings *, .ys-settings *::before, .ys-settings *::after { animation: none !important; transition: none !important; } }\n";
+
+// src/persona.ts
+var VOICE_PRESET_ID = "yusheng-assistant";
+var PERSONALITIES = [
+  { id: "warm", name: "\u6E29\u6696\u4F53\u8D34", description: "\u4EB2\u5207\u3001\u7EC6\u5FC3\uFF0C\u9002\u5EA6\u5171\u60C5\uFF0C\u4E0D\u4F7F\u7528\u5938\u5F20\u7684\u5B89\u6170\u548C\u5949\u627F\u3002", sample: "\u6211\u5728\u5462\uFF0C\u60F3\u804A\u804A\u5929\uFF0C\u8FD8\u662F\u4E00\u8D77\u505A\u70B9\u4EC0\u4E48\uFF1F" },
+  { id: "lively", name: "\u6D3B\u6CFC\u5F00\u6717", description: "\u8F7B\u5FEB\u3001\u6709\u6D3B\u529B\uFF0C\u53EF\u4EE5\u9002\u5EA6\u5E7D\u9ED8\uFF0C\u907F\u514D\u8FC7\u5206\u5356\u840C\u6216\u55A7\u95F9\u3002", sample: "\u6211\u51C6\u5907\u597D\u5566\uFF0C\u4ECA\u5929\u6709\u4EC0\u4E48\u65B0\u9C9C\u4E8B\uFF1F" },
+  { id: "calm", name: "\u6C89\u7A33\u8010\u5FC3", description: "\u5E73\u548C\u3001\u8010\u5FC3\uFF0C\u89E3\u91CA\u6E05\u695A\uFF0C\u7ED9\u7528\u6237\u601D\u8003\u548C\u56DE\u5E94\u7684\u7A7A\u95F4\u3002", sample: "\u6211\u5728\uFF0C\u6211\u4EEC\u53EF\u4EE5\u6162\u6162\u6765\u3002\u5148\u4ECE\u54EA\u4EF6\u4E8B\u5F00\u59CB\uFF1F" },
+  { id: "professional", name: "\u4E13\u4E1A\u5E72\u7EC3", description: "\u76F4\u63A5\u3001\u51C6\u786E\u3001\u6709\u6761\u7406\uFF0C\u5C0A\u91CD\u7528\u6237\u65F6\u95F4\uFF0C\u5C11\u5BD2\u6684\u3002", sample: "\u8BF7\u544A\u8BC9\u6211\u4F60\u7684\u76EE\u6807\uFF0C\u6211\u6765\u534F\u52A9\u5904\u7406\u3002" },
+  { id: "custom", name: "\u81EA\u5B9A\u4E49\u6027\u683C", description: "\u6309\u7528\u6237\u914D\u7F6E\u7684\u6027\u683C\u63CF\u8FF0\u4EA4\u6D41\uFF0C\u9ED8\u8BA4\u4FDD\u6301\u81EA\u7136\u3001\u53CB\u597D\u3002", sample: "\u544A\u8BC9\u6211\u4F60\u7684\u60F3\u6CD5\uFF0C\u6211\u4EEC\u4E00\u8D77\u628A\u4E8B\u60C5\u505A\u597D\u3002" }
+];
+var REPLY_STYLES = [
+  { id: "concise", name: "\u7B80\u77ED\u5229\u843D", description: "\u9ED8\u8BA4\u4E00\u5230\u4E09\u53E5\u8BDD\uFF0C\u5148\u8BF4\u7ED3\u8BBA\uFF1B\u7528\u6237\u8981\u6C42\u7EC6\u8BB2\u65F6\u518D\u5C55\u5F00\u3002" },
+  { id: "natural", name: "\u81EA\u7136\u4EA4\u6D41", description: "\u6309\u8BDD\u9898\u81EA\u7136\u8C03\u6574\u957F\u5EA6\uFF0C\u907F\u514D\u4E00\u6B21\u8BF4\u592A\u591A\uFF0C\u5FC5\u8981\u65F6\u5206\u6B65\u89E3\u91CA\u3002" },
+  { id: "detailed", name: "\u8010\u5FC3\u8BE6\u7EC6", description: "\u9700\u8981\u65F6\u89E3\u91CA\u539F\u56E0\u548C\u6B65\u9AA4\uFF0C\u4F46\u5206\u6210\u6613\u542C\u61C2\u7684\u77ED\u53E5\uFF0C\u907F\u514D\u957F\u7BC7\u72EC\u767D\u3002" }
+];
+var PRESENTATION_STYLES = [
+  { id: "restrained", name: "\u514B\u5236\u7B80\u6D01", description: "\u5C11\u7528\u8868\u60C5\u4E0E\u52A8\u4F5C\uFF0C\u53EA\u5728\u660E\u663E\u6709\u5E2E\u52A9\u65F6\u4F7F\u7528\u3002" },
+  { id: "natural", name: "\u81EA\u7136\u9002\u5EA6", description: "\u5728\u95EE\u5019\u3001\u5171\u60C5\u3001\u786E\u8BA4\u7B49\u5408\u9002\u65F6\u523B\u914D\u5408\u8868\u60C5\u52A8\u4F5C\uFF0C\u907F\u514D\u91CD\u590D\u3002" },
+  { id: "expressive", name: "\u751F\u52A8\u4E30\u5BCC", description: "\u66F4\u79EF\u6781\u5730\u914D\u5408\u8BED\u4E49\u8868\u8FBE\u8868\u60C5\u52A8\u4F5C\uFF0C\u4F46\u4E0D\u9010\u53E5\u8868\u6F14\uFF0C\u4E0D\u59A8\u788D\u4EFB\u52A1\u5B8C\u6210\u3002" }
+];
+var DEFAULT_PERSONA = {
+  assistantName: "\u8BED\u58F0",
+  userTitle: "",
+  assistantRole: "\u966A\u4F34\u4EA4\u6D41\u3001\u67E5\u8BE2\u4FE1\u606F\u5E76\u534F\u52A9\u5B8C\u6210\u4EFB\u52A1\u7684\u8BED\u97F3\u52A9\u624B",
+  personality: "warm",
+  personalityNotes: "",
+  replyStyle: "concise",
+  presentationStyle: "natural"
+};
+
+// src/client/persona-settings.tsx
+var import_jsx_runtime = require("react/jsx-runtime");
+function PersonaSettings({ value, onChange, preset }) {
+  const name = value("assistantName", DEFAULT_PERSONA.assistantName);
+  const title = value("userTitle");
+  const personality = PERSONALITIES.find((p) => p.id === value("personality", DEFAULT_PERSONA.personality)) ?? PERSONALITIES[0];
+  const reply = value("replyStyle", DEFAULT_PERSONA.replyStyle);
+  const movement = value("presentationStyle", DEFAULT_PERSONA.presentationStyle);
+  const notes = value("personalityNotes");
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-persona-layout", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "ys-card", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-card-header", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-card-heading", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "\u5B9A\u4E49\u4F60\u7684\u52A9\u624B" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "\u4ECE\u540D\u5B57\u5230\u4EA4\u6D41\u65B9\u5F0F\uFF0C\u8BA9\u6BCF\u4E00\u6B21\u5BF9\u8BDD\u66F4\u5408\u62CD\u3002" })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-grid", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u52A9\u624B\u540D\u79F0" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input", required: true, maxLength: 32, value: name, placeholder: "\u4F8B\u5982 \u8BED\u58F0\u3001\u5C0F\u8BED", onChange: (e) => onChange("assistantName", e.target.value) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u52A9\u624B\u5728\u5BF9\u8BDD\u4E2D\u4F7F\u7528\u7684\u540D\u5B57\u3002" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label", children: [
+              "\u5982\u4F55\u79F0\u547C\u4F60 ",
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label-meta", children: "\u9009\u586B" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input", maxLength: 32, value: title, placeholder: "\u4F8B\u5982 \u5C0F\u6797\u3001\u9648\u5148\u751F", onChange: (e) => onChange("userTitle", e.target.value) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u7559\u7A7A\u65F6\u4F7F\u7528\u81EA\u7136\u79F0\u547C\u3002" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", style: { marginTop: 20 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label", children: [
+            "\u52A9\u624B\u89D2\u8272 ",
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label-meta", children: [
+              value("assistantRole", DEFAULT_PERSONA.assistantRole).length,
+              " / 200"
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { className: "ys-textarea ys-role", required: true, rows: 2, maxLength: 200, value: value("assistantRole", DEFAULT_PERSONA.assistantRole), placeholder: "\u4F8B\u5982\uFF1A\u966A\u6211\u804A\u5929\u3001\u67E5\u8BE2\u4FE1\u606F\uFF0C\u5E2E\u52A9\u5B89\u6392\u65E5\u5E38\u4E8B\u52A1\u7684\u4F19\u4F34\u3002", onChange: (e) => onChange("assistantRole", e.target.value) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-separator" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-label", id: "ys-personality-label", children: "\u6027\u683C\u6A21\u677F" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-personality-options", role: "group", "aria-labelledby": "ys-personality-label", children: PERSONALITIES.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "ys-personality-option", type: "button", "aria-pressed": personality.id === item.id, onClick: () => onChange("personality", item.id), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-personality-name", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { className: "ys-personality-radio" }),
+            item.name
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-personality-description", children: item.description })
+        ] }, item.id)) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", style: { marginTop: 20 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label", children: [
+            personality.id === "custom" ? "\u81EA\u5B9A\u4E49\u6027\u683C\u63CF\u8FF0" : "\u8865\u5145\u6027\u683C\u504F\u597D",
+            " ",
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label-meta", children: [
+              notes.length,
+              " / 2000"
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { className: "ys-textarea", rows: 3, maxLength: 2e3, value: notes, placeholder: "\u4F8B\u5982\uFF1A\u6709\u4E00\u70B9\u5E7D\u9ED8\u611F\uFF0C\u5C0A\u91CD\u6211\u7684\u8282\u594F\uFF1B\u5DE5\u4F5C\u65F6\u76F4\u63A5\u4E00\u4E9B\uFF0C\u95F2\u804A\u65F6\u8F7B\u677E\u4E00\u4E9B\u3002", onChange: (e) => onChange("personalityNotes", e.target.value) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u53EF\u4EE5\u8865\u5145\u8BED\u6C14\u3001\u559C\u597D\u548C\u4EA4\u6D41\u4E60\u60EF\uFF1B\u5207\u6362\u6A21\u677F\u4F1A\u4FDD\u7559\u8FD9\u6BB5\u63CF\u8FF0\u3002" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-separator" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-grid", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u56DE\u7B54\u957F\u5EA6" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { className: "ys-select", value: reply, onChange: (e) => onChange("replyStyle", e.target.value), children: REPLY_STYLES.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: item.id, children: item.name }, item.id)) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: REPLY_STYLES.find((item) => item.id === reply)?.description })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u8868\u60C5\u52A8\u4F5C\u98CE\u683C" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { className: "ys-select", value: movement, onChange: (e) => onChange("presentationStyle", e.target.value), children: PRESENTATION_STYLES.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: item.id, children: item.name }, item.id)) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u5728\u652F\u6301\u5F62\u8C61\u7684\u5BA2\u6237\u7AEF\u751F\u6548\u3002" })
+          ] })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("aside", { className: "ys-stack", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "ys-card ys-persona-preview", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-persona-preview-label", children: "\u98CE\u683C\u793A\u610F" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-persona-avatar", "aria-hidden": "true", children: name.trim().slice(0, 1) || "\u8BED" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: name.trim() || "\u4F60\u7684\u52A9\u624B" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { className: "ys-persona-caption", children: [
+          personality.name,
+          " \xB7 ",
+          REPLY_STYLES.find((item) => item.id === reply)?.name
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-persona-bubble", children: [
+          title.trim() ? `${title.trim()}\uFF0C` : "\u4F60\u597D\uFF0C",
+          "\u6211\u53EB",
+          name.trim() || "\u8BED\u58F0",
+          "\u3002",
+          personality.sample
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u793A\u610F\u6587\u6848\u4F1A\u968F\u540D\u5B57\u548C\u6027\u683C\u66F4\u65B0\uFF0C\u5B9E\u9645\u56DE\u7B54\u7531\u6A21\u578B\u751F\u6210\u3002\u97F3\u8272\u53EF\u5728\u300C\u58F0\u97F3\u4E0E\u5BF9\u8BDD\u300D\u4E2D\u5355\u72EC\u8C03\u6574\u3002" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "ys-card ys-persona-guidance", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "\u8BED\u58F0\u52A9\u624B\u6A21\u5F0F" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "\u4E3A\u8BED\u97F3\u4EA4\u6D41\u4F18\u5316\uFF0C\u652F\u6301\u5DE5\u5177\u6267\u884C\u3001\u6301\u7EED\u5BF9\u8BDD\u548C\u5BA2\u6237\u7AEF\u754C\u9762\u4E92\u52A8\u3002" }),
+        value("agentPreset", VOICE_PRESET_ID) === VOICE_PRESET_ID ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-inline-status", "data-tone": preset?.broken ? "error" : void 0, children: preset?.broken ? "\u5F53\u524D\u6A21\u5F0F\u4E0D\u53EF\u7528" : preset ? "\u2713 \u5DF2\u9009\u62E9\u4E13\u7528\u6A21\u5F0F" : "\u7B49\u5F85\u6A21\u5F0F\u5C31\u7EEA" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ys-btn", type: "button", disabled: !preset || preset.broken, onClick: () => onChange("agentPreset", VOICE_PRESET_ID), children: "\u9009\u7528\u8BED\u58F0\u52A9\u624B" }),
+        preset?.problem && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { overflowWrap: "anywhere" }, children: preset.problem }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-separator" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "\u4FDD\u5B58\u540E\u4ECE\u4E0B\u4E00\u8F6E\u5BF9\u8BDD\u5F00\u59CB\u4F7F\u7528\u65B0\u7684\u4EBA\u8BBE\uFF0C\u6B63\u5728\u8FDB\u884C\u7684\u56DE\u7B54\u4FDD\u6301\u5F53\u524D\u914D\u7F6E\uFF0C\u5BF9\u8BDD\u5386\u53F2\u4F1A\u7EE7\u7EED\u4FDD\u7559\u3002\u8FD9\u4E9B\u8BBE\u7F6E\u53EA\u4F5C\u7528\u4E8E\u5F53\u524D\u5BA2\u6237\u7AEF\uFF0C\u5176\u4ED6\u5BA2\u6237\u7AEF\u4E0D\u4F1A\u968F\u4E4B\u6539\u53D8\u3002" })
+      ] })
+    ] })
+  ] });
+}
+
+// src/client/management-client.ts
+function hostManagementUrl() {
+  return new URL("api/yusheng-voice/manage", document.baseURI).href;
+}
+async function request(connection, path, method = "GET", body) {
+  const host = connection.mode === "host";
+  const response = await fetch(host ? connection.baseUrl : connection.baseUrl + path, {
+    method: host ? "POST" : method,
+    credentials: host ? "same-origin" : "omit",
+    headers: host ? { "content-type": "application/json" } : { "content-type": "application/json", "x-voice-token": connection.token },
+    ...host ? { body: JSON.stringify({ path, method, ...body === void 0 ? {} : { body } }) } : body === void 0 ? {} : { body: JSON.stringify(body) },
+    signal: AbortSignal.timeout(path.startsWith("/test/") ? 65e3 : 12e3)
+  });
+  if (host && response.status === 401) throw new Error("dsh \u767B\u5F55\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55 dsh \u540E\u91CD\u8BD5\u3002");
+  if (host && response.status === 403) throw new Error("\u5F53\u524D dsh \u767B\u5F55\u65E0\u7BA1\u7406\u6743\u9650\uFF0C\u6216\u8BF7\u6C42\u6765\u6E90\u672A\u83B7\u5141\u8BB8\u3002");
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(host ? `\u65E0\u6CD5\u8BFB\u53D6\u7BA1\u7406\u63A5\u53E3\uFF08HTTP ${response.status}\uFF09\uFF0C\u8BF7\u786E\u8BA4\u63D2\u4EF6\u5DF2\u5347\u7EA7\u5E76\u91CD\u542F dsh\u3002` : `\u670D\u52A1\u54CD\u5E94\u683C\u5F0F\u4E0D\u6B63\u786E\uFF08HTTP ${response.status}\uFF09\u3002`);
+  }
+  if (!response.ok) throw new Error(data.message ?? data.error ?? `\u8BF7\u6C42\u5931\u8D25\uFF08${response.status}\uFF09`);
+  return data;
+}
+
+// src/client/client-memory-panel.tsx
+var import_react = require("react");
+var import_jsx_runtime2 = require("react/jsx-runtime");
+function ClientMemoryPanel({ clientId, connection, snapshot, conversations, canRestore, disabled, onDirty, onRefresh }) {
+  const [base, setBase] = (0, import_react.useState)(snapshot), [draft, setDraft] = (0, import_react.useState)(), [busy, setBusy] = (0, import_react.useState)(false), [notice, setNotice] = (0, import_react.useState)(""), [confirm, setConfirm] = (0, import_react.useState)(false);
+  const alive = (0, import_react.useRef)(true);
+  (0, import_react.useEffect)(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const saved = base.items.map((i) => i.text).join("\n"), text = draft ?? saved, dirty = text !== saved;
+  (0, import_react.useEffect)(() => {
+    onDirty(dirty);
+  }, [dirty]);
+  (0, import_react.useEffect)(() => {
+    if (!dirty) setBase(snapshot);
+  }, [snapshot, dirty]);
+  async function save() {
+    if (disabled || busy || !dirty) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const result = await request(connection, `/clients/${clientId}/memory`, "PUT", { text, revision: base.revision });
+      if (!alive.current) return;
+      setBase(result.memory);
+      setDraft(void 0);
+      setNotice("\u6B64\u5BA2\u6237\u7AEF\u7684\u957F\u671F\u8BB0\u5FC6\u5DF2\u4FDD\u5B58\u3002");
+      await onRefresh();
+    } catch (error) {
+      if (alive.current) setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  }
+  async function context(operation) {
+    if (disabled || busy || dirty) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      await request(connection, `/clients/${clientId}/context/${operation}`, "POST");
+      if (!alive.current) return;
+      setConfirm(false);
+      setNotice(operation === "reset" ? "\u6B64\u5BA2\u6237\u7AEF\u5DF2\u5F00\u59CB\u65B0\u7684\u5BF9\u8BDD\u4E0A\u4E0B\u6587\uFF0C\u957F\u671F\u8BB0\u5FC6\u5DF2\u4FDD\u7559\u3002" : "\u6B64\u5BA2\u6237\u7AEF\u5DF2\u6062\u590D\u4E0A\u6B21\u5BF9\u8BDD\u4E0A\u4E0B\u6587\u3002");
+      await onRefresh();
+    } catch (error) {
+      if (alive.current) setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-stack", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "ys-card", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-card-header", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-card-heading", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h2", { children: "\u6B64\u5BA2\u6237\u7AEF\u7684\u957F\u671F\u8BB0\u5FC6" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { children: "\u53EA\u4E3A\u5F53\u524D\u5BA2\u6237\u7AEF\u4FDD\u5B58\u504F\u597D\u548C\u4E8B\u5B9E\uFF0C\u8DE8\u5BF9\u8BDD\u3001\u65AD\u7EBF\u548C\u91CD\u542F\u7EE7\u7EED\u4F7F\u7528\u3002" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "ys-label-meta", children: [
+          base.items.length,
+          " / 32 \u6761"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "ys-label", htmlFor: "ys-client-memory", children: [
+          "\u8BB0\u5FC6\u5185\u5BB9 ",
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ys-label-meta", children: "\u6BCF\u884C\u4E00\u6761\uFF0C\u6700\u591A 8000 \u5B57" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("textarea", { id: "ys-client-memory", className: "ys-textarea", rows: 8, maxLength: 8032, value: text, disabled: disabled || busy, onChange: (e) => setDraft(e.target.value), placeholder: "\u4F8B\u5982\uFF1A\u559C\u6B22\u7B80\u6D01\u7684\u56DE\u7B54\u3002\\n\u4E5F\u53EF\u4EE5\u5728\u5BF9\u8BDD\u4E2D\u544A\u8BC9\u52A9\u624B\u201C\u8BF7\u8BB0\u4F4F\u2026\u2026\u201D\u3002" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "ys-field-help", children: "\u52A9\u624B\u53EF\u4EE5\u901A\u8FC7\u4E13\u7528\u8BB0\u5FC6\u5DE5\u5177\u4FDD\u5B58\u6216\u5FD8\u8BB0\u5F53\u524D\u5BA2\u6237\u7AEF\u7684\u4E8B\u5B9E\u3002\u5176\u4ED6\u5BA2\u6237\u7AEF\u8BFB\u4E0D\u5230\u8FD9\u4EFD\u8BB0\u5FC6\u3002" }),
+        dirty && snapshot.revision !== base.revision && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "ys-field-help", role: "alert", children: "\u670D\u52A1\u7AEF\u5DF2\u6709\u65B0\u7684\u8BB0\u5FC6\u3002\u8BF7\u5148\u5408\u5E76\u5185\u5BB9\uFF0C\u6216\u64A4\u9500\u672C\u5730\u4FEE\u6539\u540E\u52A0\u8F7D\u6700\u65B0\u7248\u672C\u3002" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-row ys-between", style: { marginTop: 18 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ys-field-help", role: "status", children: notice || (dirty ? "\u957F\u671F\u8BB0\u5FC6\u6709\u672A\u4FDD\u5B58\u7684\u66F4\u6539" : "\u957F\u671F\u8BB0\u5FC6\u5DF2\u540C\u6B65") }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ys-btn ys-btn-quiet", type: "button", disabled: busy || !dirty, onClick: () => {
+              setDraft(void 0);
+              setBase(snapshot);
+              setNotice("");
+            }, children: "\u64A4\u9500\u4FEE\u6539" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ys-btn ys-btn-primary", type: "button", disabled: disabled || busy || !dirty, onClick: () => void save(), children: busy ? "\u5904\u7406\u4E2D\u2026" : "\u4FDD\u5B58\u8BB0\u5FC6" })
+          ] })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "ys-card", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ys-card-header", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-card-heading", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h2", { children: "\u5BF9\u8BDD\u4E0A\u4E0B\u6587" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { children: "\u5F53\u524D\u5BA2\u6237\u7AEF\u7684\u804A\u5929\u5386\u53F2\u4E0E\u4F1A\u8BDD\u6A21\u5F0F\u72EC\u7ACB\u4FDD\u5B58\u3002" })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-card-body", children: [
+        conversations.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ys-devices", style: { marginTop: 0 }, children: conversations.slice(-12).reverse().map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-device", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-device-info", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ys-device-name", children: c.conversationId }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("p", { className: "ys-device-detail", children: [
+              c.preset || "\u9ED8\u8BA4\u6A21\u5F0F",
+              " \xB7 ",
+              new Date(c.updatedAt).toLocaleString("zh-CN")
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ys-badge", children: c.archived ? "\u5DF2\u5F52\u6863" : "\u5F53\u524D\u4E0A\u4E0B\u6587" })
+        ] }, i)) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "ys-field-help", children: "\u6B64\u5BA2\u6237\u7AEF\u5C1A\u672A\u5F00\u59CB\u5BF9\u8BDD\u3002\u9996\u6B21\u4EA4\u4E92\u540E\u4F1A\u81EA\u52A8\u4FDD\u5B58\u4E0A\u4E0B\u6587\u3002" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ys-separator" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "ys-field-help", children: "\u91CD\u65B0\u5F00\u59CB\u53EA\u5F71\u54CD\u6B64\u5BA2\u6237\u7AEF\u7684\u5BF9\u8BDD\u4E0A\u4E0B\u6587\uFF0C\u957F\u671F\u8BB0\u5FC6\u3001\u4EBA\u8BBE\u548C\u5176\u4ED6\u5BA2\u6237\u7AEF\u5747\u4FDD\u7559\u3002\u539F\u4E0A\u4E0B\u6587\u4F1A\u5F52\u6863\uFF0C\u53EF\u64A4\u9500\u4E0A\u6B21\u91CD\u7F6E\u3002" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ys-row", style: { marginTop: 14, flexWrap: "wrap" }, children: [
+          confirm ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ys-field-help", children: "\u786E\u8BA4\u91CD\u65B0\u5F00\u59CB\u6B64\u5BA2\u6237\u7AEF\u7684\u5BF9\u8BDD\uFF1F" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ys-btn", type: "button", disabled: disabled || busy || dirty, onClick: () => void context("reset"), children: "\u786E\u8BA4\u91CD\u65B0\u5F00\u59CB" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ys-btn ys-btn-quiet", type: "button", onClick: () => setConfirm(false), children: "\u53D6\u6D88" })
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ys-btn", type: "button", disabled: disabled || busy || dirty, onClick: () => setConfirm(true), children: "\u91CD\u65B0\u5F00\u59CB\u5BF9\u8BDD\u4E0A\u4E0B\u6587" }),
+          canRestore && !confirm && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ys-btn ys-btn-quiet", type: "button", disabled: disabled || busy || dirty, onClick: () => void context("restore"), children: "\u64A4\u9500\u4E0A\u6B21\u91CD\u7F6E" })
+        ] })
+      ] })
+    ] })
+  ] });
+}
 
 // src/client/settings-panel.tsx
-var import_jsx_runtime = require("react/jsx-runtime");
+var import_jsx_runtime3 = require("react/jsx-runtime");
 var NUMBERS = ["ttsSpeed", "ttsVol", "ttsPitch", "maxTurnSeconds"];
 var TESTS = [{ id: "asr", name: "\u8BED\u97F3\u8BC6\u522B", description: "\u68C0\u67E5 MiniMax \u8BC6\u522B\u670D\u52A1\u4E0E\u51ED\u636E\u3002", button: "\u6D4B\u8BD5\u8BC6\u522B", icon: "mic" }, { id: "llm", name: "\u5BF9\u8BDD\u80FD\u529B", description: "\u901A\u8FC7 dsh \u4F1A\u8BDD\u9A8C\u8BC1\u6A21\u578B\u8C03\u7528\u3002", button: "\u6D4B\u8BD5\u5BF9\u8BDD", icon: "sparkles" }, { id: "tts", name: "\u8BED\u97F3\u5408\u6210", description: "\u68C0\u67E5\u5F53\u524D\u5DF2\u4FDD\u5B58\u7684\u58F0\u97F3\u914D\u7F6E\u3002", button: "\u6D4B\u8BD5\u5408\u6210", icon: "volume" }];
 function Icon({ name, size = 16, spin = false }) {
   const paths = {
-    mic: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: "9", y: "2", width: "6", height: "12", rx: "3" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" })
+    mic: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("rect", { x: "9", y: "2", width: "6", height: "12", rx: "3" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" })
     ] }),
-    wave: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M3 10v4M7 6v12M12 3v18M17 7v10M21 10v4" }) }),
-    plug: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: "5", y: "7", width: "14", height: "10", rx: "3" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M8 3v4M16 3v4M12 17v4M9 11h.01M15 11h.01" })
+    wave: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_jsx_runtime3.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M3 10v4M7 6v12M12 3v18M17 7v10M21 10v4" }) }),
+    plug: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("rect", { x: "5", y: "7", width: "14", height: "10", rx: "3" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M8 3v4M16 3v4M12 17v4M9 11h.01M15 11h.01" })
     ] }),
-    sparkles: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3ZM20 2v4M18 4h4" }) }),
-    device: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: "4", y: "3", width: "16", height: "14", rx: "3" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M8 21h8M12 17v4M8 7h8M8 11h4" })
+    sparkles: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_jsx_runtime3.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3ZM20 2v4M18 4h4" }) }),
+    device: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("rect", { x: "4", y: "3", width: "16", height: "14", rx: "3" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M8 21h8M12 17v4M8 7h8M8 11h4" })
     ] }),
-    shield: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m8 12 3 3 5-6" })
+    shield: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m8 12 3 3 5-6" })
     ] }),
-    check: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m5 12 4 4L19 6" }),
-    refresh: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M20 7v5h-5M4 17v-5h5" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1" })
+    check: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m5 12 4 4L19 6" }),
+    refresh: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M20 7v5h-5M4 17v-5h5" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1" })
     ] }),
-    arrow: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M7 17 17 7M7 7h10v10" }) }),
-    chevron: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m9 5 7 7-7 7" }),
-    copy: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: "8", y: "8", width: "12", height: "13", rx: "2" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" })
+    arrow: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_jsx_runtime3.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M7 17 17 7M7 7h10v10" }) }),
+    chevron: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m9 5 7 7-7 7" }),
+    copy: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("rect", { x: "8", y: "8", width: "12", height: "13", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" })
     ] }),
-    eye: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", { cx: "12", cy: "12", r: "3" })
+    eye: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("circle", { cx: "12", cy: "12", r: "3" })
     ] }),
-    hidden: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m3 3 18 18M10 5a11 11 0 0 1 2 0c6.5 0 10 7 10 7a21 21 0 0 1-4 5M6 6a22 22 0 0 0-4 6s3.5 7 10 7a13 13 0 0 0 5-1M10 10a3 3 0 0 0 4 4" }) }),
-    trash: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7" }) }),
-    clock: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M12 7v5l3 2" })
+    hidden: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_jsx_runtime3.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m3 3 18 18M10 5a11 11 0 0 1 2 0c6.5 0 10 7 10 7a21 21 0 0 1-4 5M6 6a22 22 0 0 0-4 6s3.5 7 10 7a13 13 0 0 0 5-1M10 10a3 3 0 0 0 4 4" }) }),
+    trash: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_jsx_runtime3.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7" }) }),
+    clock: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M12 7v5l3 2" })
     ] }),
-    volume: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m11 4-6 5H2v6h3l6 5V4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" }) }),
-    info: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M12 11v6M12 7h.01" })
+    volume: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(import_jsx_runtime3.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m11 4-6 5H2v6h3l6 5V4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" }) }),
+    info: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M12 11v6M12 7h.01" })
     ] }),
-    close: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "m6 6 12 12M6 18 18 6" })
+    close: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "m6 6 12 12M6 18 18 6" })
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { className: spin ? "ys-spin" : void 0, width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.65", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true", focusable: "false", children: paths[name] ?? paths.info });
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("svg", { className: spin ? "ys-spin" : void 0, width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.65", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true", focusable: "false", children: paths[name] ?? paths.info });
 }
 function Badge({ tone, children }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-badge", "data-tone": tone, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { className: "ys-dot" }),
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-badge", "data-tone": tone, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: "ys-dot" }),
     children
   ] });
 }
 function Card({ icon, title, description, action, children }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "ys-card", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-card-header", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-card-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: icon, size: 18 }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-card-heading", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: title }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: description })
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { className: "ys-card", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-card-header", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-card-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: icon, size: 18 }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-card-heading", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h2", { children: title }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: description })
       ] }),
       action
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-card-body", children })
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-card-body", children })
   ] });
 }
 function SecretField({ id, label, value, onChange, placeholder, disabled, readOnly, onCopy, help, maxLength = 256 }) {
-  const [visible, setVisible] = (0, import_react.useState)(false);
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-field", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", { className: "ys-label", htmlFor: id, children: label }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-control", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { id, className: "ys-input" + (readOnly ? " ys-mono" : ""), type: visible ? "text" : "password", autoComplete: "off", spellCheck: false, value, onChange: (e) => onChange?.(e.target.value), placeholder, disabled, readOnly, maxLength }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": (visible ? "\u9690\u85CF" : "\u663E\u793A") + label, title: (visible ? "\u9690\u85CF" : "\u663E\u793A") + label, disabled: disabled || !value, onClick: () => setVisible(!visible), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: visible ? "hidden" : "eye" }) }),
-      onCopy && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": "\u590D\u5236" + label, title: "\u590D\u5236" + label, onClick: onCopy, disabled: disabled || !value, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "copy" }) })
+  const [visible, setVisible] = (0, import_react2.useState)(false);
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-field", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("label", { className: "ys-label", htmlFor: id, children: label }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-control", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { id, className: "ys-input" + (readOnly ? " ys-mono" : ""), type: visible ? "text" : "password", autoComplete: "off", spellCheck: false, value, onChange: (e) => onChange?.(e.target.value), placeholder, disabled, readOnly, maxLength }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": (visible ? "\u9690\u85CF" : "\u663E\u793A") + label, title: (visible ? "\u9690\u85CF" : "\u663E\u793A") + label, disabled: disabled || !value, onClick: () => setVisible(!visible), children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: visible ? "hidden" : "eye" }) }),
+      onCopy && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": "\u590D\u5236" + label, title: "\u590D\u5236" + label, onClick: onCopy, disabled: disabled || !value, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "copy" }) })
     ] }),
-    help && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-field-help", children: help })
+    help && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-field-help", children: help })
   ] });
 }
 function normalizeUrl(raw) {
@@ -214,36 +493,42 @@ function normalizeUrl(raw) {
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error("\u8BF7\u586B\u5199\u5B8C\u6574\u7684 HTTP \u6216 HTTPS \u670D\u52A1\u5730\u5740\uFF0C\u4E0D\u5305\u542B\u4EE4\u724C\u6216\u67E5\u8BE2\u53C2\u6570\u3002");
   return url.toString().replace(/\/+$/, "");
 }
-async function request(connection, path, method = "GET", body) {
-  const response = await fetch(connection.baseUrl + path, { method, credentials: "omit", headers: { "content-type": "application/json", "x-voice-token": connection.token }, ...body === void 0 ? {} : { body: JSON.stringify(body) }, signal: AbortSignal.timeout(path.startsWith("/test/") ? 65e3 : 12e3) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message ?? data.error ?? `\u8BF7\u6C42\u5931\u8D25\uFF08${response.status}\uFF09`);
-  return data;
+function VoiceSettingsPanel(props = {}) {
+  const [selection, setSelection] = (0, import_react2.useState)(null);
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingsWorkspace, { ...props, initialClientId: selection?.id, initialConnection: selection?.connection, onSelectClient: (id, connection) => setSelection({ id, connection }) }, selection?.id ?? "initial");
 }
-function VoiceSettingsPanel({ initialEndpoint } = {}) {
-  const [endpoint, setEndpoint] = (0, import_react.useState)(initialEndpoint ?? `${typeof location !== "undefined" ? location.protocol : "http:"}//${typeof location !== "undefined" ? location.hostname : "127.0.0.1"}:8090`);
-  const [adminToken, setAdminToken] = (0, import_react.useState)("");
-  const [session, setSession] = (0, import_react.useState)(null);
-  const [phase, setPhase] = (0, import_react.useState)("idle");
-  const [connectionOpen, setConnectionOpen] = (0, import_react.useState)(true);
-  const [connectionError, setConnectionError] = (0, import_react.useState)("");
-  const [status, setStatus] = (0, import_react.useState)(null);
-  const [settings, setSettings] = (0, import_react.useState)(null);
-  const [tab, setTab] = (0, import_react.useState)("voice");
-  const [form, setForm] = (0, import_react.useState)({});
-  const [customVoice, setCustomVoice] = (0, import_react.useState)(false);
-  const [saving, setSaving] = (0, import_react.useState)(false);
-  const [savedAt, setSavedAt] = (0, import_react.useState)("");
-  const [notice, setNotice] = (0, import_react.useState)(null);
-  const [deviceId, setDeviceId] = (0, import_react.useState)("");
-  const [deviceBusy, setDeviceBusy] = (0, import_react.useState)("");
-  const [issued, setIssued] = (0, import_react.useState)(null);
-  const [tests, setTests] = (0, import_react.useState)({});
-  const [refreshing, setRefreshing] = (0, import_react.useState)(false);
-  const [copied, setCopied] = (0, import_react.useState)("");
-  const alive = (0, import_react.useRef)(true), epoch = (0, import_react.useRef)(0), active = (0, import_react.useRef)(null), polling = (0, import_react.useRef)(false), copyTimer = (0, import_react.useRef)(void 0), testing = (0, import_react.useRef)(/* @__PURE__ */ new Set());
-  const dataVersion = (0, import_react.useRef)(0);
-  (0, import_react.useEffect)(() => {
+function SettingsWorkspace({ initialEndpoint, initialManagementUrl, autoConnect = true, initialClientId, initialConnection, onSelectClient }) {
+  const [endpoint, setEndpoint] = (0, import_react2.useState)(initialEndpoint ?? `http://${typeof location !== "undefined" ? location.hostname : "127.0.0.1"}:8090`);
+  const [adminToken, setAdminToken] = (0, import_react2.useState)(initialConnection?.mode === "external" ? initialConnection.token : "");
+  const [session, setSession] = (0, import_react2.useState)(null);
+  const [phase, setPhase] = (0, import_react2.useState)(autoConnect ? "connecting" : "idle");
+  const [managementMode, setManagementMode] = (0, import_react2.useState)(initialConnection?.mode ?? (autoConnect ? "host" : "external"));
+  const [connectionOpen, setConnectionOpen] = (0, import_react2.useState)(!autoConnect);
+  const [connectionError, setConnectionError] = (0, import_react2.useState)("");
+  const [status, setStatus] = (0, import_react2.useState)(null);
+  const [settings, setSettings] = (0, import_react2.useState)(null);
+  const [serverSettings, setServerSettings] = (0, import_react2.useState)(null);
+  const [profiles, setProfiles] = (0, import_react2.useState)([]);
+  const [selectedClientId, setSelectedClientId] = (0, import_react2.useState)(initialClientId ?? "");
+  const selectedId = (0, import_react2.useRef)(initialClientId ?? "");
+  const [clientView, setClientView] = (0, import_react2.useState)(null);
+  const [memoryDirty, setMemoryDirty] = (0, import_react2.useState)(false);
+  const [clientLabel, setClientLabel] = (0, import_react2.useState)("");
+  const [tab, setTab] = (0, import_react2.useState)("voice");
+  const [form, setForm] = (0, import_react2.useState)({});
+  const [customVoice, setCustomVoice] = (0, import_react2.useState)(false);
+  const [saving, setSaving] = (0, import_react2.useState)(false);
+  const [savedAt, setSavedAt] = (0, import_react2.useState)("");
+  const [notice, setNotice] = (0, import_react2.useState)(null);
+  const [deviceId, setDeviceId] = (0, import_react2.useState)("");
+  const [deviceBusy, setDeviceBusy] = (0, import_react2.useState)("");
+  const [issued, setIssued] = (0, import_react2.useState)(null);
+  const [tests, setTests] = (0, import_react2.useState)({});
+  const [refreshing, setRefreshing] = (0, import_react2.useState)(false);
+  const [copied, setCopied] = (0, import_react2.useState)("");
+  const alive = (0, import_react2.useRef)(true), epoch = (0, import_react2.useRef)(0), active = (0, import_react2.useRef)(null), polling = (0, import_react2.useRef)(false), copyTimer = (0, import_react2.useRef)(void 0), testing = (0, import_react2.useRef)(/* @__PURE__ */ new Set());
+  const dataVersion = (0, import_react2.useRef)(0);
+  (0, import_react2.useEffect)(() => {
     alive.current = true;
     return () => {
       alive.current = false;
@@ -253,9 +538,20 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
   }, []);
   const current = (generation) => alive.current && epoch.current === generation;
   async function load(connection) {
-    const [state, config] = await Promise.all([request(connection, "/status"), request(connection, "/settings")]);
-    if (!state.ok || !config.ok) throw new Error(config.message ?? state.message ?? "\u670D\u52A1\u8FD4\u56DE\u4E86\u5F02\u5E38\u72B6\u6001");
-    return { state, config: config.settings };
+    const [state, config, inventory] = await Promise.all([request(connection, "/status"), request(connection, "/settings"), request(connection, "/clients")]);
+    if (!state.ok || !config.ok || !inventory.ok) throw new Error(config.message ?? state.message ?? "\u670D\u52A1\u8FD4\u56DE\u4E86\u5F02\u5E38\u72B6\u6001");
+    const clients2 = inventory.clients ?? [];
+    const id = clients2.some((p) => p.deviceId === selectedId.current) ? selectedId.current : state.clients?.find((online) => clients2.some((p) => p.deviceId === online.deviceId))?.deviceId ?? clients2[0]?.deviceId ?? "";
+    const view = id ? await request(connection, "/clients/" + id) : null;
+    return { state, server: config.settings, profiles: clients2, id, view, config: view?.settings ?? null };
+  }
+  function applyInventory(data) {
+    setStatus(data.state);
+    setServerSettings(data.server);
+    setProfiles(data.profiles);
+    setSelectedClientId(data.id);
+    selectedId.current = data.id;
+    setClientView(data.view);
   }
   async function refresh(quiet = false) {
     const connection = active.current, generation = epoch.current, revision = dataVersion.current;
@@ -265,7 +561,7 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
     try {
       const data = await load(connection);
       if (current(generation)) {
-        setStatus(data.state);
+        applyInventory(data);
         if (revision === dataVersion.current) setSettings(data.config);
         setPhase("connected");
         setConnectionError("");
@@ -280,37 +576,36 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
       if (current(generation)) setRefreshing(false);
     }
   }
-  (0, import_react.useEffect)(() => {
-    if (!session) return;
+  (0, import_react2.useEffect)(() => {
+    if (!session || phase === "connecting") return;
     const timer = setInterval(() => void refresh(true), 5e3);
     return () => clearInterval(timer);
-  }, [session]);
-  async function connect(event) {
-    event?.preventDefault();
-    if (saving || deviceBusy || phase === "connecting") return;
+  }, [session, phase]);
+  async function establish(connection) {
+    if (saving || deviceBusy) return;
     const generation = ++epoch.current;
-    active.current = null;
-    setSession(null);
-    setRefreshing(false);
-    testing.current.clear();
+    active.current = connection;
+    setSession(connection);
+    setManagementMode(connection.mode);
     setPhase("connecting");
     setConnectionError("");
     setNotice(null);
+    setRefreshing(false);
+    testing.current.clear();
     try {
-      if (!adminToken.trim()) throw new Error("\u8BF7\u586B\u5199\u7BA1\u7406\u4EE4\u724C\u540E\u8FDE\u63A5\u3002");
-      const connection = { baseUrl: normalizeUrl(endpoint), token: adminToken.trim() }, data = await load(connection);
+      const data = await load(connection);
       if (!current(generation)) return;
-      active.current = connection;
-      setSession(connection);
-      setEndpoint(connection.baseUrl);
-      setStatus(data.state);
+      applyInventory(data);
       setSettings(data.config);
+      if (!data.id) setTab("devices");
       setPhase("connected");
       setConnectionOpen(false);
       setForm({});
       setTests({});
       setIssued(null);
       setSavedAt("");
+      if (connection.mode === "host") setAdminToken("");
+      else setEndpoint(connection.baseUrl);
     } catch (e) {
       if (current(generation)) {
         setPhase("error");
@@ -318,20 +613,49 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
       }
     }
   }
+  async function connect(event) {
+    event?.preventDefault();
+    if (phase === "connecting") return;
+    try {
+      if (!adminToken.trim()) throw new Error("\u8BF7\u586B\u5199\u5916\u90E8\u670D\u52A1\u7684\u7BA1\u7406\u4EE4\u724C\u3002");
+      await establish({ mode: "external", baseUrl: normalizeUrl(endpoint), token: adminToken.trim() });
+    } catch (e) {
+      setConnectionError(e instanceof Error ? e.message : String(e));
+    }
+  }
+  async function connectHost() {
+    await establish({ mode: "host", baseUrl: initialManagementUrl ?? hostManagementUrl() });
+  }
+  (0, import_react2.useEffect)(() => {
+    if (initialConnection) void establish(initialConnection);
+    else if (autoConnect) void connectHost();
+  }, [autoConnect, initialManagementUrl]);
   const setField = (key, value2) => setForm((previous) => ({ ...previous, [key]: value2 }));
   const value = (key, fallback = "") => form[key] ?? String(settings?.[key] ?? fallback);
   const dirtyKeys = Object.keys(form).filter((key) => key === "minimaxApiKey" ? form[key] !== "" : NUMBERS.includes(key) ? form[key] === "" || Number(form[key]) !== Number(settings?.[key]) : form[key] !== String(settings?.[key] ?? ""));
-  const connected = phase === "connected", dirty = dirtyKeys.length > 0;
+  const connected = phase === "connected", editable = connected && !!selectedClientId, dirty = dirtyKeys.length > 0;
   async function save(event) {
     event.preventDefault();
-    if (!active.current || !connected || !dirty || saving) return;
+    if (!active.current || !editable || !dirty || saving) return;
     if (!event.currentTarget.reportValidity()) return;
     const generation = epoch.current, submitted = { ...form }, patch = {};
     for (const key of dirtyKeys) patch[key] = NUMBERS.includes(key) ? Number(form[key]) : form[key];
+    for (const [key, min, max, label] of [["ttsSpeed", 0.5, 2, "\u8BED\u901F"], ["ttsVol", 0, 10, "\u97F3\u91CF"], ["ttsPitch", -12, 12, "\u97F3\u8C03"], ["maxTurnSeconds", 15, 600, "\u5355\u8F6E\u6700\u957F\u7B49\u5F85"]]) {
+      if (key in patch && (form[key] === "" || !Number.isFinite(patch[key]) || Number(patch[key]) < min || Number(patch[key]) > max)) {
+        setTab("voice");
+        setNotice({ tone: "error", text: label + "\u5E94\u5728 " + min + " \u5230 " + max + " \u4E4B\u95F4\u3002" });
+        return;
+      }
+    }
+    for (const key of ["assistantName", "assistantRole"]) if (key in patch && !String(patch[key]).trim()) {
+      setTab("persona");
+      setNotice({ tone: "error", text: key === "assistantName" ? "\u8BF7\u586B\u5199\u52A9\u624B\u540D\u79F0\u3002" : "\u8BF7\u586B\u5199\u52A9\u624B\u89D2\u8272\u3002" });
+      return;
+    }
     setSaving(true);
     setNotice(null);
     try {
-      const result = await request(active.current, "/settings", "PUT", patch);
+      const result = await request(active.current, "/clients/" + selectedClientId + "/settings", "PUT", patch);
       if (!current(generation)) return;
       if (!result.ok) throw new Error(result.message ?? "\u4FDD\u5B58\u5931\u8D25");
       ++dataVersion.current;
@@ -339,7 +663,7 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
       setSettings(result.settings);
       setForm((previous) => Object.fromEntries(Object.entries(previous).filter(([key, v]) => rejected.includes(key) || submitted[key] !== v)));
       setSavedAt((/* @__PURE__ */ new Date()).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }));
-      setNotice(rejected.length ? { tone: "error", text: `\u90E8\u5206\u8BBE\u7F6E\u672A\u4FDD\u5B58\uFF1A${rejected.join("\u3001")}` } : { tone: "success", text: "\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u540E\u7EED\u8BED\u97F3\u8F6E\u6B21\u5C06\u4F7F\u7528\u65B0\u914D\u7F6E\u3002" });
+      setNotice(rejected.length ? { tone: "error", text: `\u90E8\u5206\u8BBE\u7F6E\u672A\u4FDD\u5B58\uFF1A${rejected.join("\u3001")}` } : { tone: "success", text: "\u6B64\u5BA2\u6237\u7AEF\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u4E0B\u4E00\u8F6E\u4F7F\u7528\u65B0\u914D\u7F6E\u3002" });
     } catch (e) {
       if (current(generation)) setNotice({ tone: "error", text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -347,12 +671,12 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
     }
   }
   async function runTest(kind) {
-    if (!active.current || !connected || testing.current.has(kind)) return;
+    if (!active.current || !editable || testing.current.has(kind)) return;
     testing.current.add(kind);
     const generation = epoch.current;
     setTests((previous) => ({ ...previous, [kind]: { busy: true } }));
     try {
-      const result = await request(active.current, `/test/${kind}`, "POST");
+      const result = await request(active.current, `/clients/${selectedClientId}/test/${kind}`, "POST");
       if (current(generation)) setTests((previous) => ({ ...previous, [kind]: { busy: false, result } }));
     } catch (e) {
       if (current(generation)) setTests((previous) => ({ ...previous, [kind]: { busy: false, result: { ok: false, message: e instanceof Error ? e.message : String(e) } } }));
@@ -366,21 +690,22 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
     setDeviceBusy(kind === "revoke" ? id : kind);
     setNotice(null);
     try {
-      const result = await request(active.current, kind === "issue" ? "/devices" : kind === "rotate" ? "/token" : `/devices/${encodeURIComponent(id)}`, kind === "revoke" ? "DELETE" : "POST", kind === "issue" ? { deviceId: id } : void 0);
+      const result = await request(active.current, kind === "issue" ? "/devices" : kind === "rotate" ? "/token" : `/devices/${encodeURIComponent(id)}`, kind === "revoke" ? "DELETE" : "POST", kind === "issue" ? { deviceId: id, label: clientLabel || id } : void 0);
       if (!current(generation)) return;
       if (!result.ok) throw new Error(result.message ?? result.error ?? "\u64CD\u4F5C\u5931\u8D25");
       ++dataVersion.current;
       if (kind === "issue") {
         setIssued({ deviceId: result.deviceId, token: result.token });
         setDeviceId("");
-        setSettings((previous) => ({ ...previous, devices: [.../* @__PURE__ */ new Set([...previous?.devices ?? [], result.deviceId])] }));
+        setClientLabel("");
+        setServerSettings((previous) => ({ ...previous, devices: [.../* @__PURE__ */ new Set([...previous?.devices ?? [], result.deviceId])] }));
       }
       if (kind === "revoke") {
         setIssued((previous) => previous?.deviceId === id ? null : previous);
-        setSettings((previous) => ({ ...previous, devices: (previous?.devices ?? []).filter((device) => device !== id) }));
+        setServerSettings((previous) => ({ ...previous, devices: (previous?.devices ?? []).filter((device) => device !== id) }));
       }
-      if (kind === "rotate") setSettings((previous) => ({ ...previous, token: result.token }));
-      setNotice({ tone: "success", text: kind === "issue" ? `\u5DF2\u4E3A ${id} \u7B7E\u53D1\u8BBE\u5907\u4EE4\u724C\u3002` : kind === "rotate" ? "\u5171\u4EAB\u8BBE\u5907\u4EE4\u724C\u5DF2\u66F4\u6362\uFF0C\u4F7F\u7528\u65E7\u4EE4\u724C\u7684\u8BBE\u5907\u9700\u91CD\u65B0\u914D\u7F6E\u3002" : `\u5DF2\u64A4\u9500 ${id} \u7684\u63A5\u5165\u4EE4\u724C\u3002` });
+      if (kind === "rotate") setServerSettings((previous) => ({ ...previous, token: result.token }));
+      setNotice({ tone: "success", text: kind === "issue" ? `\u5DF2\u4E3A ${id} \u7B7E\u53D1\u8BBE\u5907\u4EE4\u724C\u3002` : kind === "rotate" ? "\u517C\u5BB9\u5BA2\u6237\u7AEF\u4EE4\u724C\u5DF2\u66F4\u6362\uFF0C\u8BE5\u5BA2\u6237\u7AEF\u9700\u91CD\u65B0\u914D\u7F6E\u3002" : `\u5DF2\u64A4\u9500 ${id} \u7684\u63A5\u5165\u4EE4\u724C\u3002` });
       await refresh(true);
     } catch (e) {
       if (current(generation)) setNotice({ tone: "error", text: e instanceof Error ? e.message : String(e) });
@@ -413,386 +738,449 @@ function VoiceSettingsPanel({ initialEndpoint } = {}) {
       setNotice({ tone: "error", text: "\u65E0\u6CD5\u81EA\u52A8\u590D\u5236\uFF0C\u8BF7\u663E\u793A\u5185\u5BB9\u540E\u624B\u52A8\u590D\u5236\u3002" });
     }
   }
-  const s = settings ?? {}, clients = status?.clients ?? [], devices = s.devices ?? [];
+  const s = settings ?? {}, clients = status?.clients ?? [], devices = profiles.map((p) => p.deviceId);
   const ttsModel = value("ttsModel", "speech-2.8-turbo"), ttsVoice = value("ttsVoice", "female-shaonv");
   const modelOptions = TTS_MODELS.includes(ttsModel) ? TTS_MODELS : [ttsModel, ...TTS_MODELS];
   const knownVoices = new Set(VOICE_GROUPS.flatMap((group) => group.voices.map(([id]) => id)));
   const preset = value("agentPreset"), presets = status?.presets ?? [], defaultPreset = presets.find((p) => p.isDefault);
   const selectedPresetMissing = preset && !presets.some((p) => p.id === preset);
-  const phaseLabel = { idle: "\u672A\u8FDE\u63A5", connecting: "\u8FDE\u63A5\u4E2D", connected: "\u5DF2\u8FDE\u63A5", error: "\u8FDE\u63A5\u5F02\u5E38" }[phase];
-  const websocket = (session?.baseUrl ?? endpoint).replace(/^http/, "ws").replace(/\/+$/, "") + "/voice";
+  const phaseLabel = phase === "connected" ? managementMode === "host" ? "\u5DF2\u540C\u6B65" : "\u5DF2\u8BA4\u8BC1" : phase === "error" && connectionError.includes("\u767B\u5F55\u5DF2\u5931\u6548") ? "\u9700\u91CD\u65B0\u767B\u5F55" : { idle: "\u5F85\u8BA4\u8BC1", connecting: "\u52A0\u8F7D\u914D\u7F6E\u4E2D", connected: "\u5DF2\u540C\u6B65", error: "\u540C\u6B65\u5931\u8D25" }[phase];
+  let serviceUrl = session?.mode === "external" ? session.baseUrl : endpoint;
+  if (managementMode === "host" && status?.endpoint) try {
+    const url = new URL(status.endpoint);
+    url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+    url.hostname = location.hostname;
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    serviceUrl = url.toString().replace(/\/+$/, "");
+  } catch {
+  }
+  const websocket = serviceUrl.replace(/^http/, "ws").replace(/\/+$/, "") + "/voice";
   const testStatus = (kind) => tests[kind]?.busy ? "\u68C0\u67E5\u4E2D" : tests[kind]?.result?.ok === true ? "\u68C0\u67E5\u901A\u8FC7" : tests[kind]?.result?.ok === false ? "\u68C0\u67E5\u5931\u8D25" : "\u5C1A\u672A\u68C0\u67E5";
   const diagnosticBusy = Object.values(tests).some((entry) => entry?.busy);
   function tabKey(event) {
-    const tabs = ["voice", "devices", "diagnostics"], index = tabs.indexOf(tab);
-    const next = event.key === "ArrowRight" ? tabs[(index + 1) % 3] : event.key === "ArrowLeft" ? tabs[(index + 2) % 3] : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[2] : void 0;
+    const tabs = ["voice", "persona", "memory", "devices", "diagnostics"], index = tabs.indexOf(tab);
+    const next = event.key === "ArrowRight" ? tabs[(index + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(index + tabs.length - 1) % tabs.length] : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length - 1] : void 0;
     if (next) {
       event.preventDefault();
       setTab(next);
       document.getElementById(`ys-tab-${next}`)?.focus();
     }
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-settings", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: settings_default }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-wrap", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { className: "ys-header", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-title", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-brand", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "mic", size: 25 }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { children: "\u8BED\u58F0\u8BED\u97F3" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-subtitle", children: "\u7BA1\u7406\u58F0\u97F3\u3001\u5BF9\u8BDD\u4E0E\u8BBE\u5907\u8FDE\u63A5" })
+  const saveBar = /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("footer", { className: "ys-footer", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-footer-copy", role: "status", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: dirty ? "info" : "check", size: 13 }),
+      !connected ? "\u6B63\u5728\u7B49\u5F85\u7BA1\u7406\u914D\u7F6E\u540C\u6B65" : !selectedClientId ? "\u8BF7\u5148\u521B\u5EFA\u6216\u9009\u62E9\u4E00\u4E2A\u5BA2\u6237\u7AEF" : dirty ? `${dirtyKeys.length} \u9879\u66F4\u6539\u5C1A\u672A\u4FDD\u5B58` : savedAt ? `\u5DF2\u4FDD\u5B58 \xB7 ${savedAt}` : "\u6240\u6709\u8BBE\u7F6E\u5DF2\u540C\u6B65"
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-footer-actions", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { className: "ys-btn ys-btn-quiet", type: "button", disabled: !dirty || saving, onClick: () => {
+        setForm({});
+        setNotice(null);
+      }, children: "\u64A4\u9500\u66F4\u6539" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { className: "ys-btn ys-btn-primary", type: "submit", disabled: !editable || !dirty || saving, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: saving ? "refresh" : "check", size: 14, spin: saving }),
+        saving ? "\u4FDD\u5B58\u4E2D\u2026" : "\u4FDD\u5B58\u8BBE\u7F6E"
+      ] })
+    ] })
+  ] });
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-settings", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("style", { children: settings_default }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-wrap", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("header", { className: "ys-header", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-title", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-brand", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "mic", size: 25 }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h1", { children: "\u8BED\u58F0\u8BED\u97F3" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-subtitle", children: "\u7BA1\u7406\u58F0\u97F3\u3001\u5BF9\u8BDD\u4E0E\u8BBE\u5907\u8FDE\u63A5" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-header-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": "\u5237\u65B0\u72B6\u6001", title: "\u5237\u65B0\u72B6\u6001", disabled: !session || refreshing || phase === "connecting", onClick: () => void refresh(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "refresh", spin: refreshing }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("a", { className: "ys-btn", href: (session?.baseUrl ?? endpoint).replace(/\/+$/, "") + "/demo", target: "_blank", rel: "noopener noreferrer", title: "\u6253\u5F00\u5F62\u8C61\u4E0E\u667A\u80FD UI \u5BA2\u6237\u7AEF", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "\u6253\u5F00\u5BA2\u6237\u7AEF" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "arrow", size: 14 })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-header-actions", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": "\u5237\u65B0\u72B6\u6001", title: "\u5237\u65B0\u72B6\u6001", disabled: !session || refreshing || phase === "connecting", onClick: () => void refresh(), children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "refresh", spin: refreshing }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("a", { className: "ys-btn", href: serviceUrl.replace(/\/+$/, "") + "/demo", target: "_blank", rel: "noopener noreferrer", title: "\u6253\u5F00\u5F62\u8C61\u4E0E\u667A\u80FD UI \u5BA2\u6237\u7AEF", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "\u6253\u5F00\u5BA2\u6237\u7AEF" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "arrow", size: 14 })
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-overview", "aria-label": "\u8FD0\u884C\u6982\u89C8", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat-label", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "plug", size: 13 }),
-            "\u670D\u52A1\u72B6\u6001"
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-overview", "aria-label": "\u8FD0\u884C\u6982\u89C8", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat-label", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "plug", size: 13 }),
+            "\u7BA1\u7406\u72B6\u6001"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-stat-value", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Badge, { tone: connected ? "success" : phase === "error" ? "error" : void 0, children: phaseLabel }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-stat-detail", children: connected ? `\u5DF2\u8FD0\u884C ${Math.floor((status?.uptimeSec ?? 0) / 60)} \u5206\u949F` : "\u8FDE\u63A5\u540E\u81EA\u52A8\u540C\u6B65\u8FD0\u884C\u72B6\u6001" })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-stat-value", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Badge, { tone: connected ? "success" : phase === "error" ? "error" : void 0, children: phaseLabel }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-stat-detail", children: connected ? `\u8BED\u97F3\u670D\u52A1\u5DF2\u8FD0\u884C ${Math.floor((status?.uptimeSec ?? 0) / 60)} \u5206\u949F` : managementMode === "host" ? "\u81EA\u52A8\u590D\u7528 dsh \u767B\u5F55\u72B6\u6001" : "\u9A8C\u8BC1\u5916\u90E8\u670D\u52A1\u7684\u7BA1\u7406\u4EE4\u724C" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat-label", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "sparkles", size: 13 }),
-            "\u5BF9\u8BDD\u6A21\u578B"
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat-label", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "sparkles", size: 13 }),
+            "\u5F53\u524D\u5BA2\u6237\u7AEF\u6A21\u578B"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-stat-value", title: connected ? status?.model?.model : void 0, children: connected ? status?.model?.model ?? "\u8DDF\u968F\u9ED8\u8BA4\u6A21\u578B" : "\u7B49\u5F85\u8FDE\u63A5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-stat-detail", children: connected ? status?.model?.provider ?? "\u7531 dsh \u7BA1\u7406" : "\u8DDF\u968F dsh \u7684\u9ED8\u8BA4\u6A21\u578B\u914D\u7F6E" })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-stat-value", title: settings?.llmModel, children: connected ? selectedClientId ? settings?.llmModel || "\u5C1A\u672A\u914D\u7F6E" : "\u8BF7\u9009\u62E9\u5BA2\u6237\u7AEF" : "\u7B49\u5F85\u914D\u7F6E\u52A0\u8F7D" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-stat-detail", children: selectedClientId ? settings?.llmProvider || "\u4E3A\u6B64\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B" : "\u6BCF\u4E2A\u5BA2\u6237\u7AEF\u72EC\u7ACB\u4FDD\u5B58\u6A21\u578B" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat-label", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "device", size: 13 }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat-label", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "device", size: 13 }),
             "\u5728\u7EBF\u8BBE\u5907"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-stat-value", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-stat-value", children: [
             connected ? clients.length : "\u2014",
             " ",
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label-meta", children: "\u53F0" })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label-meta", children: "\u53F0" })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-stat-detail", children: connected ? `${devices.length} \u53F0\u8BBE\u5907\u5DF2\u6CE8\u518C` : "\u8FDE\u63A5\u540E\u67E5\u770B\u8BBE\u5907" })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-stat-detail", children: connected ? `${devices.length} \u53F0\u8BBE\u5907\u5DF2\u6CE8\u518C` : "\u914D\u7F6E\u540C\u6B65\u540E\u663E\u793A\u5728\u7EBF\u6570\u91CF" })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "ys-connection", "aria-label": "\u670D\u52A1\u8FDE\u63A5", "data-collapsed": !connectionOpen, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-connection-top", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-connection-icon", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "plug", size: 18 }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-connection-copy", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: "\u670D\u52A1\u8FDE\u63A5" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: connected ? session?.baseUrl : "\u8FDE\u63A5\u8BED\u97F3\u670D\u52A1\u540E\uFF0C\u5373\u53EF\u8C03\u6574\u914D\u7F6E\u4E0E\u7BA1\u7406\u8BBE\u5907\u3002" })
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { className: "ys-connection", "aria-label": "\u7BA1\u7406\u8FDE\u63A5", "data-collapsed": !connectionOpen, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-connection-top", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-connection-icon", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "shield", size: 18 }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-connection-copy", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: managementMode === "host" ? "\u4F7F\u7528 dsh \u767B\u5F55\u72B6\u6001" : "\u5916\u90E8\u670D\u52A1\u7BA1\u7406" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: managementMode === "host" ? "\u914D\u7F6E\u81EA\u52A8\u540C\u6B65\uFF0C\u65E0\u9700\u5355\u72EC\u586B\u5199\u7BA1\u7406\u4EE4\u724C\u3002" : session?.mode === "external" ? session.baseUrl : "\u586B\u5199\u76EE\u6807\u670D\u52A1\u5668\u7684\u7BA1\u7406\u51ED\u636E\u3002" })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "ys-btn ys-btn-quiet", "aria-expanded": connectionOpen, "aria-controls": "ys-connection-fields", onClick: () => setConnectionOpen(!connectionOpen), children: [
-            connectionOpen ? "\u6536\u8D77" : connected ? "\u4FEE\u6539\u8FDE\u63A5" : "\u8FDE\u63A5\u8BBE\u7F6E",
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "chevron", size: 12 })
+          managementMode === "external" && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-quiet", disabled: saving || !!deviceBusy || phase === "connecting", onClick: () => void connectHost(), children: "\u4F7F\u7528\u5F53\u524D dsh" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { type: "button", className: "ys-btn ys-btn-quiet", "aria-expanded": connectionOpen, "aria-controls": "ys-connection-fields", onClick: () => setConnectionOpen(!connectionOpen), children: [
+            connectionOpen ? "\u6536\u8D77" : managementMode === "host" ? "\u5916\u90E8\u670D\u52A1\u5668" : "\u8FDE\u63A5\u8BBE\u7F6E",
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "chevron", size: 12 })
           ] })
         ] }),
-        connectionOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "ys-connection-fields", className: "ys-connection-body", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { className: "ys-connect-grid", onSubmit: connect, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u670D\u52A1\u5730\u5740" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input ys-mono", type: "url", required: true, value: endpoint, placeholder: "http://\u670D\u52A1\u5668\u5730\u5740:8090", onChange: (e) => setEndpoint(e.target.value), disabled: phase === "connecting" })
+        connectionOpen && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { id: "ys-connection-fields", className: "ys-connection-body", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", style: { marginTop: 0, marginBottom: 14 }, children: "\u4EC5\u8FDE\u63A5\u5176\u4ED6\u8BED\u97F3\u670D\u52A1\u5668\u65F6\u9700\u8981\u4EE5\u4E0B\u914D\u7F6E\u3002\u5F53\u524D dsh \u7684\u8BBE\u7F6E\u81EA\u52A8\u4F7F\u7528\u767B\u5F55\u72B6\u6001\u3002" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("form", { className: "ys-connect-grid", onSubmit: connect, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u5916\u90E8\u670D\u52A1\u5730\u5740" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input ys-mono", type: "url", required: true, value: endpoint, placeholder: "http://\u670D\u52A1\u5668\u5730\u5740:8090", onChange: (e) => setEndpoint(e.target.value), disabled: phase === "connecting" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SecretField, { id: "ys-admin-token", label: "\u7BA1\u7406\u4EE4\u724C", value: adminToken, onChange: setAdminToken, placeholder: "\u586B\u5199 adminToken", disabled: phase === "connecting", maxLength: 512 }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "ys-btn ys-btn-primary", disabled: phase === "connecting" || saving || !!deviceBusy, type: "submit", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: phase === "connecting" ? "refresh" : "plug", spin: phase === "connecting" }),
-              phase === "connecting" ? "\u8FDE\u63A5\u4E2D\u2026" : connected ? "\u91CD\u65B0\u8FDE\u63A5" : "\u8FDE\u63A5\u670D\u52A1"
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SecretField, { id: "ys-admin-token", label: "\u5916\u90E8\u670D\u52A1\u7BA1\u7406\u4EE4\u724C", value: adminToken, onChange: setAdminToken, placeholder: "\u586B\u5199\u76EE\u6807\u670D\u52A1\u5668\u7684 adminToken", disabled: phase === "connecting", maxLength: 512 }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { className: "ys-btn ys-btn-primary", disabled: phase === "connecting" || saving || !!deviceBusy, type: "submit", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: phase === "connecting" ? "refresh" : "plug", spin: phase === "connecting" }),
+              phase === "connecting" ? "\u8BA4\u8BC1\u4E2D\u2026" : "\u8FDE\u63A5\u5916\u90E8\u670D\u52A1"
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", { className: "ys-help", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "chevron", size: 10 }),
-              "\u5728\u54EA\u91CC\u627E\u5230\u7BA1\u7406\u4EE4\u724C\uFF1F"
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("details", { className: "ys-help", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("summary", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "chevron", size: 10 }),
+              "\u5728\u54EA\u91CC\u627E\u5230\u5916\u90E8\u670D\u52A1\u7684\u7BA1\u7406\u4EE4\u724C\uFF1F"
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
-              "\u7BA1\u7406\u4EE4\u724C\u4E3A\u670D\u52A1\u5668 ",
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "ys-code", children: "settings.json" }),
-              " \u4E2D\u7684 ",
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "ys-code", children: "adminToken" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("p", { children: [
+              "\u5728\u76EE\u6807\u670D\u52A1\u5668\u7684 ",
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { className: "ys-code", children: "settings.json" }),
+              " \u4E2D\u8BFB\u53D6 ",
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { className: "ys-code", children: "adminToken" }),
               "\u3002\u5B83\u7528\u4E8E\u8BBE\u7F6E\u7BA1\u7406\uFF0C\u4E0E\u5BA2\u6237\u7AEF\u4F7F\u7528\u7684\u8BBE\u5907\u4EE4\u724C\u4E0D\u540C\u3002"
             ] })
           ] })
         ] })
       ] }),
-      connectionError && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-note", "data-tone": "error", role: "alert", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "info" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-note-content", children: connectionError }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-quiet", onClick: () => setConnectionOpen(true), children: "\u68C0\u67E5\u8FDE\u63A5" })
+      connectionError && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-note", "data-tone": "error", role: "alert", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "info" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-note-content", children: connectionError }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-quiet", onClick: () => managementMode === "host" ? void refresh() : setConnectionOpen(true), children: managementMode === "host" ? "\u91CD\u8BD5\u52A0\u8F7D" : "\u68C0\u67E5\u8BA4\u8BC1" })
       ] }),
-      notice && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-note", "data-tone": notice.tone, role: notice.tone === "error" ? "alert" : "status", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: notice.tone === "success" ? "check" : "info" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-note-content", children: notice.text }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon ys-btn-quiet", "aria-label": "\u5173\u95ED\u64CD\u4F5C\u63D0\u793A", onClick: () => setNotice(null), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "close", size: 13 }) })
+      notice && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-note", "data-tone": notice.tone, role: notice.tone === "error" ? "alert" : "status", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: notice.tone === "success" ? "check" : "info" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-note-content", children: notice.text }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon ys-btn-quiet", "aria-label": "\u5173\u95ED\u64CD\u4F5C\u63D0\u793A", onClick: () => setNotice(null), children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "close", size: 13 }) })
       ] }),
-      copied && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-note", role: "status", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "check" }),
+      copied && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-note", role: "status", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "check" }),
         copied
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("nav", { className: "ys-tabs", role: "tablist", "aria-label": "\u8BED\u97F3\u8BBE\u7F6E\u5206\u7C7B", onKeyDown: tabKey, children: [{ id: "voice", label: "\u58F0\u97F3\u4E0E\u5BF9\u8BDD", icon: "wave" }, { id: "devices", label: "\u8BBE\u5907\u7BA1\u7406", icon: "device" }, { id: "diagnostics", label: "\u8FDE\u63A5\u8BCA\u65AD", icon: "shield" }].map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "ys-tab", id: `ys-tab-${item.id}`, role: "tab", "aria-selected": tab === item.id, "aria-controls": `ys-panel-${item.id}`, tabIndex: tab === item.id ? 0 : -1, onClick: () => setTab(item.id), children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: item.icon, size: 14 }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { className: "ys-client-selection", "aria-label": "\u5F53\u524D\u5BA2\u6237\u7AEF", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u5F53\u524D\u5BA2\u6237\u7AEF" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("select", { className: "ys-select", "aria-label": "\u9009\u62E9\u8981\u914D\u7F6E\u7684\u5BA2\u6237\u7AEF", value: selectedClientId, disabled: !connected || saving || !!deviceBusy || dirty || memoryDirty || diagnosticBusy, onChange: (e) => {
+            if (active.current) onSelectClient(e.target.value, active.current);
+          }, children: [
+            !profiles.length && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("option", { value: "", children: "\u8FD8\u6CA1\u6709\u5BA2\u6237\u7AEF" }),
+            profiles.map((p) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("option", { value: p.deviceId, children: [
+              p.label || p.deviceId,
+              " \xB7 ",
+              p.deviceId,
+              clients.some((c) => c.deviceId === p.deviceId) ? " \xB7 \u5728\u7EBF" : " \xB7 \u79BB\u7EBF"
+            ] }, p.deviceId))
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-client-scope", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: selectedClientId ? "\u6B63\u5728\u914D\u7F6E\uFF1A" + (profiles.find((p) => p.deviceId === selectedClientId)?.label || selectedClientId) : "\u5148\u521B\u5EFA\u4E00\u4E2A\u72EC\u7ACB\u5BA2\u6237\u7AEF" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: dirty || memoryDirty ? "\u8BF7\u5148\u4FDD\u5B58\u6216\u64A4\u9500\u5F53\u524D\u4FEE\u6539\uFF0C\u518D\u5207\u6362\u5BA2\u6237\u7AEF\u3002" : "\u58F0\u97F3\u3001\u4EBA\u8BBE\u3001\u6A21\u578B\u3001\u957F\u671F\u8BB0\u5FC6\u548C\u5BF9\u8BDD\u4E0A\u4E0B\u6587\u4EC5\u5C5E\u4E8E\u6240\u9009\u5BA2\u6237\u7AEF\uFF1B\u79BB\u7EBF\u65F6\u4E5F\u53EF\u914D\u7F6E\u3002" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { className: "ys-btn", type: "button", disabled: !connected || saving || !!deviceBusy, onClick: () => setTab("devices"), children: "\u6DFB\u52A0\u5BA2\u6237\u7AEF" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("nav", { className: "ys-tabs", role: "tablist", "aria-label": "\u8BED\u97F3\u8BBE\u7F6E\u5206\u7C7B", onKeyDown: tabKey, children: [{ id: "voice", label: "\u58F0\u97F3\u4E0E\u5BF9\u8BDD", icon: "wave" }, { id: "persona", label: "\u52A9\u624B\u4EBA\u8BBE", icon: "sparkles" }, { id: "memory", label: "\u8BB0\u5FC6\u4E0E\u4F1A\u8BDD", icon: "clock" }, { id: "devices", label: "\u5BA2\u6237\u7AEF\u7BA1\u7406", icon: "device" }, { id: "diagnostics", label: "\u8FDE\u63A5\u8BCA\u65AD", icon: "shield" }].map((item) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { type: "button", className: "ys-tab", id: `ys-tab-${item.id}`, role: "tab", "aria-selected": tab === item.id, "aria-controls": `ys-panel-${item.id}`, tabIndex: tab === item.id ? 0 : -1, onClick: () => setTab(item.id), children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: item.icon, size: 14 }),
         item.label,
-        item.id === "devices" && devices.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-count", children: devices.length })
+        item.id === "devices" && devices.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-count", children: devices.length })
       ] }, item.id)) }),
-      tab === "voice" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "ys-panel-voice", role: "tabpanel", "aria-labelledby": "ys-tab-voice", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { onSubmit: save, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("fieldset", { disabled: !connected || saving, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-voice-grid", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Card, { icon: "wave", title: "\u58F0\u97F3\u8BBE\u7F6E", description: "\u9009\u62E9\u8BC6\u522B\u4E0E\u5408\u6210\u6A21\u578B\uFF0C\u8C03\u6574\u52A9\u624B\u7684\u58F0\u97F3\u3002", action: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "ys-btn ys-btn-quiet", type: "button", onClick: () => void runTest("tts"), disabled: !connected || tests.tts?.busy, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: tests.tts?.busy ? "refresh" : "volume", size: 14, spin: tests.tts?.busy }),
+      tab === "voice" && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { id: "ys-panel-voice", role: "tabpanel", "aria-labelledby": "ys-tab-voice", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("form", { onSubmit: save, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("fieldset", { disabled: !editable || saving, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-voice-grid", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Card, { icon: "wave", title: "\u58F0\u97F3\u8BBE\u7F6E", description: "\u9009\u62E9\u8BC6\u522B\u4E0E\u5408\u6210\u6A21\u578B\uFF0C\u8C03\u6574\u52A9\u624B\u7684\u58F0\u97F3\u3002", action: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { className: "ys-btn ys-btn-quiet", type: "button", onClick: () => void runTest("tts"), disabled: !editable || tests.tts?.busy, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: tests.tts?.busy ? "refresh" : "volume", size: 14, spin: tests.tts?.busy }),
             tests.tts?.busy ? "\u68C0\u67E5\u4E2D" : "\u68C0\u67E5\u5408\u6210"
           ] }), children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-grid", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-grid", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-label", children: [
                   "\u8BC6\u522B\u6A21\u578B ",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label-meta", children: "ASR" })
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label-meta", children: "ASR" })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input", value: value("asrModel", "asr-1.0"), onChange: (e) => setField("asrModel", e.target.value), maxLength: 64, placeholder: "asr-1.0" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input", value: value("asrModel", "asr-1.0"), onChange: (e) => setField("asrModel", e.target.value), maxLength: 64, placeholder: "asr-1.0" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-label", children: [
                   "\u5408\u6210\u6A21\u578B ",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label-meta", children: "TTS" })
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label-meta", children: "TTS" })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { className: "ys-select", value: ttsModel, onChange: (e) => setField("ttsModel", e.target.value), children: modelOptions.map((model) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: model, children: /^speech-/.test(model) ? model.replace("speech-", "Speech ").replace("-turbo", " \xB7 Turbo").replace("-hd", " \xB7 HD") : model || "\u4F7F\u7528\u9ED8\u8BA4\u6A21\u578B" }, model)) })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("select", { className: "ys-select", value: ttsModel, onChange: (e) => setField("ttsModel", e.target.value), children: modelOptions.map((model) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("option", { value: model, children: /^speech-/.test(model) ? model.replace("speech-", "Speech ").replace("-turbo", " \xB7 Turbo").replace("-hd", " \xB7 HD") : model || "\u4F7F\u7528\u9ED8\u8BA4\u6A21\u578B" }, model)) })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 20 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-row ys-between", style: { marginBottom: 7 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", { className: "ys-label", htmlFor: "ys-voice", style: { margin: 0 }, children: "\u97F3\u8272" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-quiet", style: { minHeight: 0, padding: "0 2px", fontSize: 11 }, onClick: () => setCustomVoice(!customVoice), children: customVoice ? "\u6536\u8D77\u81EA\u5B9A\u4E49\u97F3\u8272" : "\u4F7F\u7528\u81EA\u5B9A\u4E49\u97F3\u8272" })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { marginTop: 20 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-row ys-between", style: { marginBottom: 7 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("label", { className: "ys-label", htmlFor: "ys-voice", style: { margin: 0 }, children: "\u97F3\u8272" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-quiet", style: { minHeight: 0, padding: "0 2px", fontSize: 11 }, onClick: () => setCustomVoice(!customVoice), children: customVoice ? "\u6536\u8D77\u81EA\u5B9A\u4E49\u97F3\u8272" : "\u4F7F\u7528\u81EA\u5B9A\u4E49\u97F3\u8272" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { id: "ys-voice", className: "ys-select", value: ttsVoice, onChange: (e) => setField("ttsVoice", e.target.value), children: [
-                !knownVoices.has(ttsVoice) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: ttsVoice, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("select", { id: "ys-voice", className: "ys-select", value: ttsVoice, onChange: (e) => setField("ttsVoice", e.target.value), children: [
+                !knownVoices.has(ttsVoice) && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("option", { value: ttsVoice, children: [
                   ttsVoice || "\u9ED8\u8BA4\u97F3\u8272",
                   " \xB7 \u81EA\u5B9A\u4E49"
                 ] }),
-                VOICE_GROUPS.map((group) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("optgroup", { label: group.label, children: group.voices.map(([id, name]) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: id, children: name }, id)) }, group.label))
+                VOICE_GROUPS.map((group) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("optgroup", { label: group.label, children: group.voices.map(([id, name]) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("option", { value: id, children: name }, id)) }, group.label))
               ] }),
-              customVoice && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field ys-custom", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u81EA\u5B9A\u4E49\u97F3\u8272 ID" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input ys-mono", value: ttsVoice, maxLength: 128, placeholder: "\u586B\u5199\u81EA\u5B9A\u4E49\u6216\u590D\u523B\u97F3\u8272 ID", onChange: (e) => setField("ttsVoice", e.target.value) })
+              customVoice && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field ys-custom", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u81EA\u5B9A\u4E49\u97F3\u8272 ID" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input ys-mono", value: ttsVoice, maxLength: 128, placeholder: "\u586B\u5199\u81EA\u5B9A\u4E49\u6216\u590D\u523B\u97F3\u8272 ID", onChange: (e) => setField("ttsVoice", e.target.value) })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { className: "ys-field-help", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("p", { className: "ys-field-help", children: [
                 ttsVoice,
                 " \xB7 Turbo \u66F4\u9002\u5408\u5373\u65F6\u8BED\u97F3\uFF0CHD \u4FA7\u91CD\u5408\u6210\u8D28\u91CF\u3002"
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-separator" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-sliders", children: [{ key: "ttsSpeed", label: "\u8BED\u901F", min: 0.5, max: 2, step: 0.05, default: "1", left: "\u66F4\u6162", right: "\u66F4\u5FEB" }, { key: "ttsVol", label: "\u97F3\u91CF", min: 0, max: 10, step: 0.1, default: "1", left: "\u66F4\u8F7B", right: "\u66F4\u54CD" }, { key: "ttsPitch", label: "\u97F3\u8C03", min: -12, max: 12, step: 1, default: "0", left: "\u4F4E\u6C89", right: "\u660E\u4EAE" }].map((control) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-slider-top", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", { htmlFor: `ys-range-${control.key}`, children: control.label }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-number", type: "number", required: true, min: control.min, max: control.max, step: control.step, "aria-label": control.label + "\u6570\u503C", value: value(control.key, control.default), onChange: (e) => setField(control.key, e.target.value) })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-separator" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-sliders", children: [{ key: "ttsSpeed", label: "\u8BED\u901F", min: 0.5, max: 2, step: 0.05, default: "1", left: "\u66F4\u6162", right: "\u66F4\u5FEB" }, { key: "ttsVol", label: "\u97F3\u91CF", min: 0, max: 10, step: 0.1, default: "1", left: "\u66F4\u8F7B", right: "\u66F4\u54CD" }, { key: "ttsPitch", label: "\u97F3\u8C03", min: -12, max: 12, step: 1, default: "0", left: "\u4F4E\u6C89", right: "\u660E\u4EAE" }].map((control) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-slider-top", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("label", { htmlFor: `ys-range-${control.key}`, children: control.label }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-number", type: "number", required: true, min: control.min, max: control.max, step: control.step, "aria-label": control.label + "\u6570\u503C", value: value(control.key, control.default), onChange: (e) => setField(control.key, e.target.value) })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { id: `ys-range-${control.key}`, type: "range", min: control.min, max: control.max, step: control.step, value: value(control.key, control.default) || control.default, onChange: (e) => setField(control.key, e.target.value) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-slider-captions", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: control.left }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: control.right })
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { id: `ys-range-${control.key}`, type: "range", min: control.min, max: control.max, step: control.step, value: value(control.key, control.default) || control.default, onChange: (e) => setField(control.key, e.target.value) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-slider-captions", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: control.left }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: control.right })
               ] })
             ] }, control.key)) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-separator" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SecretField, { id: "ys-minimax-key", label: "MiniMax API Key", value: form.minimaxApiKey ?? "", onChange: (v) => setField("minimaxApiKey", v), placeholder: s.hasMinimaxApiKey ? "API Key \u5DF2\u914D\u7F6E\uFF0C\u7559\u7A7A\u4FDD\u6301\u4E0D\u53D8" : "\u586B\u5199 ASR / TTS \u5171\u7528\u7684 API Key", help: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-separator" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SecretField, { id: "ys-minimax-key", label: "MiniMax API Key", value: form.minimaxApiKey ?? "", onChange: (v) => setField("minimaxApiKey", v), placeholder: s.hasMinimaxApiKey ? "API Key \u5DF2\u914D\u7F6E\uFF0C\u7559\u7A7A\u4FDD\u6301\u4E0D\u53D8" : "\u586B\u5199 ASR / TTS \u5171\u7528\u7684 API Key", help: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { children: [
               "\u6765\u81EA api.minimax.cn \u7684\u63A5\u53E3\u5BC6\u94A5\u3002",
-              s.hasMinimaxApiKey && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-inline-status", style: { marginLeft: 5 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "check", size: 12 }),
+              s.hasMinimaxApiKey && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-inline-status", style: { marginLeft: 5 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "check", size: 12 }),
                 "\u5DF2\u914D\u7F6E"
               ] })
             ] }) }),
-            tests.tts && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-field-help", role: "status", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-inline-status", "data-tone": tests.tts.result?.ok === false ? "error" : void 0, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: tests.tts.busy ? "refresh" : tests.tts.result?.ok ? "check" : "info", spin: tests.tts.busy, size: 12 }),
+            tests.tts && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-field-help", role: "status", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-inline-status", "data-tone": tests.tts.result?.ok === false ? "error" : void 0, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: tests.tts.busy ? "refresh" : tests.tts.result?.ok ? "check" : "info", spin: tests.tts.busy, size: 12 }),
                 testStatus("tts"),
                 tests.tts.result?.durationMs !== void 0 ? ` \xB7 ${tests.tts.result.durationMs}ms` : ""
               ] }),
-              tests.tts.result?.ok === false && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+              tests.tts.result?.ok === false && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { children: [
                 " \xB7 ",
                 tests.tts.result.message ?? tests.tts.result.code
               ] })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Card, { icon: "sparkles", title: "\u5BF9\u8BDD\u8BBE\u7F6E", description: "\u7531 dsh \u63D0\u4F9B\u6A21\u578B\u3001\u5DE5\u5177\u4E0E\u6301\u4E45\u5BF9\u8BDD\u4E0A\u4E0B\u6587\u3002", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-grid", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u4F1A\u8BDD\u6A21\u5F0F" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { className: "ys-select", value: preset, onChange: (e) => setField("agentPreset", e.target.value), children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: "", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Card, { icon: "sparkles", title: "\u5BF9\u8BDD\u8BBE\u7F6E", description: "\u4E3A\u5F53\u524D\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B\u3001\u5DE5\u5177\u6A21\u5F0F\u548C\u5BF9\u8BDD\u89C4\u5219\u3002", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-grid", style: { marginBottom: 20 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u5BF9\u8BDD\u63D0\u4F9B\u65B9" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input", value: value("llmProvider"), maxLength: 128, placeholder: "\u4F8B\u5982 minimax-cn", onChange: (e) => setField("llmProvider", e.target.value) })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u5BF9\u8BDD\u6A21\u578B" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input", value: value("llmModel"), maxLength: 128, placeholder: "\u586B\u5199\u6B64\u63D0\u4F9B\u65B9\u7684\u6A21\u578B ID", onChange: (e) => setField("llmModel", e.target.value) })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", style: { marginBottom: 18 }, children: "\u6B64\u5BA2\u6237\u7AEF\u72EC\u7ACB\u4F7F\u7528\u8FD9\u7EC4\u6A21\u578B\u9009\u62E9\u3002\u63D0\u4F9B\u65B9\u7684\u8D26\u53F7\u7531 dsh \u7BA1\u7406\u3002" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-grid", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u4F1A\u8BDD\u6A21\u5F0F" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("select", { className: "ys-select", value: preset, onChange: (e) => setField("agentPreset", e.target.value), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("option", { value: "", children: [
                     "\u8DDF\u968F\u9ED8\u8BA4",
                     defaultPreset ? ` \xB7 ${defaultPreset.name ?? defaultPreset.id}` : ""
                   ] }),
-                  selectedPresetMissing && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: preset, children: [
-                    preset,
-                    " \xB7 \u5F53\u524D\u6A21\u5F0F"
-                  ] }),
-                  presets.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: p.id, disabled: p.broken, children: [
-                    p.name ?? p.id,
+                  selectedPresetMissing && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("option", { value: preset, children: preset === VOICE_PRESET_ID ? "\u8BED\u58F0\u52A9\u624B \xB7 \u63A8\u8350" : preset + " \xB7 \u5F53\u524D\u6A21\u5F0F" }),
+                  presets.map((p) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("option", { value: p.id, disabled: p.broken, title: p.problem, children: [
+                    p.id === VOICE_PRESET_ID ? "\u8BED\u58F0\u52A9\u624B" : p.name ?? p.id,
+                    p.id === VOICE_PRESET_ID ? " \xB7 \u63A8\u8350" : "",
                     p.isDefault ? " \xB7 \u9ED8\u8BA4" : "",
                     p.broken ? " \xB7 \u4E0D\u53EF\u7528" : ""
                   ] }, p.id))
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u5207\u6362\u6A21\u5F0F\u540E\u4F7F\u7528\u5BF9\u5E94\u4E0A\u4E0B\u6587\uFF0C\u5207\u56DE\u53EF\u7EE7\u7EED\u539F\u5BF9\u8BDD\u3002" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", children: "\u5207\u6362\u6A21\u5F0F\u540E\u4F7F\u7528\u5BF9\u5E94\u4E0A\u4E0B\u6587\uFF0C\u5207\u56DE\u53EF\u7EE7\u7EED\u539F\u5BF9\u8BDD\u3002" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-label", children: [
                   "\u5355\u8F6E\u6700\u957F\u7B49\u5F85 ",
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label-meta", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "clock", size: 12 }) })
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label-meta", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "clock", size: 12 }) })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-control ys-timeout", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input", type: "number", required: true, min: 15, max: 600, step: 1, value: value("maxTurnSeconds", "180"), onChange: (e) => setField("maxTurnSeconds", e.target.value) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-unit", children: "\u79D2" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-control ys-timeout", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input", type: "number", required: true, min: 15, max: 600, step: 1, value: value("maxTurnSeconds", "180"), onChange: (e) => setField("maxTurnSeconds", e.target.value) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-unit", children: "\u79D2" })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u8986\u76D6\u8BC6\u522B\u3001\u5DE5\u5177\u6267\u884C\u3001\u5408\u6210\u4E0E\u97F3\u9891\u53D1\u9001\u3002" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", children: "\u8986\u76D6\u8BC6\u522B\u3001\u5DE5\u5177\u6267\u884C\u3001\u5408\u6210\u4E0E\u97F3\u9891\u53D1\u9001\u3002" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 21 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-label", htmlFor: "ys-prompt", children: [
-                "\u5BF9\u8BDD\u98CE\u683C ",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label-meta", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { marginTop: 21 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-label", htmlFor: "ys-prompt", children: [
+                "\u8865\u5145\u5BF9\u8BDD\u8981\u6C42 ",
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-label-meta", children: [
                   value("promptPrefix").length,
                   " / 4000"
                 ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { id: "ys-prompt", className: "ys-textarea", maxLength: 4e3, rows: 4, value: value("promptPrefix"), placeholder: "\u4F8B\u5982\uFF1A\u7528\u7B80\u6D01\u3001\u81EA\u7136\u7684\u4E2D\u6587\u56DE\u7B54\uFF0C\u9002\u5408\u8BED\u97F3\u4EA4\u4E92\u3002", onChange: (e) => setField("promptPrefix", e.target.value) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u4F5C\u4E3A\u6BCF\u4E2A\u65B0\u5BF9\u8BDD\u7684\u9996\u8F6E\u63D0\u793A\u8BCD\uFF0C\u7559\u7A7A\u5219\u4E0D\u9644\u52A0\u3002" })
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("textarea", { id: "ys-prompt", className: "ys-textarea", maxLength: 4e3, rows: 4, value: value("promptPrefix"), placeholder: "\u4F8B\u5982\uFF1A\u7528\u7B80\u6D01\u3001\u81EA\u7136\u7684\u4E2D\u6587\u56DE\u7B54\uFF0C\u9002\u5408\u8BED\u97F3\u4EA4\u4E92\u3002", onChange: (e) => setField("promptPrefix", e.target.value) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", children: "\u4F5C\u4E3A\u6BCF\u8F6E\u5BF9\u8BDD\u7684\u8865\u5145\u8981\u6C42\uFF1B\u540D\u79F0\u4E0E\u6027\u683C\u8BF7\u5728\u300C\u52A9\u624B\u4EBA\u8BBE\u300D\u4E2D\u8BBE\u7F6E\u3002" })
             ] })
           ] })
         ] }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("footer", { className: "ys-footer", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-footer-copy", role: "status", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: dirty ? "info" : "check", size: 13 }),
-            !connected ? "\u8FDE\u63A5\u670D\u52A1\u540E\u53EF\u7F16\u8F91\u8BBE\u7F6E" : dirty ? `${dirtyKeys.length} \u9879\u66F4\u6539\u5C1A\u672A\u4FDD\u5B58` : savedAt ? `\u5DF2\u4FDD\u5B58 \xB7 ${savedAt}` : "\u6240\u6709\u8BBE\u7F6E\u5DF2\u540C\u6B65"
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-footer-actions", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ys-btn ys-btn-quiet", type: "button", disabled: !dirty || saving, onClick: () => {
-              setForm({});
-              setNotice(null);
-            }, children: "\u64A4\u9500\u66F4\u6539" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "ys-btn ys-btn-primary", type: "submit", disabled: !connected || !dirty || saving, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: saving ? "refresh" : "check", size: 14, spin: saving }),
-              saving ? "\u4FDD\u5B58\u4E2D\u2026" : "\u4FDD\u5B58\u8BBE\u7F6E"
-            ] })
-          ] })
-        ] })
+        saveBar
       ] }) }),
-      tab === "devices" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "ys-panel-devices", role: "tabpanel", "aria-labelledby": "ys-tab-devices", className: "ys-stack", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Card, { icon: "device", title: "\u72EC\u7ACB\u8BBE\u5907", description: "\u4E3A\u6BCF\u53F0\u8BBE\u5907\u5206\u914D\u72EC\u7ACB\u4EE4\u724C\uFF0C\u5355\u72EC\u7BA1\u7406\u63A5\u5165\u6743\u9650\u3002", action: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Badge, { children: [
+      tab === "persona" && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { id: "ys-panel-persona", role: "tabpanel", "aria-labelledby": "ys-tab-persona", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("form", { onSubmit: save, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("fieldset", { disabled: !connected || saving, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(PersonaSettings, { value, onChange: setField, preset: presets.find((p) => p.id === VOICE_PRESET_ID) }) }),
+        saveBar
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { hidden: tab !== "memory", id: "ys-panel-memory", role: "tabpanel", "aria-labelledby": "ys-tab-memory", children: selectedClientId && session && clientView ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ClientMemoryPanel, { clientId: selectedClientId, connection: session, snapshot: clientView.memory, conversations: clientView.conversations, canRestore: clientView.canRestore, disabled: !editable || saving || dirty || !!deviceBusy, onDirty: setMemoryDirty, onRefresh: () => refresh() }, selectedClientId) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-empty", children: "\u8BF7\u5148\u521B\u5EFA\u6216\u9009\u62E9\u5BA2\u6237\u7AEF\u3002" }) }),
+      tab === "devices" && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { id: "ys-panel-devices", role: "tabpanel", "aria-labelledby": "ys-tab-devices", className: "ys-stack", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Card, { icon: "device", title: "\u72EC\u7ACB\u5BA2\u6237\u7AEF", description: "\u521B\u5EFA\u72EC\u7ACB\u914D\u7F6E\u548C\u8BB0\u5FC6\u6863\u6848\uFF0C\u4E3A\u6BCF\u4E2A\u5BA2\u6237\u7AEF\u7B7E\u53D1\u7ED1\u5B9A ID \u7684\u4EE4\u724C\u3002", action: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(Badge, { children: [
           devices.length,
           " \u53F0"
         ] }), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { className: "ys-device-form", onSubmit: (e) => {
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("form", { className: "ys-device-form", onSubmit: (e) => {
             e.preventDefault();
             void deviceAction("issue", deviceId);
           }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "ys-field", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-label", children: "\u8BBE\u5907 ID" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "ys-input ys-mono", value: deviceId, onChange: (e) => setDeviceId(e.target.value), maxLength: 48, required: true, pattern: "[a-zA-Z0-9_-]{1,48}", placeholder: "\u4F8B\u5982 speaker-living-room", disabled: !connected || !!deviceBusy })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label", children: "\u5BA2\u6237\u7AEF ID" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { id: "ys-client-id", className: "ys-input ys-mono", value: deviceId, onChange: (e) => setDeviceId(e.target.value), maxLength: 48, required: true, pattern: "[a-zA-Z0-9_-]{1,48}", placeholder: "\u4F8B\u5982 speaker-living-room", disabled: !connected || !!deviceBusy })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "ys-btn ys-btn-primary", type: "submit", disabled: !connected || !!deviceBusy, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: deviceBusy === "issue" ? "refresh" : "shield", spin: deviceBusy === "issue", size: 14 }),
-              deviceBusy === "issue" ? "\u7B7E\u53D1\u4E2D\u2026" : devices.includes(deviceId) ? "\u66F4\u65B0\u8BBE\u5907\u4EE4\u724C" : "\u7B7E\u53D1\u8BBE\u5907\u4EE4\u724C"
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "ys-field", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-label", children: [
+                "\u5BA2\u6237\u7AEF\u540D\u79F0 ",
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-label-meta", children: "\u9009\u586B" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("input", { className: "ys-input", value: clientLabel, onChange: (e) => setClientLabel(e.target.value), maxLength: 64, placeholder: "\u4F8B\u5982 \u5BA2\u5385\u97F3\u7BB1", disabled: !connected || !!deviceBusy })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { className: "ys-btn ys-btn-primary", type: "submit", disabled: !connected || !!deviceBusy, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: deviceBusy === "issue" ? "refresh" : "shield", spin: deviceBusy === "issue", size: 14 }),
+              deviceBusy === "issue" ? "\u7B7E\u53D1\u4E2D\u2026" : devices.includes(deviceId) ? "\u66F4\u65B0\u5BA2\u6237\u7AEF\u4EE4\u724C" : "\u521B\u5EFA\u5BA2\u6237\u7AEF\u5E76\u7B7E\u53D1\u4EE4\u724C"
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u652F\u6301\u5B57\u6BCD\u3001\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u548C\u8FDE\u5B57\u7B26\uFF0C\u6700\u957F 48 \u4F4D\u3002\u76F8\u540C ID \u4F1A\u66F4\u65B0\u4EE4\u724C\u3002" }),
-          issued && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-token", role: "status", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SecretField, { id: "ys-issued-token", label: `${issued.deviceId} \u7684\u65B0\u4EE4\u724C`, value: issued.token, readOnly: true, onCopy: () => void copy(issued.token, "\u8BBE\u5907\u4EE4\u724C"), help: "\u5C06\u6B64\u4EE4\u724C\u586B\u5199\u5230\u5BF9\u5E94\u8BBE\u5907\u7684\u8FDE\u63A5\u914D\u7F6E\u3002\u5173\u95ED\u9762\u677F\u540E\u53EF\u91CD\u65B0\u7B7E\u53D1\u3002" }, issued.token) }),
-          devices.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-devices", children: devices.map((id) => {
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", children: "ID \u652F\u6301\u5B57\u6BCD\u3001\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u548C\u8FDE\u5B57\u7B26\uFF0C\u6700\u957F 48 \u4F4D\u3002\u4E0D\u540C\u5BA2\u6237\u7AEF\u5FC5\u987B\u4F7F\u7528\u4E0D\u540C ID \u548C\u4EE4\u724C\uFF1B\u76F8\u540C ID \u7684\u91CD\u8FDE\u4F1A\u6062\u590D\u539F\u914D\u7F6E\u4E0E\u8BB0\u5FC6\u3002" }),
+          issued && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-token", role: "status", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SecretField, { id: "ys-issued-token", label: `${issued.deviceId} \u7684\u65B0\u4EE4\u724C`, value: issued.token, readOnly: true, onCopy: () => void copy(issued.token, "\u8BBE\u5907\u4EE4\u724C"), help: "\u5C06\u6B64\u4EE4\u724C\u586B\u5199\u5230\u5BF9\u5E94\u8BBE\u5907\u7684\u8FDE\u63A5\u914D\u7F6E\u3002\u5173\u95ED\u9762\u677F\u540E\u53EF\u91CD\u65B0\u7B7E\u53D1\u3002" }, issued.token) }),
+          devices.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-devices", children: devices.map((id) => {
             const client = clients.find((c) => c.deviceId === id);
-            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-device", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-device-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "device", size: 17 }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-device-info", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-device-name", children: id }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-device-detail", children: client?.deviceName || "\u72EC\u7ACB\u63A5\u5165\u4EE4\u724C" })
+            return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-device", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-device-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "device", size: 17 }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-device-info", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-device-name", children: profiles.find((p) => p.deviceId === id)?.label || id }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("p", { className: "ys-device-detail", children: [
+                  id,
+                  " \xB7 ",
+                  profiles.find((p) => p.deviceId === id)?.credentialConfigured ? "\u72EC\u7ACB\u63A5\u5165\u8EAB\u4EFD" : "\u63A5\u5165\u5DF2\u505C\u7528"
+                ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Badge, { tone: client ? "success" : void 0, children: client ? client.state === "listening" ? "\u6B63\u5728\u503E\u542C" : client.state === "busy" ? "\u5904\u7406\u4E2D" : "\u5728\u7EBF" : "\u672A\u8FDE\u63A5" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon ys-btn-quiet ys-btn-danger", "aria-label": `\u64A4\u9500 ${id} \u7684\u4EE4\u724C`, title: "\u64A4\u9500\u8BBE\u5907\u4EE4\u724C", disabled: !connected || !!deviceBusy, onClick: () => void deviceAction("revoke", id), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: deviceBusy === id ? "refresh" : "trash", spin: deviceBusy === id, size: 14 }) })
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-quiet", disabled: saving || dirty || memoryDirty || !!deviceBusy, onClick: () => {
+                if (active.current) onSelectClient(id, active.current);
+              }, children: "\u914D\u7F6E" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Badge, { tone: client ? "success" : void 0, children: client ? client.state === "listening" ? "\u6B63\u5728\u503E\u542C" : client.state === "busy" ? "\u5904\u7406\u4E2D" : "\u5728\u7EBF" : "\u672A\u8FDE\u63A5" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon ys-btn-quiet ys-btn-danger", "aria-label": `\u64A4\u9500 ${id} \u7684\u4EE4\u724C`, title: "\u64A4\u9500\u8BBE\u5907\u4EE4\u724C", disabled: !connected || !!deviceBusy, onClick: () => void deviceAction("revoke", id), children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: deviceBusy === id ? "refresh" : "trash", spin: deviceBusy === id, size: 14 }) })
             ] }, id);
-          }) }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-empty", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "device", size: 23 }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: "\u8FD8\u6CA1\u6709\u6CE8\u518C\u72EC\u7ACB\u8BBE\u5907" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "\u586B\u5199\u8BBE\u5907 ID\uFF0C\u7B7E\u53D1\u7B2C\u4E00\u679A\u8BBE\u5907\u4EE4\u724C\u3002" })
+          }) }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-empty", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "device", size: 23 }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { children: "\u8FD8\u6CA1\u6709\u521B\u5EFA\u5BA2\u6237\u7AEF" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: "\u586B\u5199\u5BA2\u6237\u7AEF ID\uFF0C\u521B\u5EFA\u7B2C\u4E00\u5957\u72EC\u7ACB\u914D\u7F6E\u4E0E\u8BB0\u5FC6\u3002" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", { className: "ys-advanced", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "shield", size: 16 }),
-            "\u517C\u5BB9\u8BBE\u5907\u63A5\u5165",
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "chevron", size: 12 })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("details", { className: "ys-advanced", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("summary", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "shield", size: 16 }),
+            "\u517C\u5BB9\u5BA2\u6237\u7AEF\u63A5\u5165",
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "chevron", size: 12 })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-advanced-body", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "\u5171\u4EAB\u4EE4\u724C\u4F9B\u5DF2\u6709\u5BA2\u6237\u7AEF\u4F7F\u7528\uFF1B\u65B0\u8BBE\u5907\u5EFA\u8BAE\u4F7F\u7528\u72EC\u7ACB\u4EE4\u724C\u3002\u66F4\u6362\u540E\uFF0C\u4F7F\u7528\u65E7\u4EE4\u724C\u7684\u8FDE\u63A5\u4F1A\u65AD\u5F00\u3002" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SecretField, { id: "ys-shared-token", label: "\u5171\u4EAB\u8BBE\u5907\u4EE4\u724C", value: s.token ?? "", readOnly: true, disabled: !connected, placeholder: "\u5171\u4EAB\u63A5\u5165\u672A\u542F\u7528", onCopy: () => void copy(s.token, "\u5171\u4EAB\u4EE4\u724C") }, s.token ?? "empty"),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-row ys-between", style: { marginTop: 13 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-field-help", style: { margin: 0 }, children: "\u4E0E\u8BBE\u7F6E\u7BA1\u7406\u4F7F\u7528\u7684 adminToken \u76F8\u4E92\u72EC\u7ACB\u3002" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "ys-btn", disabled: !connected || !!deviceBusy, onClick: () => void deviceAction("rotate"), children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "refresh", size: 13, spin: deviceBusy === "rotate" }),
-                deviceBusy === "rotate" ? "\u66F4\u6362\u4E2D\u2026" : "\u66F4\u6362\u5171\u4EAB\u4EE4\u724C"
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-advanced-body", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: "\u65E7\u63A5\u5165\u4EE4\u724C\u73B0\u5728\u53EA\u7ED1\u5B9A\u4E00\u4E2A\u517C\u5BB9\u5BA2\u6237\u7AEF\uFF0C\u4E0D\u80FD\u7528\u4E8E\u5176\u4ED6\u5BA2\u6237\u7AEF\u3002\u65B0\u5BA2\u6237\u7AEF\u8BF7\u5728\u4E0A\u65B9\u7B7E\u53D1\u72EC\u7ACB\u4EE4\u724C\u3002\u66F4\u6362\u540E\u8BE5\u517C\u5BB9\u5BA2\u6237\u7AEF\u9700\u91CD\u65B0\u914D\u7F6E\u3002" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SecretField, { id: "ys-shared-token", label: "\u517C\u5BB9\u5BA2\u6237\u7AEF\u4EE4\u724C", value: serverSettings?.token ?? "", readOnly: true, disabled: !connected, placeholder: "\u517C\u5BB9\u63A5\u5165\u672A\u542F\u7528", onCopy: () => void copy(serverSettings?.token, "\u517C\u5BB9\u4EE4\u724C") }, serverSettings?.token ?? "empty"),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-row ys-between", style: { marginTop: 13 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-field-help", style: { margin: 0 }, children: "\u4E0E\u8BBE\u7F6E\u7BA1\u7406\u4F7F\u7528\u7684 adminToken \u76F8\u4E92\u72EC\u7ACB\u3002" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { type: "button", className: "ys-btn", disabled: !connected || !!deviceBusy, onClick: () => void deviceAction("rotate"), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "refresh", size: 13, spin: deviceBusy === "rotate" }),
+                deviceBusy === "rotate" ? "\u66F4\u6362\u4E2D\u2026" : "\u66F4\u6362\u517C\u5BB9\u4EE4\u724C"
               ] })
             ] })
           ] })
         ] }),
-        clients.some((c) => !devices.includes(c.deviceId)) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Card, { icon: "plug", title: "\u5176\u4ED6\u5728\u7EBF\u8FDE\u63A5", description: "\u8FD9\u4E9B\u8FDE\u63A5\u901A\u8FC7\u5171\u4EAB\u4EE4\u724C\u63A5\u5165\u3002", children: clients.filter((c) => !devices.includes(c.deviceId)).map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-device", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-device-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "device", size: 17 }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-device-info", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-device-name", children: c.deviceName || c.deviceId || "\u7B49\u5F85\u63E1\u624B" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-device-detail", children: c.deviceId || "\u8FDE\u63A5\u521D\u59CB\u5316\u4E2D" })
+        clients.some((c) => c.deviceId && !devices.includes(c.deviceId)) && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Card, { icon: "plug", title: "\u5176\u4ED6\u5728\u7EBF\u8FDE\u63A5", description: "\u5BA2\u6237\u7AEF\u6B63\u5728\u521D\u59CB\u5316\u72EC\u7ACB\u6863\u6848\u3002", children: clients.filter((c) => !devices.includes(c.deviceId)).map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-device", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-device-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "device", size: 17 }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-device-info", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-device-name", children: c.deviceName || c.deviceId || "\u7B49\u5F85\u63E1\u624B" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-device-detail", children: c.deviceId || "\u8FDE\u63A5\u521D\u59CB\u5316\u4E2D" })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Badge, { tone: "success", children: "\u5728\u7EBF" })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Badge, { tone: "success", children: "\u5728\u7EBF" })
         ] }, c.connectionId ?? i)) })
       ] }),
-      tab === "diagnostics" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "ys-panel-diagnostics", role: "tabpanel", "aria-labelledby": "ys-tab-diagnostics", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-diag-intro", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "\u68C0\u67E5\u8BED\u97F3\u94FE\u8DEF" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "\u9010\u9879\u9A8C\u8BC1\u8BC6\u522B\u3001\u5BF9\u8BDD\u548C\u5408\u6210\u670D\u52A1\u662F\u5426\u53EF\u7528\u3002" })
+      tab === "diagnostics" && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { id: "ys-panel-diagnostics", role: "tabpanel", "aria-labelledby": "ys-tab-diagnostics", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-diag-intro", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h2", { children: "\u68C0\u67E5\u8BED\u97F3\u94FE\u8DEF" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: "\u9010\u9879\u9A8C\u8BC1\u8BC6\u522B\u3001\u5BF9\u8BDD\u548C\u5408\u6210\u670D\u52A1\u662F\u5426\u53EF\u7528\u3002" })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "ys-btn", disabled: !connected || diagnosticBusy, onClick: () => void Promise.all(TESTS.map((t) => runTest(t.id))), children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "refresh", size: 14, spin: diagnosticBusy }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { type: "button", className: "ys-btn", disabled: !editable || diagnosticBusy, onClick: () => void Promise.all(TESTS.map((t) => runTest(t.id))), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "refresh", size: 14, spin: diagnosticBusy }),
             diagnosticBusy ? "\u68C0\u67E5\u4E2D\u2026" : "\u8FD0\u884C\u5168\u90E8\u68C0\u67E5"
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-diagnostics", children: TESTS.map((test) => {
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-diagnostics", children: TESTS.map((test) => {
           const entry = tests[test.id], result = entry?.result;
-          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "ys-card ys-diagnostic", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ys-diagnostic-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: test.icon, size: 18 }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h3", { children: test.name }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-diagnostic-description", children: test.description }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn", disabled: !connected || entry?.busy, onClick: () => void runTest(test.id), children: entry?.busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "refresh", size: 13, spin: true }),
+          return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { className: "ys-card ys-diagnostic", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ys-diagnostic-symbol", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: test.icon, size: 18 }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h3", { children: test.name }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-diagnostic-description", children: test.description }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn", disabled: !editable || entry?.busy, onClick: () => void runTest(test.id), children: entry?.busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "refresh", size: 13, spin: true }),
               "\u68C0\u67E5\u4E2D\u2026"
             ] }) : test.button }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-diagnostic-result", role: "status", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { className: "ys-dot", style: { background: result?.ok === true ? "var(--ys-green)" : result?.ok === false ? "var(--ys-red)" : void 0 } }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-diagnostic-result", role: "status", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: "ys-dot", style: { background: result?.ok === true ? "var(--ys-green)" : result?.ok === false ? "var(--ys-red)" : void 0 } }),
               testStatus(test.id),
-              result?.durationMs !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "ys-label-meta", children: [
+              result?.durationMs !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "ys-label-meta", children: [
                 "\xB7 ",
                 result.durationMs,
                 "ms"
               ] })
             ] }),
-            result && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-diagnostic-message", children: result.ok ? "\u670D\u52A1\u8C03\u7528\u6B63\u5E38" : String(result.message ?? result.error ?? result.code ?? "\u8BF7\u68C0\u67E5\u51ED\u636E\u4E0E\u670D\u52A1\u8FDE\u63A5\u3002") })
+            result && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-diagnostic-message", children: result.ok ? "\u670D\u52A1\u8C03\u7528\u6B63\u5E38" : String(result.message ?? result.error ?? result.code ?? "\u8BF7\u68C0\u67E5\u51ED\u636E\u4E0E\u670D\u52A1\u8FDE\u63A5\u3002") })
           ] }, test.id);
         }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-card", style: { marginTop: 20, padding: 20 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ys-row ys-between", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "ys-label", children: "\u8BBE\u5907\u63A5\u5165\u7AEF\u70B9" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "ys-mono", style: { overflowWrap: "anywhere" }, children: websocket })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-card", style: { marginTop: 20, padding: 20 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "ys-row ys-between", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "ys-label", children: "\u8BBE\u5907\u63A5\u5165\u7AEF\u70B9" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { className: "ys-mono", style: { overflowWrap: "anywhere" }, children: websocket })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": "\u590D\u5236\u8BBE\u5907\u63A5\u5165\u7AEF\u70B9", title: "\u590D\u5236\u8BBE\u5907\u63A5\u5165\u7AEF\u70B9", onClick: () => void copy(websocket, "\u63A5\u5165\u7AEF\u70B9"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon, { name: "copy", size: 14 }) })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "ys-btn ys-btn-icon", "aria-label": "\u590D\u5236\u8BBE\u5907\u63A5\u5165\u7AEF\u70B9", title: "\u590D\u5236\u8BBE\u5907\u63A5\u5165\u7AEF\u70B9", onClick: () => void copy(websocket, "\u63A5\u5165\u7AEF\u70B9"), children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, { name: "copy", size: 14 }) })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", children: "\u652F\u6301\u534F\u8BAE v1 / v2\u3002\u97F3\u9891\u8F93\u5165 16kHz\uFF0C\u8F93\u51FA 24kHz\uFF0CPCM \u5355\u58F0\u9053\u3002" })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", children: "\u652F\u6301\u534F\u8BAE v1 / v2\u3002\u97F3\u9891\u8F93\u5165 16kHz\uFF0C\u8F93\u51FA 24kHz\uFF0CPCM \u5355\u58F0\u9053\u3002" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-field-help", style: { marginTop: 15 }, children: "\u68C0\u67E5\u4F7F\u7528\u5DF2\u4FDD\u5B58\u7684\u914D\u7F6E\u3002\u6D4B\u8BD5\u5BF9\u8BDD\u4F1A\u8C03\u7528\u5F53\u524D\u9ED8\u8BA4\u6A21\u578B\u3002" })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-field-help", style: { marginTop: 15 }, children: "\u68C0\u67E5\u4F7F\u7528\u5DF2\u4FDD\u5B58\u7684\u914D\u7F6E\u3002\u6D4B\u8BD5\u5BF9\u8BDD\u4F1A\u8C03\u7528\u5F53\u524D\u9ED8\u8BA4\u6A21\u578B\u3002" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "ys-bottom-note", children: "\u8BBE\u7F6E\u4FDD\u5B58\u5728\u8BED\u97F3\u670D\u52A1\u5668\uFF0C\u7F16\u8F91\u540E\u9700\u70B9\u51FB\u4FDD\u5B58\u3002\u7BA1\u7406\u4EE4\u724C\u4EC5\u4FDD\u7559\u5728\u5F53\u524D\u9762\u677F\u5185\u5B58\u4E2D\u3002" })
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "ys-bottom-note", children: "\u8BBE\u7F6E\u4FDD\u5B58\u5728\u8BED\u97F3\u670D\u52A1\u5668\uFF0C\u7F16\u8F91\u540E\u9700\u70B9\u51FB\u4FDD\u5B58\u3002\u5F53\u524D dsh \u81EA\u52A8\u4F7F\u7528\u767B\u5F55\u72B6\u6001\uFF1B\u5916\u90E8\u7BA1\u7406\u4EE4\u724C\u4EC5\u4FDD\u7559\u5728\u5F53\u524D\u9762\u677F\u5185\u5B58\u4E2D\u3002" })
     ] })
   ] });
 }
 
 // src/client/index.tsx
-var import_jsx_runtime2 = require("react/jsx-runtime");
+var import_jsx_runtime4 = require("react/jsx-runtime");
 var PANEL_ID = "dsh-yusheng-voice";
 var inject = ["slots"];
 function apply(ctx) {
@@ -807,7 +1195,7 @@ function apply(ctx) {
 }
 function VoicePanelIcon(props) {
   const size = typeof props?.size === "number" ? props.size : 18;
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
     "svg",
     {
       width: size,
@@ -821,10 +1209,10 @@ function VoicePanelIcon(props) {
       "aria-hidden": "true",
       focusable: "false",
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "9", y: "2.5", width: "6", height: "11", rx: "3" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M5 11a7 7 0 0 0 14 0" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("line", { x1: "12", y1: "18", x2: "12", y2: "21.5" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("line", { x1: "8.5", y1: "21.5", x2: "15.5", y2: "21.5" })
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("rect", { x: "9", y: "2.5", width: "6", height: "11", rx: "3" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("path", { d: "M5 11a7 7 0 0 0 14 0" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("line", { x1: "12", y1: "18", x2: "12", y2: "21.5" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("line", { x1: "8.5", y1: "21.5", x2: "15.5", y2: "21.5" })
       ]
     }
   );

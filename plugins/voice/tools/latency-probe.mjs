@@ -7,7 +7,7 @@ const mark = (k) => { ts[k] ??= Date.now() - t0 }
 const audio = []
 const ws = new WebSocket(url)
 ws.binaryType = 'arraybuffer'
-ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', version: 1, deviceId: 'latency-probe', deviceName: 'probe' }))
+ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', version: 1, deviceId: process.env.VOICE_DEVICE_ID || 'latency-probe', deviceName: 'probe' }))
 ws.onmessage = async (ev) => {
   const d = ev.data
   if (d instanceof Blob) { if (!ts.firstAudio) { ts.firstAudio = Date.now() - t0 }; audio.push(Buffer.from(await d.arrayBuffer()).length); return }

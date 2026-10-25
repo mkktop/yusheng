@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-25T07:43:59.117Z",
+  "checks": [
+    {
+      "name": "语声",
+      "ok": true,
+      "durationMs": 12861,
+      "text": "语声\n星河四十二",
+      "sessionId": "voice-validation-persona-mvnifbxf-p-yusheng-assistant",
+      "toolCalled": false,
+      "audioFrames": 64,
+      "sessionPreserved": true
+    }
+  ]
+}

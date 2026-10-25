@@ -2,8 +2,8 @@
 // 注册模式与官方面板（插件页 order 0 / 自动化任务 order 10）一致：
 //   1) ctx.slots.inject("main", ...)            —— 面板内容组件（按 key 寻址）
 //   2) ctx.slots.inject("sidebar.panellist", …) —— 左侧按钮（图标组件 + order）
-// 面板通过语音服务自带的 REST（CORS + 令牌）读写设置，不依赖官方 settings
-// 表单通道（该通道在非回环访问下不持久化）。
+// 面板通过 dsh 的 owner-only Connection Fetch 接口复用登录态。
+// 外部服务器兼容语音服务自带的 REST（CORS + 管理令牌）。
 
 import { VoiceSettingsPanel } from './settings-panel.js'
 

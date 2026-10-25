@@ -1,6 +1,6 @@
 {
   "name": "dsh-yusheng-voice",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "yusheng voice backend: WebSocket voice protocol over minimax ASR/TTS with LLM turns driven by in-process dsh sessions; settings panel in the web right sidebar",
   "type": "module",
   "main": "lib/index.js",

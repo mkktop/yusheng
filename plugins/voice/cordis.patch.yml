@@ -18,3 +18,68 @@
         port: 8090
         # 设置文件路径，默认 $DSH_HOME/yusheng-voice/settings.json
         # settingsPath: "/etc/yusheng/settings.json"
+    - id: preset-yusheng-assistant
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: yusheng-assistant
+        name: 语声助手
+        description: 面向语音的自然交流、工具执行与形象界面互动，名称和性格由语声设置管理。
+        order: 5
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: >-
+                你是语声助手，通过自然语音帮助用户交流、查询信息和完成任务。
+                默认使用简短、可朗读的中文，先说结论，一次只问一个关键问题。
+                使用实际可用的工具，以真实结果反馈，不朗读代码、日志或工具参数。
+                只有当前客户端提供表现工具时才展示界面或表情动作。
+                通过语音询问用户，避免等待网页人工填写的提问流程。
+          - id: time
+            name: '@deepseek-ai/dsh-time-context'
+          - id: instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: schedule
+            name: '@deepseek-ai/dsh-tool-schedule'
+          - id: web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: skills
+            name: '@deepseek-ai/dsh-skill-filesystem'
+          - id: skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024

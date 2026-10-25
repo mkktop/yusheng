@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-25T08:59:02.754Z",
+  "checks": [
+    {
+      "name": "existing GM800 profile preserves settings and legacy session",
+      "ok": true,
+      "durationMs": 338,
+      "assistantName": "木偶",
+      "sessionPreserved": true,
+      "sessionId": "voice-gm800-gui-p-yusheng-assistant"
+    },
+    {
+      "name": "two offline profiles have independent frozen configuration",
+      "ok": true,
+      "durationMs": 211,
+      "clients": [
+        "validation-isolation-mvnliztv-a",
+        "validation-isolation-mvnliztv-b"
+      ],
+      "independentNames": true,
+      "independentVoices": true
+    },
+    {
+      "name": "client credential cannot claim the other identity",
+      "ok": true,
+      "durationMs": 69,
+      "impersonationRejected": true
+    },
+    {
+      "name": "same conversation name uses separate agents, tools and durable memories",
+      "ok": true,
+      "durationMs": 21530,
+      "separateSessions": true,
+      "memoryToolsPersisted": true,
+      "audioFrames": [
+        176,
+        306
+      ]
+    },
+    {
+      "name": "reconnect resumes each conversation without cross-client recall",
+      "ok": true,
+      "durationMs": 7653,
+      "sessionPreserved": true,
+      "recallIsolated": true
+    },
+    {
+      "name": "context reset and undo only affect the selected client",
+      "ok": true,
+      "durationMs": 5685,
+      "factsPreserved": true,
+      "originalSessionRestored": true,
+      "otherClientPreserved": true
+    },
+    {
+      "name": "both clients retain names, session history and memory across host restart",
+      "ok": true,
+      "durationMs": 9387,
+      "sessionPreserved": true,
+      "independentNames": true,
+      "independentRecall": true
+    },
+    {
+      "name": "temporary validation clients revoked and archived",
+      "ok": true,
+      "durationMs": 203,
+      "fixturesRevoked": true,
+      "profilesArchived": true
+    }
+  ]
+}

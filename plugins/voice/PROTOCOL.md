@@ -18,7 +18,7 @@
 }
 ```
 
-`deviceId` 必须是 1–48 位 ASCII 字母、数字、下划线或连字符。v2 不做有损规范化。独立设备令牌绑定这个 ID；共享兼容令牌可声明任意未占用设备 ID，应仅分配给受信客户端。同设备同时仅允许一个连接，第二个返回 `device_in_use`。连接后 10 秒内必须完成握手。
+`deviceId` 必须是 1–48 位 ASCII 字母、数字、下划线或连字符。v2 不做有损规范化。独立设备令牌绑定这个 ID；兼容令牌也固定绑定一个客户端（未绑定时首次握手写入归属），不能作为多客户端共享凭据。同设备同时仅允许一个连接，第二个返回 `device_in_use`。连接后 10 秒内必须完成握手。
 
 `welcome` 返回 `version`、`connectionId`、`conversationId`、`sessionId`、`capabilities`（双方交集）、`supportedCapabilities` 和确认后的 `audio` 格式。未知能力被忽略，未知协议版本返回 `unsupported_version`。`audio.output.framing` 为 `ysv2` 或 `raw`，以服务端返回值为准。
 
@@ -27,7 +27,7 @@
 ## 身份、轮次与去重
 
 - `connectionId`：本次连接身份，重连改变。
-- `conversationId`：持久对话身份，默认等于设备 ID；会话还按 agent preset 隔离。
+- `conversationId`：当前客户端内部的持久对话名称，默认等于设备 ID；会话由客户端 ID、对话名称、模式及上下文代次共同隔离。
 - `requestId`：客户端为每次新输入提供的 1–128 字符 ID。
 - `turnId`：服务端在接受输入时生成，每轮唯一。
 - `streamId`：连接内递增的 uint32 下行音频流 ID，跨连接不保证唯一。
@@ -52,7 +52,7 @@
 
 取消不能撤销已经执行的工具副作用。宿主取消后若尚未真正空闲，后续输入可能收到 `session_busy`，请稍后用新请求 ID 重试。服务端在宿主完成收尾前一直保留会话互斥锁，避免串流。
 
-会话注册表持久保存归属。新对话 ID 需以 `<deviceId>-` 开头，总长不超过 64，只允许字母、数字、下划线和连字符。已属于其他设备的对话不可占用。`conversation.select`、`response.stop`、`playback`、`agent.activity` 需要事先协商对应能力。
+0.5 起，对话名称仅在当前客户端内有效，总长不超过 64，只允许字母、数字、下划线和连字符。不同客户端都使用 `main` 也不会共享上下文；无需设备 ID 前缀。切换对话名称不会切换客户端配置或长期记忆。`conversation.select`、`response.stop`、`playback`、`agent.activity` 需要事先协商对应能力。
 
 所有阶段共享 `maxTurnSeconds` 总期限，从输入接受时开始计时，包含拾音、ASR、会话准备、工具执行、合成和音频发送。客户端应尽早发送录音结束消息。
 
@@ -114,3 +114,9 @@
 0.3 增加了形象状态、同步表情动作和声明式卡片/选项/进度/表单及交互回传，见 [形象与智能 UI 协议](INTERACTION.md)。新增能力为 `presentation.state`、`presentation.cue`、`ui.render`；现有语音消息保持兼容。
 
 当前提供客户端断句、整段 ASR、增量文本和流式 TTS。服务端 VAD、流式 ASR、Opus、跨连接音频回放、长期后台任务队列和审批交互尚未实现。后续可增加能力与事件；改变现有字段或音频格式需要新协议版本。上行控制消息仍限制为 32KiB；UI 快照为较大的下行控制消息，单次最多约 200KiB。
+
+## 客户端数据边界（0.5）
+
+WebSocket 不接受客户端自选长期记忆路径或其他客户端 ID。身份由绑定令牌和 hello 一致性校验确定，服务端为该身份装配独立设置、模型、事实记忆、会话和 UI 存储。agent 的 `voice_memory` 工具不含跨客户端选择参数。配置和记忆的管理仍需要 dsh owner 登录或 adminToken，设备令牌不能调用管理 REST。重置上下文会关闭所选客户端连接，重连后进入新代次；其他客户端连接保持。
+
+这是应用层隔离。当前宿主全访问工具权限的边界与部署要求见 README「0.5 每个客户端独立」。

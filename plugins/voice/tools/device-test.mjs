@@ -1,3 +1,4 @@
+import {fixtureToken} from './device-fixtures.mjs'
 // Run on the dsh host: credentials stay in the host settings file and are never logged.
 import { readFileSync, writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
@@ -17,7 +18,7 @@ async function check(name,fn) {
   writeFileSync(output,JSON.stringify(report,null,2)+'\n',{mode:0o600})
 }
 async function connect(version=2,deviceId='device-validation') {
-  const ws=new WebSocket(`${base.replace(/^http/,'ws')}/voice?token=${encodeURIComponent(settings.token)}`)
+  const ws=new WebSocket(`${base.replace(/^http/,'ws')}/voice?token=${encodeURIComponent(await fixtureToken(deviceId))}`)
   ws.binaryType='arraybuffer'
   const messages=[],audio=[]
   let firstAudioAt
@@ -132,15 +133,15 @@ await check('client playback flow pauses and resumes real audio',async()=>{
   }finally{c.close()}
 })
 await check('real turn deadline cancels long tool work and restores settings',async()=>{
-  const original=settings.maxTurnSeconds,c=await connect(2,'validation-timeout')
+  const c=await connect(2,'validation-timeout'),original=(await(await fetch(base+'/clients/validation-timeout/settings',{headers})).json()).settings.maxTurnSeconds
   try {
-    const update=await(await fetch(base+'/settings',{method:'PUT',headers,body:JSON.stringify({maxTurnSeconds:15})})).json();assert.equal(update.ok,true)
+    const update=await(await fetch(base+'/clients/validation-timeout/settings',{method:'PUT',headers,body:JSON.stringify({maxTurnSeconds:15})})).json();assert.equal(update.ok,true)
     c.send({type:'query',requestId:'timeout',text:'请使用 shell 执行 sleep 25，命令结束后才回复完成。'})
     await c.wait(()=>c.messages.find(m=>m.type==='turn.end'),30000)
     const end=c.messages.find(m=>m.type==='turn.end');assert.equal(end.reason,'timeout',JSON.stringify(c.messages.filter(m=>m.type==='error')))
     assert.ok(end.durationMs>=14900&&end.durationMs<20000)
     return {reason:end.reason,durationMs:end.durationMs}
-  }finally{await fetch(base+'/settings',{method:'PUT',headers,body:JSON.stringify({maxTurnSeconds:original})});c.close()}
+  }finally{await fetch(base+'/clients/validation-timeout/settings',{method:'PUT',headers,body:JSON.stringify({maxTurnSeconds:original})});c.close()}
 })
 writeFileSync(output,JSON.stringify(report,null,2)+'\n',{mode:0o600})
 console.log('REPORT',output)

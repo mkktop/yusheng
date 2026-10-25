@@ -4,8 +4,9 @@
 import { Buffer } from 'node:buffer'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve, join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { AgentBridge } from './llm.js'
@@ -13,10 +14,12 @@ import { VoiceConnection, PROTOCOL_VERSION } from './connection.js'
 import { maskSettings, type SettingsStore } from './settings.js'
 import { transcribePcm, AsrError } from './asr.js'
 import { synthesizeStream, TtsError, TTS_SAMPLE_RATE } from './tts.js'
-import { identifier, newId, SUPPORTED_VERSIONS } from './protocol.js'
+import { identifier, SUPPORTED_VERSIONS } from './protocol.js'
 import { SurfaceStore } from './surface.js'
+import { ClientStore } from './clients.js'
+import { VoiceError } from './protocol.js'
 
-const VERSION = '0.3.0'
+const VERSION = '0.5.0'
 const BODY_LIMIT = 32 * 1024
 const WS_PATH = '/voice'
 
@@ -36,11 +39,13 @@ export class VoiceServer {
   private connections = new Set<VoiceConnection>()
   private startedAt = 0
   private heartbeat?: ReturnType<typeof setInterval>
-  private identities = new Map<VoiceConnection, { token: string; deviceId?: string }>()
+  private identities = new Map<VoiceConnection, { token: string; deviceId?: string; legacy?:boolean }>()
   private devices = new Map<string, VoiceConnection>()
   private conversationOwners: Record<string, string> = Object.create(null)
   private ownersPath: string
   private surface:SurfaceStore
+  private clientStore:ClientStore
+  private clientSurfaces=new Map<string,SurfaceStore>()
   private presetsCache: { at: number; value: Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean }> | undefined } = { at: 0, value: undefined }
 
   constructor(store: SettingsStore, bridge: AgentBridge, config: ServerConfig, log: (level: 'info' | 'warn', message: string) => void) {
@@ -55,6 +60,9 @@ export class VoiceServer {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('invalid conversation registry')
       this.conversationOwners = Object.assign(Object.create(null), raw)
     }
+    this.clientStore=new ClientStore(resolve(dirname(store.path),'clients'),()=>store.get(),()=>bridge.currentModel())
+    this.bridge.configureLegacyOwner?.(conversation=>this.conversationOwners[conversation])
+    for(const id of [...Object.keys(store.get().deviceTokens),store.get().legacyDeviceId].filter(Boolean))this.ensureClient(id)
   }
 
   start(): Promise<void> {
@@ -84,16 +92,27 @@ export class VoiceServer {
       wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
         // The upgrade URL is rechecked against current settings on every application message.
         const connection = new VoiceConnection(ws, {
-          settings: () => this.store.get(),
+          settings: id => id?this.clientStore.settings(id):this.store.get(),
           bridge: this.bridge,
           surface: this.surface,
           log: this.log,
           claimDevice: deviceId => {
             const identity = this.identities.get(connection)
             if (!identity || (identity.deviceId && identity.deviceId !== deviceId) || this.devices.has(deviceId) || !this.claimConversation(deviceId, deviceId)) return false
+            if(identity.legacy){if(!this.store.claimLegacy(deviceId))return false;identity.deviceId=deviceId}
+            this.ensureClient(deviceId)
             this.devices.set(deviceId, connection); return true
           },
           allowConversation: (deviceId, conversationId) => this.claimConversation(deviceId, conversationId),
+          scope:(deviceId,conversationId,preset)=>this.scopeFor(deviceId,conversationId,preset),
+          memory:deviceId=>({read:()=>this.clientStore.memory(deviceId),remember:text=>this.clientStore.remember(deviceId,text),forget:id=>this.clientStore.forget(deviceId,id)}),
+          epoch:deviceId=>this.clientStore.profile(deviceId).memoryEpoch,
+          surfaceForDevice:deviceId=>{
+            let surface=this.clientSurfaces.get(deviceId)
+            if(!surface){const path=join(this.clientStore.directory(deviceId),'ui.json');surface=this.clientStore.profile(deviceId).legacyHistory?this.surface.migrateClient(deviceId,path):new SurfaceStore(path);this.clientSurfaces.set(deviceId,surface)}
+            return surface
+          },
+          onSession:(id,conversation,preset,session)=>this.clientStore.touch(id,conversation,preset,session),
         })
         this.connections.add(connection)
         this.identities.set(connection, this.authorize(parseUrl(req)!)!)
@@ -152,17 +171,31 @@ export class VoiceServer {
     this.httpServer = undefined
   }
 
-  private authorize(url: URL): { token: string; deviceId?: string } | undefined {
+  /** Only the authenticated dsh owner route calls this; the admin credential stays server-side. */
+  async managementRequest(path: string, method: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
+    const address = this.httpServer?.address()
+    if (!address || typeof address === 'string') throw new Error('voice listener unavailable')
+    const host = address.address === '0.0.0.0' ? '127.0.0.1' : address.address === '::' ? '::1' : address.address
+    const base = `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`
+    const response = await fetch(base + path, {
+      method, headers: { 'content-type': 'application/json', 'x-voice-token': this.store.get().adminToken },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(65000)]) : AbortSignal.timeout(65000),
+    })
+    return new Response(await response.text(), { status: response.status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } })
+  }
+
+  private authorize(url: URL): { token: string; deviceId?: string; legacy?:boolean } | undefined {
     const settings = this.store.get()
     const provided = url.searchParams.get('token') ?? ''
-    if (secureEqual(provided, settings.token)) return { token: provided }
+    if (secureEqual(provided, settings.token)) return { token: provided, legacy:true, ...(settings.legacyDeviceId?{deviceId:settings.legacyDeviceId}:{}) }
     for (const [deviceId, token] of Object.entries(settings.deviceTokens)) if (secureEqual(provided, token)) return { token: provided, deviceId }
     return undefined
   }
 
-  private validIdentity(identity: { token: string; deviceId?: string }): boolean {
+  private validIdentity(identity: { token: string; deviceId?: string; legacy?:boolean }): boolean {
     const settings = this.store.get()
-    return secureEqual(identity.token, identity.deviceId ? settings.deviceTokens[identity.deviceId] : settings.token)
+    return identity.legacy?secureEqual(identity.token,settings.token)&&(!identity.deviceId||identity.deviceId===settings.legacyDeviceId):secureEqual(identity.token, identity.deviceId ? settings.deviceTokens[identity.deviceId] : '')
   }
 
   private originAllowed(req: IncomingMessage): boolean {
@@ -174,12 +207,13 @@ export class VoiceServer {
   }
 
   private claimConversation(deviceId: string, conversationId: string): boolean {
-    if (Object.hasOwn(this.conversationOwners, conversationId)) return this.conversationOwners[conversationId] === deviceId
-    if ((conversationId !== deviceId && !conversationId.startsWith(`${deviceId}-`)) || Object.keys(this.conversationOwners).length >= 4096) return false
-    const next = { ...this.conversationOwners, [conversationId]: deviceId }, temporary = `${this.ownersPath}.${newId()}.tmp`
-    writeFileSync(temporary, JSON.stringify(next), { mode: 0o600 }); renameSync(temporary, this.ownersPath)
-    this.conversationOwners = Object.assign(Object.create(null), next)
-    return true
+    return identifier(deviceId,48)&&identifier(conversationId)
+  }
+  private ensureClient(id:string,label='') {return this.clientStore.ensure(id,label,Object.values(this.conversationOwners).includes(id))}
+  private scopeFor(id:string,conversation:string,_preset:string,diagnostic=false) {
+    const p=this.clientStore.profile(id),conversationKey=diagnostic?'diagnostic:'+conversation:conversation
+    const options={cwd:join(this.clientStore.directory(id),'workspace'),indexPath:join(this.clientStore.directory(id),'sessions.json'),model:{provider:p.config.llmProvider,model:p.config.llmModel},legacy:!diagnostic&&p.legacyHistory}
+    return this.bridge.clientScope?.(id,conversationKey,p.memoryEpoch,options)??'c-'+createHash('sha256').update(JSON.stringify([id,conversationKey,p.memoryEpoch])).digest('hex').slice(0,48)
   }
 
   // ---- REST ----
@@ -223,13 +257,14 @@ export class VoiceServer {
       return
     }
     const route = `${req.method} ${url.pathname}`
+    if(url.pathname==='/clients'||url.pathname.startsWith('/clients/')){await this.handleClientRoute(req,res,url);return}
     switch (route) {
       case 'GET /status':
         this.refreshPresets()
         this.handleStatus(res)
         return
       case 'GET /settings':
-        json(res, 200, { ok: true, settings: maskSettings(this.store.get()) })
+        json(res, 200, { ok: true, scope:'new-client-template', settings: maskSettings(this.store.get()) })
         return
       case 'PUT /settings':
         await this.handlePutSettings(req, res)
@@ -244,6 +279,8 @@ export class VoiceServer {
         let patch: any
         try { patch = JSON.parse(body) } catch { json(res, 400, { ok: false, error: 'bad_json' }); return }
         if (!identifier(patch?.deviceId, 48)) { json(res, 400, { ok: false, error: 'bad_device_id' }); return }
+        if(patch.label!==undefined&&(typeof patch.label!=='string'||patch.label.length>64)){json(res,400,{ok:false,error:'bad_label'});return}
+        this.ensureClient(patch.deviceId,patch.label)
         const deviceToken = this.store.issueDevice(patch.deviceId)
         this.closeRevoked(); json(res, 200, { ok: true, deviceId: patch.deviceId, token: deviceToken }); return
       }
@@ -269,13 +306,15 @@ export class VoiceServer {
     const settings = this.store.get()
     const model = this.bridge.currentModel()
     const presets = this.presetsCache.value
+    const address = this.httpServer?.address()
+    const port = address && typeof address !== 'string' ? address.port : this.config.port
     json(res, 200, {
       ok: true,
       service: 'dsh-yusheng-voice',
       version: VERSION,
       protocol: PROTOCOL_VERSION,
       supportedProtocols: SUPPORTED_VERSIONS,
-      endpoint: `ws://${this.config.host}:${this.config.port}${WS_PATH}`,
+      endpoint: `ws://${this.config.host.includes(':') ? `[${this.config.host}]` : this.config.host}:${port}${WS_PATH}`,
       uptimeSec: Math.round((Date.now() - this.startedAt) / 1000),
       tokenConfigured: settings.token !== '',
       model,
@@ -283,6 +322,8 @@ export class VoiceServer {
       hasMinimaxApiKey: settings.minimaxApiKey !== '',
       clients: [...this.connections].map((c) => c.describe()),
       settings: maskSettings(settings),
+      clientProfiles:this.clientStore.list(),
+      isolation:'client',
     })
   }
 
@@ -316,8 +357,7 @@ export class VoiceServer {
   }
 
   /** 1 秒静音 WAV 走一遍真实 ASR 调用验证凭据与连通性。 */
-  private async handleTestAsr(res: ServerResponse) {
-    const settings = this.store.get()
+  private async handleTestAsr(res: ServerResponse,settings = this.store.get()) {
     const started = Date.now()
     const silence = Buffer.alloc(TTS_SAMPLE_RATE * 2, 0) // 任意内容即可验证凭据
     try {
@@ -331,8 +371,7 @@ export class VoiceServer {
   }
 
   /** 合成「你好」验证 TTS 凭据与连通性（不回传音频）。 */
-  private async handleTestTts(res: ServerResponse) {
-    const settings = this.store.get()
+  private async handleTestTts(res: ServerResponse,settings = this.store.get()) {
     const started = Date.now()
     let bytes = 0
     try {
@@ -356,16 +395,16 @@ export class VoiceServer {
   }
 
   /** 复用固定自检会话跑一轮「回复 OK」，验证 dsh 会话链路与模型凭据。 */
-  private async handleTestLlm(res: ServerResponse) {
+  private async handleTestLlm(res: ServerResponse,settings=this.store.get(),scope='selftest') {
     const started = Date.now()
     let gotDelta = false
     try {
-      const turn = await this.bridge.turn('selftest', 'Reply with exactly: OK', {
+      const turn = await this.bridge.turn(scope, 'Reply with exactly: OK', {
         onTextDelta: () => {
           gotDelta = true
         },
         onEnd: () => undefined,
-      }, '', { signal: AbortSignal.timeout(30_000) })
+      }, settings.agentPreset, { signal: AbortSignal.timeout(30_000), persona: settings, promptPrefix: settings.promptPrefix })
       const outcome = await turn.done
       json(res, 200, {
         ok: outcome.kind === 'completed',
@@ -384,13 +423,52 @@ export class VoiceServer {
     }
   }
 
+  private async handleClientRoute(req:IncomingMessage,res:ServerResponse,url:URL) {
+    try {
+      if(url.pathname==='/clients'&&req.method==='GET'){json(res,200,{ok:true,clients:this.clientStore.list().map(c=>({...c,credentialConfigured:Object.hasOwn(this.store.get().deviceTokens,c.deviceId)||(!!this.store.get().token&&this.store.get().legacyDeviceId===c.deviceId)}))});return}
+      const match=/^\/clients\/([A-Za-z0-9_-]{1,48})(?:\/(settings|memory|conversations|context\/(?:reset|restore)|test\/(?:asr|tts|llm)))?$/.exec(url.pathname)
+      if(!match||!this.clientStore.exists(match[1])){json(res,404,{ok:false,error:'client_not_found',message:'客户端不存在，请先创建客户端'});return}
+      const [,id,resource]=match,settings=this.clientStore.settings(id)
+      if(req.method==='GET'){
+        if(!resource){json(res,200,{ok:true,...this.clientStore.view(id)});return}
+        if(resource==='settings'){json(res,200,{ok:true,deviceId:id,settings:this.clientStore.view(id).settings});return}
+        if(resource==='memory'){json(res,200,{ok:true,deviceId:id,memory:this.clientStore.memory(id)});return}
+        if(resource==='conversations'){json(res,200,{ok:true,deviceId:id,conversations:this.clientStore.conversations(id)});return}
+      }
+      if(req.method==='PUT'&&(resource==='settings'||resource==='memory')){
+        const body=await readBody(req);if(body===null){json(res,413,{ok:false,error:'too_large'});return}
+        let patch:any;try{patch=JSON.parse(body)}catch{throw new VoiceError('bad_json','请求不是合法 JSON')}
+        if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new VoiceError('bad_request','请求需为 JSON 对象')
+        if(resource==='settings'){json(res,200,{ok:true,deviceId:id,...this.clientStore.update(id,patch)});return}
+        if(Object.keys(patch).some(k=>!['text','revision'].includes(k)))throw new VoiceError('bad_memory','记忆参数不正确')
+        json(res,200,{ok:true,deviceId:id,memory:this.clientStore.replaceMemory(id,patch.text,patch.revision)});return
+      }
+      if(req.method==='POST'&&resource?.startsWith('context/')){
+        if([...this.connections].some(c=>c.deviceId===id&&['busy','listening'].includes(c.describe().state))){json(res,409,{ok:false,error:'client_busy',message:'请等待此客户端当前轮次结束后再重置对话'});return}
+        const view=this.clientStore.resetContext(id,resource==='context/restore')
+        for(const c of this.connections)if(c.deviceId===id)c.close(1000,'client context changed')
+        json(res,200,{ok:true,...view});return
+      }
+      if(req.method==='POST'&&resource?.startsWith('test/')){
+        if(resource==='test/asr')await this.handleTestAsr(res,settings)
+        else if(resource==='test/tts')await this.handleTestTts(res,settings)
+        else await this.handleTestLlm(res,settings,this.scopeFor(id,'health',settings.agentPreset,true))
+        return
+      }
+      json(res,404,{ok:false,error:'not_found'})
+    }catch(error){
+      if(error instanceof VoiceError){json(res,error.code==='memory_conflict'?409:400,{ok:false,error:error.code,message:error.message});return}
+      throw error
+    }
+  }
+
   private closeRevoked() {
     for (const [connection, identity] of this.identities) if (!this.validIdentity(identity)) connection.close(1008, 'credential revoked')
   }
 }
 
 function secureEqual(provided: string | undefined, expected: string | undefined): boolean {
-  if (!provided || !expected) return false
+  if (typeof provided!=='string'||typeof expected!=='string'||!provided||!expected) return false
   const a = Buffer.from(provided), b = Buffer.from(expected)
   return a.length === b.length && timingSafeEqual(a, b)
 }

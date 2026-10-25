@@ -17,7 +17,13 @@ export class SurfaceStore {
       this.scopes=raw
     }
   }
-  static key(deviceId:string,conversationId:string,preset:string) {return JSON.stringify([deviceId,conversationId,preset])}
+  static key(deviceId:string,conversationId:string,preset:string,epoch?:string) {return JSON.stringify(epoch&&epoch!=='legacy'?[deviceId,conversationId,preset,epoch]:[deviceId,conversationId,preset])}
+  migrateClient(deviceId:string,path:string) {
+    if(existsSync(path))return new SurfaceStore(path)
+    const own=Object.fromEntries(Object.entries(this.scopes).filter(([key])=>{try{return JSON.parse(key)[0]===deviceId}catch{return false}}))
+    mkdirSync(dirname(path),{recursive:true,mode:0o700});writeFileSync(path,JSON.stringify(own),{mode:0o600})
+    return new SurfaceStore(path)
+  }
   private view(entry:Entry):PublicComponent {
     const {actions,expiresInMs,...component}=entry.component
     return {...component,...(actions?{actions:actions.map(({id,label})=>({id,label}))}:{}),revision:entry.revision,expiresAt:entry.expiresAt,disabled:entry.disabled,instanceId:entry.instanceId}

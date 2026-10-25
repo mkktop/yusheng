@@ -1,7 +1,7 @@
 // 本地冒烟测试：mock 掉 dsh 宿主服务，验证插件装载、REST 与 WS 协议主干。
 // 用法：node tools/smoke.mjs （会在 127.0.0.1:18090 起服务，无需真实凭据）
 
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -10,12 +10,20 @@ const require = createRequire(import.meta.url)
 const plugin = require('../lib/index.js').default
 
 const tmp = mkdtempSync(join(tmpdir(), 'yusheng-smoke-'))
+// Emulate the exact host API module that the plugin resolves from the running dsh entry point.
+const api = join(tmp, 'node_modules/@deepseek-ai/dsh-agent')
+mkdirSync(api, { recursive: true })
+writeFileSync(join(api, 'package.json'), JSON.stringify({ type:'module', exports:'./index.js' }))
+writeFileSync(join(api, 'index.js'), 'export function installModelSelection(){return()=>{}}')
+process.argv[1] = join(tmp, 'host.mjs')
+writeFileSync(process.argv[1], '')
 
 function makeAgent() {
   // followup 后 1.2 秒才空闲：既能测忙线拒绝，又不拖慢正常轮次
   let pendingIdle = undefined
   return {
     session: { seq: 1 },
+    ctx: { get: name => name === 'systemPrompt' ? { section: () => () => {}, context: () => () => {} } : name==='tools'?{register:()=>()=>{}}:undefined },
     followup() {
       pendingIdle = new Promise((resolve) => setTimeout(resolve, 1200))
     },
@@ -38,6 +46,12 @@ const services = {
   sessions,
   agentDefaultModel: { currentSelection: () => ({ provider: 'deepseek-official', model: 'mock-model' }) },
   subagents: undefined,
+  agentPresets: {
+    // dsh loads this sibling declaration from cordis.patch.yml before accepting a voice turn.
+    definitions: new Map([['yusheng-assistant',{id:'yusheng-assistant',name:'语声助手'}]]), defaultId: 'standard',
+    async list() { return [...this.definitions.values()] },
+    async select() {},
+  },
 }
 
 let cleanup = () => {}
@@ -46,10 +60,11 @@ const root = {
   get: (name) => services[name],
   on: () => () => undefined,
   effect(fn) {
+    const stop = fn()
     const prev = cleanup
-    cleanup = () => {
-      fn()
-      prev()
+    cleanup = async () => {
+      await stop?.()
+      await prev()
     }
   },
 }
@@ -76,11 +91,12 @@ check('status.model 来自宿主选择', status1.model?.model === 'mock-model')
 // 2. 写入令牌后未授权 401
 const put = await (await fetch(`${base}/settings`, {
   method: 'PUT', headers: { 'content-type': 'application/json', ...auth },
-  body: JSON.stringify({ ttsVoice: 'female-yujie', ttsSpeed: 1.5, bogus: 'x' }),
+  body: JSON.stringify({ ttsVoice: 'female-yujie', ttsSpeed: 1.5, assistantName:'小榆', personality:'calm', bogus: 'x' }),
 })).json()
 check('PUT /settings 合法字段生效', put.ok === true && put.settings.ttsVoice === 'female-yujie' && put.settings.ttsSpeed === 1.5, `rejected=${JSON.stringify(put.rejected)}`)
 check('未知字段被拒绝并保留其余', put.rejected.includes('bogus'))
 check('脱敏视图不含密钥或管理令牌', put.settings.minimaxApiKey === '' && !('adminToken' in put.settings))
+check('人设设置可读写', put.settings.assistantName === '小榆' && put.settings.personality === 'calm')
 
 const tokenResult = await (await fetch(`${base}/token`, { method: 'POST', headers: auth })).json()
 check('POST /token', typeof tokenResult.token === 'string' && tokenResult.token.startsWith('ysv-'))
@@ -90,6 +106,7 @@ const unauth = await fetch(`${base}/status`)
 check('配置令牌后未授权 401', unauth.status === 401)
 const authed = await (await fetch(`${base}/status`, { headers: auth })).json()
 check('带令牌可用', authed.ok === true)
+check('专用会话模式已注册', authed.presets?.some(p => p.id === 'yusheng-assistant' && !p.broken))
 
 // 3. WS 协议
 const ws = new WebSocket(`ws://127.0.0.1:18090/voice?token=${token}`)
@@ -126,7 +143,7 @@ const waitFor = (predicate, timeoutMs = 5000) => new Promise((resolve, reject) =
 
 await waitFor(() => received.some((m) => m.type === 'welcome'))
 const welcome = received.find((m) => m.type === 'welcome')
-check('welcome 握手', welcome.sessionId === 'voice-smoke-test' && welcome.sampleRateOut === 24000)
+check('welcome 握手', /^voice-c-[a-f0-9]{48}-p-yusheng-assistant$/.test(welcome.sessionId) && welcome.sampleRateOut === 24000)
 
 // 4. speak 无凭据 → 应报 no_api_key 并以 tts stop 收尾
 ws.send(JSON.stringify({ type: 'speak', text: '测试' }))
@@ -156,7 +173,7 @@ check('POST /test/asr 返回结构化结果', testAsr.ok === false && testAsr.co
 
 ws.close()
 await sleep(200)
-cleanup()
+await cleanup()
 try {
   rmSync(tmp, { recursive: true, force: true })
 } catch { /* Windows 文件占用可忽略 */ }

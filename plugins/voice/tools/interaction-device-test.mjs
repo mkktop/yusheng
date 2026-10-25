@@ -1,14 +1,15 @@
+import {fixtureToken} from './device-fixtures.mjs'
 // Run on GM800. Device credentials are read in place, never printed.
 import {readFileSync,writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {homedir} from 'node:os'
 import assert from 'node:assert/strict'
 const settings=JSON.parse(readFileSync(join(process.env.DSH_HOME??join(homedir(),'.dsh'),'yusheng-voice/settings.json'),'utf8'))
-const report={at:new Date().toISOString(),version:'0.3.0',checks:[]},path=process.env.VOICE_INTERACTION_REPORT??'/tmp/yusheng-interaction-report.json'
+const report={at:new Date().toISOString(),version:JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version,checks:[]},path=process.env.VOICE_INTERACTION_REPORT??'/tmp/yusheng-interaction-report.json'
 const delay=ms=>new Promise(r=>setTimeout(r,ms))
 async function check(name,fn){const start=Date.now();try{const details=await fn();report.checks.push({name,ok:true,durationMs:Date.now()-start,...details});console.log('PASS',name,JSON.stringify(details??{}))}catch(e){report.checks.push({name,ok:false,error:e.message,durationMs:Date.now()-start});console.log('FAIL',name,e.message)}writeFileSync(path,JSON.stringify(report,null,2)+'\n',{mode:0o600})}
 async function connect(deviceId='validation-interaction',capabilities=['turns','audio.framed','playback','presentation.state','presentation.cue','ui.render']){
-  const ws=new WebSocket('ws://127.0.0.1:8090/voice?token='+encodeURIComponent(settings.token)),messages=[],frames=[];ws.binaryType='arraybuffer'
+  const ws=new WebSocket('ws://127.0.0.1:8090/voice?token='+encodeURIComponent(await fixtureToken(deviceId))),messages=[],frames=[];ws.binaryType='arraybuffer'
   ws.onmessage=e=>typeof e.data==='string'?messages.push(JSON.parse(e.data)):frames.push(Buffer.from(e.data))
   await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=()=>reject(new Error('connect failed'))})
   const send=m=>ws.send(JSON.stringify(m)),wait=async(fn,ms=120000)=>{const start=Date.now();while(!fn()){if(Date.now()-start>ms)throw new Error('timeout');if(ws.readyState!==1)throw new Error('connection closed');await delay(20)}return fn()}

@@ -8,6 +8,7 @@ import { AudioSender, type VoiceSocket } from './audio.js'
 import { abortable, AUDIO_FORMAT, CAPABILITIES, identifier, newId, SAMPLE_RATE_IN, SAMPLE_RATE_OUT, VoiceError } from './protocol.js'
 import { support, type ClientEffect, type Cue, type PresentationSupport } from './interaction.js'
 import { SurfaceStore } from './surface.js'
+import type { MemoryAccess } from './client-memory.js'
 export { PROTOCOL_VERSION, SAMPLE_RATE_IN, SAMPLE_RATE_OUT } from './protocol.js'
 
 class SentenceQueue {
@@ -31,6 +32,7 @@ class SentenceQueue {
 
 interface TurnContext {
   id: string; requestId?: string; streamId: number; conversationId: string
+  scopeKey:string
   settings: VoiceSettings; controller: AbortController; response: AbortController
   timer: ReturnType<typeof setTimeout>; captureTimer?: ReturnType<typeof setTimeout>
   handle?: TurnHandle; sender?: AudioSender; queue?: SentenceQueue
@@ -43,7 +45,7 @@ interface TurnContext {
 }
 
 export interface ConnectionDeps {
-  settings(): VoiceSettings
+  settings(deviceId?:string): VoiceSettings
   bridge: Pick<AgentBridge, 'turn' | 'release' | 'sessionId'>
   log: (level: 'info' | 'warn', message: string) => void
   claimDevice?: (deviceId: string) => boolean
@@ -51,6 +53,11 @@ export interface ConnectionDeps {
   transcribe?: typeof transcribePcm
   synthesize?: typeof synthesizeStream
   surface?: SurfaceStore
+  scope?: (deviceId:string,conversationId:string,preset:string)=>string
+  memory?: (deviceId:string)=>MemoryAccess
+  epoch?: (deviceId:string)=>string
+  surfaceForDevice?: (deviceId:string)=>SurfaceStore
+  onSession?: (deviceId:string,conversationId:string,preset:string,sessionId:string)=>void
 }
 
 type ConnState = 'init' | 'ready' | 'listening' | 'busy' | 'closed'
@@ -125,14 +132,16 @@ export class VoiceConnection {
       }
     }
     const conversation = m.conversationId ?? device
-    if (!identifier(conversation) || (conversation !== device && !this.deps.allowConversation?.(device, conversation))) throw new VoiceError('bad_conversation', '对话不属于此设备；新对话请使用设备 ID 加连字符前缀')
+    if (!identifier(conversation) || (conversation !== device && !this.deps.allowConversation?.(device, conversation))) throw new VoiceError('bad_conversation', '对话标识不合法或不属于此客户端')
     if (this.deps.claimDevice && !this.deps.claimDevice(device)) throw new VoiceError('device_in_use', '此设备已有连接，请关闭旧连接后重试')
     this.deviceId = device; this.deviceName = typeof m.deviceName === 'string' ? m.deviceName.slice(0, 64) : ''
+    if(this.deps.surfaceForDevice)this.surface=this.deps.surfaceForDevice(device)
     this.version = m.version; this.conversationId = conversation
     this.capabilities = new Set((m.version===2?m.capabilities??[]:[]).filter((x: string) => (CAPABILITIES as readonly string[]).includes(x)))
     this.presentation=presentation
     this.state = 'ready'
-    this.send({ type: 'welcome', version: this.version, sessionId: this.deps.bridge.sessionId(conversation, this.deps.settings().agentPreset), sampleRateIn: SAMPLE_RATE_IN, sampleRateOut: SAMPLE_RATE_OUT,
+    const config=this.deps.settings(device),scope=this.scope(conversation,config.agentPreset)
+    this.send({ type: 'welcome', version: this.version, sessionId: this.deps.bridge.sessionId(scope, config.agentPreset), sampleRateIn: SAMPLE_RATE_IN, sampleRateOut: SAMPLE_RATE_OUT,
       ...(this.version === 2 ? { conversationId: conversation, serverTime:Date.now(), capabilities: [...this.capabilities], supportedCapabilities: CAPABILITIES, presentation:this.presentation, audio: { input: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_IN }, output: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_OUT, framing: this.capabilities.has('audio.framed') ? 'ysv2' : 'raw' } } } : {}) })
     this.avatarState('idle');if(this.capabilities.has('ui.render'))this.uiSnapshot()
     this.deps.log('info', `device connected: ${device}`)
@@ -156,7 +165,8 @@ export class VoiceConnection {
     if(this.requestSeen(m))return
     const requestId=m.requestId, fingerprint=this.fingerprint(m)
     if (this.active) throw new VoiceError('busy', '上一轮尚未结束，先发送 abort')
-    const turn: TurnContext = { id: newId(), requestId, streamId: ++this.streamNumber, conversationId: this.conversationId, settings: { ...this.deps.settings() }, controller: new AbortController(), response: new AbortController(), timer: undefined as any, ended: false, ttsStarted: false, audioEnded: false, responseStopped: false, llmStarted: false, llmEnded: false, startedAt: Date.now(), pcm: [], pcmBytes: 0, pendingCues:[], effectCount:0 }
+    const settings={...this.deps.settings(this.deviceId)}
+    const turn: TurnContext = { id: newId(), requestId, streamId: ++this.streamNumber, conversationId: this.conversationId, scopeKey:this.scope(this.conversationId,settings.agentPreset), settings, controller: new AbortController(), response: new AbortController(), timer: undefined as any, ended: false, ttsStarted: false, audioEnded: false, responseStopped: false, llmStarted: false, llmEnded: false, startedAt: Date.now(), pcm: [], pcmBytes: 0, pendingCues:[], effectCount:0 }
     this.active = turn; this.state = listening ? 'listening' : 'busy'
     if (this.version === 2) {
       this.requests.set(requestId, { fingerprint })
@@ -265,7 +275,7 @@ export class VoiceConnection {
     })
     turn.llmStarted = true; this.send({ type: 'llm', state: 'start' }, turn)
     this.event('turn.state', { state: 'thinking' }, turn)
-    const handle = await abortable(this.deps.bridge.turn(turn.conversationId, text, {
+    const handle = await abortable(this.deps.bridge.turn(turn.scopeKey, text, {
       onTextDelta: delta => {
         if (!this.current(turn)) return
         turn.firstTextMs ??= Date.now() - turn.startedAt
@@ -277,9 +287,10 @@ export class VoiceConnection {
       }, onEnd: () => undefined,
       onActivity: activity => { if (this.capabilities.has('agent.activity')) this.event('agent.activity', activity, turn) },
       ...(this.version===2&&(this.capabilities.has('presentation.cue')||this.capabilities.has('ui.render'))?{onClientEffect:(effect:ClientEffect)=>this.clientEffect(turn,effect)}:{}),
-    }, turn.settings.agentPreset, { signal: turn.controller.signal, promptPrefix: turn.settings.promptPrefix, capabilities:[...this.capabilities], presentation:this.presentation }), turn.controller.signal)
+    }, turn.settings.agentPreset, { signal: turn.controller.signal, promptPrefix: turn.settings.promptPrefix, persona: turn.settings, memory:this.deps.memory?.(this.deviceId), capabilities:[...this.capabilities], presentation:this.presentation }), turn.controller.signal)
     if (!this.current(turn)) { handle.cancel(); return }
     turn.handle = handle; this.event('session', { sessionId: handle.sessionId }, turn)
+    this.deps.onSession?.(this.deviceId,turn.conversationId,turn.settings.agentPreset,handle.sessionId)
     const outcome = await abortable(handle.done, turn.controller.signal)
     if (!this.current(turn)) return
     turn.handle = undefined; turn.llmEnded = true; this.send({ type: 'llm', state: 'end' }, turn)
@@ -367,13 +378,15 @@ export class VoiceConnection {
     if (this.active) throw new VoiceError('busy', '请先结束当前轮')
     if (!identifier(m.conversationId) || (m.conversationId !== this.deviceId && !this.deps.allowConversation?.(this.deviceId, m.conversationId))) throw new VoiceError('bad_conversation', '对话不属于此设备')
     this.conversationId = m.conversationId
-    this.event('conversation.selected', { conversationId: this.conversationId, sessionId: this.deps.bridge.sessionId(this.conversationId, this.deps.settings().agentPreset) })
+    const config=this.deps.settings(this.deviceId)
+    this.event('conversation.selected', { conversationId: this.conversationId, sessionId: this.deps.bridge.sessionId(this.scope(this.conversationId,config.agentPreset), config.agentPreset) })
     this.waitingPlayback=undefined;this.resetPresentation('conversation_changed');this.avatarState('idle');if(this.capabilities.has('ui.render'))this.uiSnapshot()
   }
 
   private avatarState(state:string,turn?:TurnContext) {if(this.capabilities.has('presentation.state'))this.event('presentation.state',{state,sequence:++this.presentationSequence},turn)}
   private resetPresentation(reason:string,turn?:TurnContext) {if(this.capabilities.has('presentation.state')||this.capabilities.has('presentation.cue'))this.event('presentation.reset',{reason},turn)}
-  private surfaceKey(turn?:TurnContext) {return SurfaceStore.key(this.deviceId,turn?.conversationId??this.conversationId,turn?.settings.agentPreset??this.deps.settings().agentPreset)}
+  private scope(conversation:string,preset:string) {return this.deps.scope?.(this.deviceId,conversation,preset)??conversation}
+  private surfaceKey(turn?:TurnContext) {return SurfaceStore.key(this.deviceId,turn?.conversationId??this.conversationId,turn?.settings.agentPreset??this.deps.settings(this.deviceId).agentPreset,this.deps.epoch?.(this.deviceId))}
   private requireUI() {if(this.version!==2||!this.capabilities.has('ui.render'))throw new VoiceError('unsupported_capability','需要协商 ui.render')}
   private uiSnapshot() {
     this.requireUI()

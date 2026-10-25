@@ -9,6 +9,7 @@ import { dirname, resolve } from 'node:path'
 import { AgentBridge } from './llm.js'
 import { VoiceServer } from './server.js'
 import { SettingsStore, defaultSettingsPath } from './settings.js'
+import { registerManagement } from './management.js'
 
 const CONFIG_KEYS = new Set(['host', 'port', 'settingsPath'])
 
@@ -20,7 +21,7 @@ function clampPort(value: unknown): number {
 
 export default {
   name: 'yusheng-voice',
-  inject: ['agentDefaultModel', 'agents', 'sessions', 'sessionQuery', 'agentPresets', 'permissionPresets'],
+  inject: ['agentDefaultModel', 'agents', 'sessions', 'sessionQuery', 'agentPresets', 'permissionPresets', 'systemPrompt'],
   apply(root: any, config: any = {}) {
     const unknown = Object.keys(config).filter((key) => !CONFIG_KEYS.has(key))
     if (unknown.length > 0) {
@@ -44,11 +45,16 @@ export default {
 
     const bridge = new AgentBridge(root, resolve(dirname(settingsPath), 'sessions.json'))
     const server = new VoiceServer(store, bridge, { host, port }, log)
+    root.inject?.(['connection'], (ctx: any) => {
+      ctx.effect(() => registerManagement(ctx, server), 'yusheng-voice: authenticated management')
+    })
 
-    root.effect(() => server.stop(), 'yusheng-voice: server')
-
-    server
-      .start()
+    let disposed = false
+    root.effect(() => () => { disposed = true; return server.stop() }, 'yusheng-voice: server')
+    // The bundle declares the voice preset as a sibling dsh-agent-preset row.
+    // Its registry lifecycle must not be awaited from the voice server's fiber.
+    server.start()
+      .then(async () => { if (disposed) await server.stop() })
       .then(() => {
         log('info', `REST uses a separate adminToken stored in ${settingsPath}`)
       })

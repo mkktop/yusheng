@@ -10,6 +10,10 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { abortable, VoiceError } from './protocol.js'
 import { interactionTools, type ClientEffect, type PresentationSupport } from './interaction.js'
+import { voiceSystemPrompt, voicePersonaContext, type VoicePersona } from './persona.js'
+import { memoryContext, memoryTool, type MemoryAccess } from './client-memory.js'
+
+interface ClientScope { clientId:string; conversation:string; epoch:string; cwd:string; indexPath:string; model?:{provider:string;model:string}; legacy:boolean }
 
 export interface TurnCallbacks {
   onActivity?(event: { state: string; toolCallId?: string; name?: string }): void
@@ -98,6 +102,39 @@ export class AgentBridge {
   private adoptedByCacheKey = new Map<string, string>()
   private adoptionPath: string | undefined
   private cwdPromise: Promise<string> | undefined
+  private clientScopes = new Map<string,ClientScope>()
+  private clientIndexes = new Map<string,{clientId:string;entries:Record<string,string>;prefixed:string[]}>()
+  private legacyOwner?: (conversation:string)=>string|undefined
+
+  configureLegacyOwner(resolve:(conversation:string)=>string|undefined) {this.legacyOwner=resolve}
+  clientScope(clientId:string,conversation:string,epoch:string,options:Omit<ClientScope,'clientId'|'conversation'|'epoch'>) {
+    const key='c-'+createHash('sha256').update(JSON.stringify([clientId,conversation,epoch])).digest('hex').slice(0,48)
+    this.clientScopes.set(key,{clientId,conversation,epoch,...options})
+    if(!this.clientIndexes.has(options.indexPath)){
+      const raw=existsSync(options.indexPath)?JSON.parse(readFileSync(options.indexPath,'utf8')):{clientId,entries:{},prefixed:[]}
+      if(raw?.clientId!==clientId||!raw.entries||typeof raw.entries!=='object'||Array.isArray(raw.entries)||!Array.isArray(raw.prefixed))throw new Error('invalid client session index')
+      this.clientIndexes.set(options.indexPath,raw)
+      for(const id of raw.prefixed)if(typeof id==='string')this.prefixedSessions.add(id)
+    }
+    return key
+  }
+  private scopedAdoption(deviceKey:string,preset:string) {
+    const scope=this.clientScopes.get(deviceKey)
+    if(!scope)return
+    const key=this.cacheKey(deviceKey,preset)
+    if(this.adoptedByCacheKey.has(key))return
+    const localKey=JSON.stringify([scope.conversation,scope.epoch,preset]),stored=this.clientIndexes.get(scope.indexPath)!.entries[localKey]
+    if(typeof stored==='string'){this.adoptedByCacheKey.set(key,stored);return}
+    if(!scope.legacy||scope.epoch!=='legacy'||this.legacyOwner?.(scope.conversation)!==scope.clientId)return
+    const old=this.adoptedByCacheKey.get(this.cacheKey(scope.conversation,preset))
+    if(!old)return
+    // Ambiguous legacy aliases are not safe to adopt, even within the same client.
+    for(const [alias,id] of this.adoptedByCacheKey)if(id===old){
+      const parts=JSON.parse(alias)
+      if(!this.clientScopes.has(parts[0])&&(this.legacyOwner?.(parts[0])!==scope.clientId||parts[0]!==scope.conversation||parts[1]!==preset))return
+    }
+    this.recordAdoption(key,old)
+  }
 
   private warn(message: string) {
     if (typeof this.ctx.logger?.warn === 'function') this.ctx.logger.warn(`yusheng-voice: ${message}`)
@@ -132,20 +169,28 @@ export class AgentBridge {
   private recordAdoption(cacheKey: string, sessionId: string) {
     if (this.adoptedByCacheKey.get(cacheKey) === sessionId) return
     this.adoptedByCacheKey.set(cacheKey, sessionId)
-    this.persistIndex()
+    this.persistIndex(cacheKey)
   }
 
-  private persistIndex() {
-    const path = this.adoptionPath
+  private persistIndex(cacheKey?:string) {
+    const parts=cacheKey?JSON.parse(cacheKey):undefined,scope=parts&&this.clientScopes.get(parts[0])
+    const path = scope?.indexPath??this.adoptionPath
     if (path === undefined) return
     try {
-      const entries = { ...Object.fromEntries(this.adoptedByCacheKey), _voicePrefixed: [...this.prefixedSessions] }
+      let entries:any
+      if(scope){
+        const local=this.clientIndexes.get(path)!
+        local.entries[JSON.stringify([scope.conversation,scope.epoch,parts[1]])]=this.adoptedByCacheKey.get(cacheKey!)!
+        local.prefixed=[...new Set(Object.values(local.entries).filter(id=>this.prefixedSessions.has(id)))]
+        entries=local
+      }else entries = { ...Object.fromEntries([...this.adoptedByCacheKey].filter(([key])=>!this.clientScopes.has(JSON.parse(key)[0]))), _voicePrefixed: [...this.prefixedSessions] }
       mkdirSync(dirname(path), { recursive: true })
       const temporary = `${path}.${randomUUID()}.tmp`
       writeFileSync(temporary, JSON.stringify(entries, null, 2) + '\n', { mode: 0o600 })
       renameSync(temporary, path)
-    } catch {
-      /* 持久化失败不影响运行 */
+    } catch (error) {
+      this.warn(`session index persistence failed: ${String(error)}`)
+      if(scope)throw new Error('cannot persist client session index')
     }
   }
 
@@ -187,6 +232,7 @@ export class AgentBridge {
   }
 
   sessionId(deviceKey: string, presetId = ''): string {
+    this.scopedAdoption(deviceKey,presetId)
     const key = this.cacheKey(deviceKey, presetId)
     return this.adoptedByCacheKey.get(key) ?? AgentBridge.sessionIdFor(deviceKey, presetId)
   }
@@ -194,16 +240,17 @@ export class AgentBridge {
   private cacheKey(deviceKey: string, presetId: string) { return JSON.stringify([deviceKey, presetId]) }
 
   /** 枚举可用的 dsh 会话模式（agent preset）；服务缺失返回 undefined。 */
-  async listPresets(): Promise<Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean }> | undefined> {
+  async listPresets(): Promise<Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean; problem?: string }> | undefined> {
     const presets = this.ctx.get('agentPresets')
     if (presets === undefined) return undefined
     try {
-      const inventory = await presets.compositionInventory()
+      const inventory = typeof presets.list === 'function' ? await presets.list() : await presets.compositionInventory()
       return inventory.map((record: any) => ({
         id: String(record.id),
         name: typeof record.name === 'string' ? record.name : undefined,
-        isDefault: record.isDefault === true,
-        broken: record.broken === true ? true : undefined,
+        isDefault: record.isDefault === true || record.id === presets.defaultId,
+        broken: record.broken ? true : undefined,
+        ...(record.broken ? { problem: String(record.broken).slice(0, 2000) } : {}),
       }))
     } catch {
       return undefined
@@ -215,8 +262,10 @@ export class AgentBridge {
    * 避免跨包加载 @deepseek-ai/dsh-agent）：在 agent 上下文挂 system-prompt/assemble
    * 钩子，把当前默认模型的 provider/model 提供为提示词变量。
    */
-  private modelSetup(): { agentOptions: { provider: string; model: string }; setup: (agentCtx: any, agent: AnyAgent) => Promise<void> } | undefined {
-    const selection = this.ctx.get('agentDefaultModel')?.currentSelection?.()
+  private modelSetup(deviceKey?:string): { agentOptions: { provider: string; model: string }; setup: (agentCtx: any, agent: AnyAgent) => Promise<void> } | undefined {
+    const scope=deviceKey&&this.clientScopes.get(deviceKey)
+    const selection = scope?scope.model:this.currentModel()
+    if(scope&&(!selection?.provider||!selection?.model))throw new VoiceError('no_client_model','请为此客户端配置对话提供方与模型')
     if (selection === undefined || typeof selection.provider !== 'string' || typeof selection.model !== 'string') {
       return undefined
     }
@@ -236,7 +285,7 @@ export class AgentBridge {
     const api = await this.selectionApi
     if (typeof api.installModelSelection !== 'function') throw new Error('dsh installModelSelection API unavailable')
     const stop = api.installModelSelection(agentCtx, ref)
-    this.ctx.effect?.(() => stop(), 'yusheng-voice: model selection')
+    this.ctx.effect?.(() => stop, 'yusheng-voice: model selection')
     this.selections.set(agent, ref)
   }
 
@@ -250,16 +299,18 @@ export class AgentBridge {
   }
 
   private async prepareAgent(deviceKey: string, presetId: string, cacheKey: string): Promise<AnyAgent> {
+    this.scopedAdoption(deviceKey,presetId)
     const cached = this.agentsBySession.get(cacheKey)
     if (cached !== undefined) return cached
     const presets = this.ctx.get('agentPresets')
-    if (presetId && presets?.compositionInventory) {
-      const inventory = await presets.compositionInventory()
+    if (presetId && presets) {
+      const inventory = await this.listPresets()
+      if (!inventory) throw new VoiceError('preset_unavailable', '无法读取 dsh 会话模式')
       const selected = inventory.find((item: any) => item.id === presetId)
-      if (!selected || selected.broken) throw new VoiceError('invalid_preset', '指定的会话模式不存在或不可用')
+      if (!selected || selected.broken) throw new VoiceError('invalid_preset', `指定的会话模式不存在或不可用${selected?.problem ? '：'+selected.problem : ''}`)
     }
-    const cwd = await this.resolveCwd()
-    const model = this.modelSetup()
+    const cwd = this.clientScopes.get(deviceKey)?.cwd??await this.resolveCwd()
+    const model = this.modelSetup(deviceKey)
 
     // 与 headless runner 相同的次序：先查进程内在实例，再探测持久会话，存在才 resume，
     // 不存在才 create——盲目 resume→create 会对已存在会话撞 "already exists"。
@@ -328,7 +379,7 @@ export class AgentBridge {
         let toApply = presetId
         if (toApply === '') {
           try {
-            const inventory = await presets.compositionInventory()
+            const inventory = await this.listPresets()
             const def = (inventory ?? []).find((record: any) => record.isDefault === true)
             if (def !== undefined) toApply = String(def.id)
           } catch {
@@ -373,7 +424,7 @@ export class AgentBridge {
   }
 
   /** 提交一轮用户消息并跟踪该 agent 的实时文本增量直至收敛。 */
-  async turn(deviceKey: string, text: string, callbacks: TurnCallbacks, presetId = '', options: { signal?: AbortSignal; promptPrefix?: string; capabilities?: string[]; presentation?: PresentationSupport } = {}): Promise<TurnHandle> {
+  async turn(deviceKey: string, text: string, callbacks: TurnCallbacks, presetId = '', options: { signal?: AbortSignal; promptPrefix?: string; persona?: VoicePersona; memory?:MemoryAccess; capabilities?: string[]; presentation?: PresentationSupport } = {}): Promise<TurnHandle> {
     const key = this.cacheKey(deviceKey, presetId)
     options.signal?.throwIfAborted()
     if (this.leases.has(key)) throw new VoiceError('session_busy', '会话仍在执行或取消收尾，请稍后重试')
@@ -387,10 +438,12 @@ export class AgentBridge {
     } catch (e) { this.leases.delete(key); throw e }
     this.agentLeases.add(agent)
     const selection = this.selections.get(agent)
-    if (selection) selection.current = this.currentModel()
+    if (selection) selection.current = this.clientScopes.get(deviceKey)?.model??this.currentModel()
     let cancelled = false, failure: unknown, fullText = ''
     const stops: Array<() => void> = []
     const toolStops: Array<() => void> = []
+    const promptStops: Array<() => void> = []
+    let hasPresentationTools=false
     const detach = () => { for (const stop of stops.splice(0)) stop() }
     const local = new AbortController()
     const cancel = () => {
@@ -415,24 +468,46 @@ export class AgentBridge {
     stops.push(this.ctx.on('agent/status', ({ agent: subject, status }: any) => { if (subject === agent && !cancelled) callbacks.onActivity?.({ state: status }) }))
     const execution = (async () => {
       try {
+        if(options.memory){
+          const tools=agent.ctx?.get('tools'),prompt=agent.ctx?.get('systemPrompt')
+          if(!tools?.register||!prompt?.context)throw new VoiceError('memory_unavailable','宿主不提供客户端记忆工具接口')
+          toolStops.push(tools.register(memoryTool(options.memory,exec=>{
+            if(exec.agent!==agent)throw new VoiceError('wrong_agent','记忆工具仅供当前客户端会话使用')
+            if(cancelled)throw new VoiceError('cancelled','本轮已取消')
+            options.signal?.throwIfAborted()
+          })))
+          promptStops.push(prompt.context({name:'yusheng:client-memory',order:260,required:true,interpolate:false,text:()=>memoryContext(options.memory!.read())}))
+        }
         if(callbacks.onClientEffect && options.presentation) {
           const tools=agent.ctx?.get('tools')
           if(!tools?.register)throw new VoiceError('client_tools_unavailable','宿主不提供会话工具注册接口')
-          for(const definition of interactionTools(options.presentation,options.capabilities??[],callbacks.onClientEffect,exec=>{
+          const definitions=interactionTools(options.presentation,options.capabilities??[],callbacks.onClientEffect,exec=>{
             if(exec.agent!==agent)throw new VoiceError('wrong_agent','表现工具仅供当前语音会话使用')
             if(cancelled)throw new VoiceError('cancelled','本轮已取消')
             options.signal?.throwIfAborted()
-          }))toolStops.push(tools.register(definition))
+          })
+          for(const definition of definitions)toolStops.push(tools.register(definition))
+          hasPresentationTools=definitions.length>0
+        }
+        if (options.persona) {
+          const prompt = agent.ctx?.get('systemPrompt')
+          if (!prompt?.section || !prompt?.context) throw new VoiceError('persona_unavailable', '宿主不提供会话系统提示与运行时上下文接口，无法应用助手人设')
+          // A child agent scope shadows the selected preset's persona, including a complete persona.
+          // Dispose only after the host turn settles so cancellation cannot affect another request.
+          promptStops.push(prompt.section({ name: 'deployment:persona-prefix', order: 0, interpolate: false,
+            text: voiceSystemPrompt(options.persona, options.promptPrefix, options.presentation, hasPresentationTools) }))
+          promptStops.push(prompt.context({ name: 'yusheng:persona', order: 250, required: true, interpolate: false,
+            text: voicePersonaContext(options.persona) }))
         }
         // Prefix is per persistent conversation, not per WebSocket connection.
         const sessionId = this.sessionId(deviceKey, presetId)
         const first = !this.prefixedSessions.has(sessionId)
-        const style = first && options.promptPrefix?.trim() ? `${options.promptPrefix.trim()}\n\n` : ''
-        const client = toolStops.length ? `客户端能力：${JSON.stringify(options.presentation)}。可使用 voice_present 表达表情动作，voice_ui 展示界面（仅已注册的工具可用）。界面操作会作为后续用户消息返回。\n\n` : ''
+        const style = !options.persona && first && options.promptPrefix?.trim() ? `${options.promptPrefix.trim()}\n\n` : ''
+        const client = !options.persona && hasPresentationTools ? `客户端能力：${JSON.stringify(options.presentation)}。可使用 voice_present 表达表情动作，voice_ui 展示界面（仅已注册的工具可用）。界面操作会作为后续用户消息返回。\n\n` : ''
         const prompt = `${style}${client}${style||client?'用户说：':''}${text}`
         // UserMessage is an identified role-bearing durable value, not a bare prompt.
         await agent.followup({ id: randomUUID(), role: 'user', content: [{ type: 'text', text: prompt }], source: { kind: 'user' } })
-        if (first) { this.prefixedSessions.add(sessionId); this.persistIndex() }
+        if (first) { this.prefixedSessions.add(sessionId); this.persistIndex(key) }
         while (true) {
           await agent.whenIdle()
           if (cancelled) break
@@ -448,7 +523,9 @@ export class AgentBridge {
         return { kind: 'error' as const, text: fullText, error: e instanceof Error ? e.message : String(e) }
       } finally {
         detach(); options.signal?.removeEventListener('abort', cancel)
-        for(const stop of toolStops.splice(0))stop()
+        for(const stop of [...toolStops.splice(0), ...promptStops.splice(0)]) {
+          try { await stop() } catch(error) { this.warn(`cannot dispose turn contribution: ${error instanceof Error ? error.message : String(error)}`) }
+        }
         this.leases.delete(key); this.agentLeases.delete(agent)
         // Retain only active agents locally; host owns their actual lifecycle.
         this.agentsBySession.delete(key)

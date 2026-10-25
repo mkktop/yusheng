@@ -1,0 +1,40 @@
+{
+  "at": "2026-10-25T07:44:13.340Z",
+  "checks": [
+    {
+      "name": "dedicated voice preset is registered and selected",
+      "ok": true,
+      "durationMs": 28,
+      "version": "0.4.0",
+      "preset": "yusheng-assistant"
+    },
+    {
+      "name": "real model uses configured assistant name and user title",
+      "ok": true,
+      "durationMs": 10111,
+      "text": "我是小榆，很高兴认识你，小林。口令记下了：星河四十二。有什么需要我帮忙的吗？",
+      "sessionId": "voice-validation-persona-mvniurzr-p-yusheng-assistant",
+      "toolCalled": false,
+      "audioFrames": 176
+    },
+    {
+      "name": "saved personality changes take effect next turn without losing memory",
+      "ok": true,
+      "durationMs": 9501,
+      "text": "我叫小霁，对你的称呼是阿辰。口令是：星河四十二。",
+      "sessionId": "voice-validation-persona-mvniurzr-p-yusheng-assistant",
+      "toolCalled": false,
+      "audioFrames": 154,
+      "sessionPreserved": true
+    },
+    {
+      "name": "voice preset retains real shell tools",
+      "ok": true,
+      "durationMs": 7782,
+      "text": "执行成功，输出为 yusheng_persona_ok。",
+      "sessionId": "voice-validation-persona-mvniurzr-p-yusheng-assistant",
+      "toolCalled": true,
+      "audioFrames": 102
+    }
+  ]
+}
