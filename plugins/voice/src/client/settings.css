@@ -231,3 +231,13 @@
   .ys-settings .ys-footer .ys-btn { padding: 7px 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .ys-settings *, .ys-settings *::before, .ys-settings *::after { animation: none !important; transition: none !important; } }
+
+.ys-settings .ys-memory-policy,.ys-settings .ys-memory-search { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
+.ys-settings .ys-memory-policy>.ys-field,.ys-settings .ys-memory-search>.ys-field { flex:1; min-width:180px; }
+.ys-settings .ys-memory-nav { display:flex; gap:4px; margin:20px 0 16px; padding-top:16px; border-top:1px solid var(--ys-border); }
+.ys-settings .ys-memory-item { padding:16px 0; border-bottom:1px solid var(--ys-border); }
+.ys-settings .ys-memory-text { margin:9px 0 4px; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.7; }
+.ys-settings .ys-memory-editor,.ys-settings .ys-memory-confirm { border:1px solid var(--ys-border); border-radius:10px; padding:18px; margin-top:16px; background:var(--ys-fill); }
+.ys-settings .ys-memory-editor { display:grid; gap:14px; }
+.ys-settings .ys-memory-confirm>p { margin-bottom:12px; color:var(--ys-muted); }
+.ys-settings .ys-memory-notice { padding:11px 14px; margin:12px 0; border:1px solid var(--ys-border); border-radius:9px; background:var(--ys-fill); }

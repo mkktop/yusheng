@@ -1,0 +1,74 @@
+{
+  "at": "2026-10-25T12:12:16.548Z",
+  "version": "0.6.0",
+  "checks": [
+    {
+      "name": "independent memory profiles and recording policy",
+      "ok": true,
+      "durationMs": 2607,
+      "clients": [
+        "validation-memory-mvnsfhnq-a",
+        "validation-memory-mvnsfhnq-b"
+      ]
+    },
+    {
+      "name": "explicit request is persisted automatically with provenance",
+      "ok": true,
+      "durationMs": 16139,
+      "source": "user",
+      "structuredTopic": true,
+      "audioFrames": 235
+    },
+    {
+      "name": "changed preference replaces the same fact and detaches obsolete context",
+      "ok": true,
+      "durationMs": 11410,
+      "sameFactId": true,
+      "oldContextDetached": true,
+      "otherClientUnchanged": true
+    },
+    {
+      "name": "conversation excerpts are recalled in a different conversation",
+      "ok": true,
+      "durationMs": 23144,
+      "crossConversationRecall": true,
+      "matchedPlace": true
+    },
+    {
+      "name": "forgetting purges excerpts, blocks stale edits and keeps other clients intact",
+      "ok": true,
+      "durationMs": 10016,
+      "factRemoved": true,
+      "excerptsPurged": true,
+      "staleEditRejected": true,
+      "otherClientPreserved": true
+    },
+    {
+      "name": "disabled recording prevents new facts and excerpts",
+      "ok": true,
+      "durationMs": 25666,
+      "writesDisabled": true
+    },
+    {
+      "name": "both clients store independent restart facts through real voice turns",
+      "ok": true,
+      "durationMs": 38366,
+      "factsPersisted": true
+    },
+    {
+      "name": "structured facts, provenance and independent recall survive host restart",
+      "ok": true,
+      "durationMs": 17563,
+      "sessionPreserved": true,
+      "independentRecall": true,
+      "metadataPersisted": true
+    },
+    {
+      "name": "test credentials revoked and profiles archived",
+      "ok": true,
+      "durationMs": 42,
+      "fixturesRevoked": true,
+      "profilesArchived": true
+    }
+  ]
+}

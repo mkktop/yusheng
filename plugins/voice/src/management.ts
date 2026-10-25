@@ -7,7 +7,7 @@ const OPERATIONS = new Set(['GET /status', 'GET /settings', 'PUT /settings', 'GE
 function clientOperation(method:string,path:string) {
   if(method==='GET')return /^\/clients\/[A-Za-z0-9_-]{1,48}(?:\/(settings|memory|conversations))?$/.test(path)
   if(method==='PUT')return /^\/clients\/[A-Za-z0-9_-]{1,48}\/(settings|memory)$/.test(path)
-  return method==='POST'&&/^\/clients\/[A-Za-z0-9_-]{1,48}\/(context\/(reset|restore)|test\/(asr|tts|llm))$/.test(path)
+  return method==='POST'&&/^\/clients\/[A-Za-z0-9_-]{1,48}\/(memory|context\/(reset|restore)|test\/(asr|tts|llm))$/.test(path)
 }
 
 function reply(status: number, error: string, message: string) {

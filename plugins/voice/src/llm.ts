@@ -476,7 +476,7 @@ export class AgentBridge {
             if(cancelled)throw new VoiceError('cancelled','本轮已取消')
             options.signal?.throwIfAborted()
           })))
-          promptStops.push(prompt.context({name:'yusheng:client-memory',order:260,required:true,interpolate:false,text:()=>memoryContext(options.memory!.read())}))
+          promptStops.push(prompt.context({name:'yusheng:client-memory',order:260,required:true,interpolate:false,text:()=>memoryContext(options.memory!.recall?.(text)??options.memory!.read())}))
         }
         if(callbacks.onClientEffect && options.presentation) {
           const tools=agent.ctx?.get('tools')

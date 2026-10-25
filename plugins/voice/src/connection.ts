@@ -32,7 +32,7 @@ class SentenceQueue {
 
 interface TurnContext {
   id: string; requestId?: string; streamId: number; conversationId: string
-  scopeKey:string
+  scopeKey:string; epoch?:string
   settings: VoiceSettings; controller: AbortController; response: AbortController
   timer: ReturnType<typeof setTimeout>; captureTimer?: ReturnType<typeof setTimeout>
   handle?: TurnHandle; sender?: AudioSender; queue?: SentenceQueue
@@ -54,10 +54,10 @@ export interface ConnectionDeps {
   synthesize?: typeof synthesizeStream
   surface?: SurfaceStore
   scope?: (deviceId:string,conversationId:string,preset:string)=>string
-  memory?: (deviceId:string)=>MemoryAccess
+  memory?: (deviceId:string,conversationId?:string,turnId?:string)=>MemoryAccess
   epoch?: (deviceId:string)=>string
   surfaceForDevice?: (deviceId:string)=>SurfaceStore
-  onSession?: (deviceId:string,conversationId:string,preset:string,sessionId:string)=>void
+  onSession?: (deviceId:string,conversationId:string,preset:string,sessionId:string,epoch?:string)=>void
 }
 
 type ConnState = 'init' | 'ready' | 'listening' | 'busy' | 'closed'
@@ -66,6 +66,7 @@ export class VoiceConnection {
   private version = 1
   private capabilities = new Set<string>()
   private conversationId = ''
+  private memoryEpoch?:string
   private active?: TurnContext
   private streamNumber = 0
   private requests = new Map<string, { fingerprint: string; end?: Record<string, unknown> }>()
@@ -143,7 +144,7 @@ export class VoiceConnection {
     const config=this.deps.settings(device),scope=this.scope(conversation,config.agentPreset)
     this.send({ type: 'welcome', version: this.version, sessionId: this.deps.bridge.sessionId(scope, config.agentPreset), sampleRateIn: SAMPLE_RATE_IN, sampleRateOut: SAMPLE_RATE_OUT,
       ...(this.version === 2 ? { conversationId: conversation, serverTime:Date.now(), capabilities: [...this.capabilities], supportedCapabilities: CAPABILITIES, presentation:this.presentation, audio: { input: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_IN }, output: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_OUT, framing: this.capabilities.has('audio.framed') ? 'ysv2' : 'raw' } } } : {}) })
-    this.avatarState('idle');if(this.capabilities.has('ui.render'))this.uiSnapshot()
+    this.memoryEpoch=this.deps.epoch?.(this.deviceId);this.avatarState('idle');if(this.capabilities.has('ui.render'))this.uiSnapshot()
     this.deps.log('info', `device connected: ${device}`)
   }
 
@@ -166,7 +167,7 @@ export class VoiceConnection {
     const requestId=m.requestId, fingerprint=this.fingerprint(m)
     if (this.active) throw new VoiceError('busy', '上一轮尚未结束，先发送 abort')
     const settings={...this.deps.settings(this.deviceId)}
-    const turn: TurnContext = { id: newId(), requestId, streamId: ++this.streamNumber, conversationId: this.conversationId, scopeKey:this.scope(this.conversationId,settings.agentPreset), settings, controller: new AbortController(), response: new AbortController(), timer: undefined as any, ended: false, ttsStarted: false, audioEnded: false, responseStopped: false, llmStarted: false, llmEnded: false, startedAt: Date.now(), pcm: [], pcmBytes: 0, pendingCues:[], effectCount:0 }
+    const turn: TurnContext = { id: newId(), requestId, streamId: ++this.streamNumber, conversationId: this.conversationId, scopeKey:this.scope(this.conversationId,settings.agentPreset), epoch:this.deps.epoch?.(this.deviceId), settings, controller: new AbortController(), response: new AbortController(), timer: undefined as any, ended: false, ttsStarted: false, audioEnded: false, responseStopped: false, llmStarted: false, llmEnded: false, startedAt: Date.now(), pcm: [], pcmBytes: 0, pendingCues:[], effectCount:0 }
     this.active = turn; this.state = listening ? 'listening' : 'busy'
     if (this.version === 2) {
       this.requests.set(requestId, { fingerprint })
@@ -258,6 +259,11 @@ export class VoiceConnection {
   }
 
   private async pipeline(turn: TurnContext, text: string) {
+    if(turn.epoch!==this.deps.epoch?.(this.deviceId))throw new VoiceError('memory_context_changed','记忆上下文已更新，请重新说一次，避免恢复旧内容')
+    const memory=this.deps.memory?.(this.deviceId,turn.conversationId,turn.id)
+    memory?.observe?.(text)
+    turn.epoch=this.deps.epoch?.(this.deviceId);turn.scopeKey=this.scope(turn.conversationId,turn.settings.agentPreset)
+    if(this.memoryEpoch!==turn.epoch){this.memoryEpoch=turn.epoch;this.resetPresentation('memory_changed',turn);if(this.capabilities.has('ui.render'))this.uiSnapshot()}
     const queue = turn.queue = new SentenceQueue(), slicer = new SentenceSlicer()
     turn.sender = this.createSender(turn)
     turn.response.signal.addEventListener('abort', () => queue.close(), { once: true })
@@ -287,10 +293,10 @@ export class VoiceConnection {
       }, onEnd: () => undefined,
       onActivity: activity => { if (this.capabilities.has('agent.activity')) this.event('agent.activity', activity, turn) },
       ...(this.version===2&&(this.capabilities.has('presentation.cue')||this.capabilities.has('ui.render'))?{onClientEffect:(effect:ClientEffect)=>this.clientEffect(turn,effect)}:{}),
-    }, turn.settings.agentPreset, { signal: turn.controller.signal, promptPrefix: turn.settings.promptPrefix, persona: turn.settings, memory:this.deps.memory?.(this.deviceId), capabilities:[...this.capabilities], presentation:this.presentation }), turn.controller.signal)
+    }, turn.settings.agentPreset, { signal: turn.controller.signal, promptPrefix: turn.settings.promptPrefix, persona: turn.settings, memory, capabilities:[...this.capabilities], presentation:this.presentation }), turn.controller.signal)
     if (!this.current(turn)) { handle.cancel(); return }
     turn.handle = handle; this.event('session', { sessionId: handle.sessionId }, turn)
-    this.deps.onSession?.(this.deviceId,turn.conversationId,turn.settings.agentPreset,handle.sessionId)
+    this.deps.onSession?.(this.deviceId,turn.conversationId,turn.settings.agentPreset,handle.sessionId,turn.epoch)
     const outcome = await abortable(handle.done, turn.controller.signal)
     if (!this.current(turn)) return
     turn.handle = undefined; turn.llmEnded = true; this.send({ type: 'llm', state: 'end' }, turn)
@@ -303,6 +309,7 @@ export class VoiceConnection {
       try { await abortable(turn.sender.finish(), turn.controller.signal) }
       catch (e) { if (!turn.responseStopped) throw e }
     }
+    memory?.record?.({conversationId:turn.conversationId,sessionId:handle.sessionId,epoch:turn.epoch??'',user:text,assistant:outcome.text})
     this.finish(turn, 'completed')
   }
 
@@ -386,7 +393,7 @@ export class VoiceConnection {
   private avatarState(state:string,turn?:TurnContext) {if(this.capabilities.has('presentation.state'))this.event('presentation.state',{state,sequence:++this.presentationSequence},turn)}
   private resetPresentation(reason:string,turn?:TurnContext) {if(this.capabilities.has('presentation.state')||this.capabilities.has('presentation.cue'))this.event('presentation.reset',{reason},turn)}
   private scope(conversation:string,preset:string) {return this.deps.scope?.(this.deviceId,conversation,preset)??conversation}
-  private surfaceKey(turn?:TurnContext) {return SurfaceStore.key(this.deviceId,turn?.conversationId??this.conversationId,turn?.settings.agentPreset??this.deps.settings(this.deviceId).agentPreset,this.deps.epoch?.(this.deviceId))}
+  private surfaceKey(turn?:TurnContext) {return SurfaceStore.key(this.deviceId,turn?.conversationId??this.conversationId,turn?.settings.agentPreset??this.deps.settings(this.deviceId).agentPreset,(turn?.epoch??this.deps.epoch?.(this.deviceId)))}
   private requireUI() {if(this.version!==2||!this.capabilities.has('ui.render'))throw new VoiceError('unsupported_capability','需要协商 ui.render')}
   private uiSnapshot() {
     this.requireUI()

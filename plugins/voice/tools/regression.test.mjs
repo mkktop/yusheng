@@ -70,6 +70,16 @@ test('ASR cancellation never starts an agent or sends stale results', async () =
   h.c.handleClosed()
 })
 
+test('forgetting during ASR prevents late input from recreating the forgotten memory',async()=>{
+  const transcript=deferred();let epoch='before',observed=0,calls=0
+  const h=harness({epoch:()=>epoch,transcribe:async()=>transcript.promise,memory:()=>({observe(){observed++}}),bridge:{sessionId:()=> 'voice-device',release(){},turn:async()=>{calls++;throw new Error('must not execute')}}})
+  h.send({type:'listen',state:'start',requestId:'before-forget'});h.c.handleBinary(Buffer.alloc(16000));h.send({type:'listen',state:'stop'})
+  epoch='after';transcript.resolve('请记住已经要求遗忘的内容')
+  await until(()=>h.messages.some(m=>m.type==='turn.end'))
+  assert.equal(observed,0);assert.equal(calls,0);assert.ok(h.messages.some(m=>m.code==='memory_context_changed'))
+  h.c.handleClosed()
+})
+
 test('old completion cannot clear the new turn or admit a third', async () => {
   const h = harness(); h.start(); await until(() => h.handles.length === 1)
   h.send({type:'abort'}); h.start('second','r2'); await until(() => h.handles.length === 2)
@@ -572,6 +582,31 @@ test('real client-bound HTTP/WS flow isolates same-named conversations and legac
 
 const interactionCaps=['audio.framed','playback','presentation.state','presentation.cue','ui.render']
 const choices=()=>component({id:'plan',type:'choices',title:'下一步',actions:[{id:'chat',label:'聊一聊',prompt:'用户选择轻松聊天，请问一个简单的问题。'}]},support(undefined))
+
+test('structured memory administration is owner-only, revisioned and invalidates stale turn writes',async()=>{
+  const store=new SettingsStore(join(directory,'structured-admin-settings.json'))
+  const server=new VoiceServer(store,{sessionId:id=>'voice-'+id,currentModel:()=>({provider:'p',model:'m'}),listPresets:async()=>[],release(){}},{host:'127.0.0.1',port:0},()=>{})
+  await server.start();const base='http://127.0.0.1:'+server.httpServer.address().port,headers={'x-voice-token':store.get().adminToken,'content-type':'application/json'}
+  const post=async(path,body)=>fetch(base+path,{method:'POST',headers,body:JSON.stringify(body)})
+  try{
+    const issued=await(await post('/devices',{deviceId:'a'})).json();await post('/devices',{deviceId:'b'})
+    const first=await(await post('/clients/a/memory',{operation:'upsert',text:'我喜欢咖啡',key:'preference.drink.coffee',kind:'preference',revision:0})).json()
+    assert.equal(first.memory.items[0].source.actor,'settings')
+    assert.equal((await post('/clients/a/memory',{operation:'upsert',text:'迟到的编辑',revision:0})).status,409)
+    assert.equal((await fetch(base+'/clients/a/memory',{method:'POST',headers:{...headers,'x-voice-token':issued.token},body:JSON.stringify({operation:'clear',revision:1})})).status,401)
+    const scope=server.memoryFor('a','main','turn-before-forget')
+    const removed=await(await post('/clients/a/memory',{operation:'forget',id:first.memory.items[0].id,revision:1})).json()
+    assert.equal(removed.contextChanged,true);assert.equal(removed.memory.episodes.length,0)
+    assert.throws(()=>scope.remember('我喜欢咖啡'),{code:'memory_context_changed'})
+    const native=await handleManagement(new Request('http://host/api/yusheng-voice/manage',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({path:'/clients/a/memory',method:'POST',body:{operation:'search',query:'咖啡'}})}),server)
+    assert.equal(native.status,200);assert.equal((await native.json()).recall.total,0)
+    assert.equal(server.clientStore.memory('b').revision,0)
+    const updated=await(await fetch(base+'/clients/a/settings',{method:'PUT',headers,body:JSON.stringify({memoryPolicy:'adaptive'})})).json();assert.deepEqual(updated.rejected,[])
+    const current=server.memoryFor('a','main','turn-new');current.observe('请记住，我现在不喝咖啡');assert.ok(current.read().items.some(i=>i.key==='preference.drink.coffee'))
+    current.remember('我现在不喝咖啡。',{key:'preference.drink.coffee'});assert.equal(current.read().items.length,1)
+    server.clientStore.update('a',{memoryPolicy:'off'});assert.throws(()=>current.remember('不应写入'),{code:'memory_disabled'})
+  }finally{server.stop()}
+})
 
 test('client manifests and declarative effects reject unsupported or executable fields',()=>{
   const s=support({expressions:['happy'],gestures:[],components:['choices']})

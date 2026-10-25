@@ -18,8 +18,9 @@ import { identifier, SUPPORTED_VERSIONS } from './protocol.js'
 import { SurfaceStore } from './surface.js'
 import { ClientStore } from './clients.js'
 import { VoiceError } from './protocol.js'
+import type { MemoryAccess } from './client-memory.js'
 
-const VERSION = '0.5.0'
+const VERSION = '0.6.0'
 const BODY_LIMIT = 32 * 1024
 const WS_PATH = '/voice'
 
@@ -105,14 +106,14 @@ export class VoiceServer {
           },
           allowConversation: (deviceId, conversationId) => this.claimConversation(deviceId, conversationId),
           scope:(deviceId,conversationId,preset)=>this.scopeFor(deviceId,conversationId,preset),
-          memory:deviceId=>({read:()=>this.clientStore.memory(deviceId),remember:text=>this.clientStore.remember(deviceId,text),forget:id=>this.clientStore.forget(deviceId,id)}),
-          epoch:deviceId=>this.clientStore.profile(deviceId).memoryEpoch,
+          memory:(deviceId,conversationId,turnId)=>this.memoryFor(deviceId,conversationId,turnId),
+          epoch:deviceId=>this.clientStore.contextEpoch(deviceId),
           surfaceForDevice:deviceId=>{
             let surface=this.clientSurfaces.get(deviceId)
             if(!surface){const path=join(this.clientStore.directory(deviceId),'ui.json');surface=this.clientStore.profile(deviceId).legacyHistory?this.surface.migrateClient(deviceId,path):new SurfaceStore(path);this.clientSurfaces.set(deviceId,surface)}
             return surface
           },
-          onSession:(id,conversation,preset,session)=>this.clientStore.touch(id,conversation,preset,session),
+          onSession:(id,conversation,preset,session,epoch)=>this.clientStore.touch(id,conversation,preset,session,epoch),
         })
         this.connections.add(connection)
         this.identities.set(connection, this.authorize(parseUrl(req)!)!)
@@ -210,10 +211,23 @@ export class VoiceServer {
     return identifier(deviceId,48)&&identifier(conversationId)
   }
   private ensureClient(id:string,label='') {return this.clientStore.ensure(id,label,Object.values(this.conversationOwners).includes(id))}
+  private memoryFor(id:string,conversationId?:string,turnId?:string):MemoryAccess {
+    let epoch=this.clientStore.contextEpoch(id)
+    const source={actor:'assistant' as const,conversationId,turnId}
+    const guard=()=>{if(epoch!==this.clientStore.contextEpoch(id))throw new VoiceError('memory_context_changed','记忆上下文已更新，请在下一轮再修改记忆，避免恢复旧内容')}
+    return {
+      policy:this.clientStore.settings(id).memoryPolicy,
+      read:()=>this.clientStore.memory(id),recall:(query,limit)=>this.clientStore.recall(id,query,limit),
+      remember:(text,options)=>{guard();if(this.clientStore.settings(id).memoryPolicy==='off')throw new VoiceError('memory_disabled','此客户端已关闭新增记忆');return this.clientStore.remember(id,text,options,source)},
+      forget:item=>{guard();return this.clientStore.forget(id,item,undefined,source)},
+      observe:text=>{const result=this.clientStore.observe(id,text,conversationId!,turnId!);epoch=this.clientStore.contextEpoch(id);return result},
+      record:episode=>this.clientStore.record(id,episode),
+    }
+  }
   private scopeFor(id:string,conversation:string,_preset:string,diagnostic=false) {
     const p=this.clientStore.profile(id),conversationKey=diagnostic?'diagnostic:'+conversation:conversation
     const options={cwd:join(this.clientStore.directory(id),'workspace'),indexPath:join(this.clientStore.directory(id),'sessions.json'),model:{provider:p.config.llmProvider,model:p.config.llmModel},legacy:!diagnostic&&p.legacyHistory}
-    return this.bridge.clientScope?.(id,conversationKey,p.memoryEpoch,options)??'c-'+createHash('sha256').update(JSON.stringify([id,conversationKey,p.memoryEpoch])).digest('hex').slice(0,48)
+    return this.bridge.clientScope?.(id,conversationKey,this.clientStore.contextEpoch(id),options)??'c-'+createHash('sha256').update(JSON.stringify([id,conversationKey,this.clientStore.contextEpoch(id)])).digest('hex').slice(0,48)
   }
 
   // ---- REST ----
@@ -429,6 +443,22 @@ export class VoiceServer {
       const match=/^\/clients\/([A-Za-z0-9_-]{1,48})(?:\/(settings|memory|conversations|context\/(?:reset|restore)|test\/(?:asr|tts|llm)))?$/.exec(url.pathname)
       if(!match||!this.clientStore.exists(match[1])){json(res,404,{ok:false,error:'client_not_found',message:'客户端不存在，请先创建客户端'});return}
       const [,id,resource]=match,settings=this.clientStore.settings(id)
+      if(req.method==='POST'&&resource==='memory'){
+        const body=await readBody(req);if(body===null){json(res,413,{ok:false,error:'too_large'});return}
+        let data:any;try{data=JSON.parse(body)}catch{throw new VoiceError('bad_json','请求不是合法 JSON')}
+        if(!data||typeof data!=='object'||Array.isArray(data))throw new VoiceError('bad_memory','记忆操作格式不正确')
+        const {operation,revision,...input}=data
+        const allowed=operation==='upsert'?['text','id','key','kind','importance','expiresAt']:operation==='forget'?['id']:operation==='search'?['query','limit']:operation==='clear'?[]:undefined
+        if(!allowed||Object.keys(input).some(key=>!allowed.includes(key)))throw new VoiceError('bad_memory','记忆操作参数不正确')
+        if(operation==='search'){
+          if(typeof input.query!=='string'||input.query.length>4000||input.limit!==undefined&&(!Number.isInteger(input.limit)||input.limit<1||input.limit>32))throw new VoiceError('bad_memory','检索参数不正确')
+          json(res,200,{ok:true,recall:this.clientStore.recall(id,input.query,input.limit)});return
+        }
+        if(!Number.isSafeInteger(revision))throw new VoiceError('bad_memory','请提供当前记忆版本')
+        const before=this.clientStore.memory(id).barrier
+        const memory=operation==='upsert'?this.clientStore.remember(id,input.text,{...input,revision},{actor:'settings'}):operation==='forget'?this.clientStore.forget(id,input.id,revision,{actor:'settings'}):this.clientStore.clearMemory(id,revision)
+        json(res,200,{ok:true,memory,contextChanged:memory.barrier!==before});return
+      }
       if(req.method==='GET'){
         if(!resource){json(res,200,{ok:true,...this.clientStore.view(id)});return}
         if(resource==='settings'){json(res,200,{ok:true,deviceId:id,settings:this.clientStore.view(id).settings});return}

@@ -8,6 +8,7 @@ import { homedir } from 'node:os'
 import { DEFAULT_PERSONA, PERSONA_ENUMS, PERSONA_TEXT_LIMITS, VOICE_PRESET_ID, type VoicePersona } from './persona.js'
 
 export interface VoiceSettings extends VoicePersona {
+  memoryPolicy:'explicit'|'adaptive'|'off'
   llmProvider: string
   llmModel: string
   /** The compatibility credential is bound to exactly one client. */
@@ -45,6 +46,7 @@ const LEGACY_DEFAULT_PREFIX =
 
 export const DEFAULT_SETTINGS: VoiceSettings = {
   ...DEFAULT_PERSONA,
+  memoryPolicy:'explicit',
   llmProvider: '',
   llmModel: '',
   legacyDeviceId: '',
@@ -123,6 +125,7 @@ export function mergeSettings(current: VoiceSettings, patch: Record<string, unkn
     if (typeof value !== 'number' || !Number.isFinite(value)) { rejected.push(key); continue }
     next[key] = key === 'maxTurnSeconds' ? Math.round(clampNumber(value, min, max, current[key])) : clampNumber(value, min, max, current[key])
   }
+  if(Object.hasOwn(patch,'memoryPolicy')){if(['explicit','adaptive','off'].includes(patch.memoryPolicy as string))next.memoryPolicy=patch.memoryPolicy as VoiceSettings['memoryPolicy'];else rejected.push('memoryPolicy')}
   if ('allowedOrigins' in patch) {
     if (Array.isArray(patch.allowedOrigins) && patch.allowedOrigins.length <= 32 && patch.allowedOrigins.every(x => {
       try { return typeof x === 'string' && new URL(x).origin === x && /^https?:/.test(x) } catch { return false }
@@ -152,6 +155,7 @@ export function maskSettings(s: VoiceSettings): Record<string, unknown> {
     ttsPitch: s.ttsPitch,
     promptPrefix: s.promptPrefix,
     agentPreset: s.agentPreset,
+    memoryPolicy:s.memoryPolicy,
     llmProvider: s.llmProvider,
     llmModel: s.llmModel,
     legacyDeviceId: s.legacyDeviceId,
