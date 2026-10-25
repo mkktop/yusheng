@@ -1,12 +1,15 @@
 {
   "name": "dsh-yusheng-voice",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "yusheng voice backend: WebSocket voice protocol over minimax ASR/TTS with LLM turns driven by in-process dsh sessions; settings panel in the web right sidebar",
   "type": "module",
   "main": "lib/index.js",
   "icon": "./icon.svg",
   "files": [
     "lib",
+    "examples",
+    "PROTOCOL.md",
+    "INTERACTION.md",
     "cordis.patch.yml",
     "icon.svg",
     "locale",
@@ -15,6 +18,7 @@
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
+    "./voice-client": "./lib/voice-client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./icon": "./icon.svg",
     "./locale/*.json": "./locale/*.json",
@@ -33,7 +37,9 @@
     }
   },
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "pretest": "npm run build",
+    "test": "node --test tools/regression.test.mjs tools/client.test.mjs && node tools/smoke.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

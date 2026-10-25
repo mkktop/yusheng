@@ -11,6 +11,10 @@
 
 ## 安装到 dsh
 
+语音插件 0.2 支持兼容 v1 的 [WebSocket 协议 v2](plugins/voice/PROTOCOL.md)，包含轮次隔离、会话切换、工具活动、音频流标识和播放反馈。管理接口使用独立 `adminToken`，设备凭据只用于语音接入；迁移说明见插件 README。
+
+0.3 增加 [形象与智能 UI](plugins/voice/INTERACTION.md)：状态、同步表情动作、卡片/选项/进度/表单，以及点击回传 agent；内置 `/demo` 参考客户端和浏览器 SDK。
+
 ```sh
 dsh plugin --profile web add "link:<插件包的绝对路径>"
 ```

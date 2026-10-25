@@ -1,0 +1,205 @@
+.ys-settings {
+  --ys-fg: var(--dsw-alias-label-primary, CanvasText);
+  --ys-muted: var(--dsw-alias-label-secondary, color-mix(in srgb, CanvasText 63%, Canvas));
+  --ys-subtle: var(--dsw-alias-label-tertiary, color-mix(in srgb, CanvasText 48%, Canvas));
+  --ys-bg: var(--dsw-alias-bg-base, Canvas);
+  --ys-panel: var(--dsw-alias-bg-layer-1, Canvas);
+  --ys-border: var(--dsw-alias-border-l2, color-mix(in srgb, CanvasText 13%, Canvas));
+  --ys-fill: color-mix(in srgb, var(--ys-fg) 3%, var(--ys-panel));
+  --ys-hover: color-mix(in srgb, var(--ys-fg) 6%, var(--ys-panel));
+  --ys-primary: var(--dsw-alias-button-primary-fill, #5366d8);
+  --ys-on-primary: var(--dsw-alias-label-primary-foreground, #fff);
+  --ys-green: var(--dsw-alias-state-success-primary, #32a676);
+  --ys-red: var(--dsw-alias-state-error-primary, #db6864);
+  --ys-focus: #8592ef;
+  color: var(--ys-fg);
+  background: var(--ys-bg);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+}
+.ys-settings *, .ys-settings *::before, .ys-settings *::after { box-sizing: border-box; }
+.ys-settings .ys-wrap { max-width: 1056px; margin: 0 auto; padding: 36px 40px 0; }
+.ys-settings h1,.ys-settings h2,.ys-settings h3,.ys-settings p { margin: 0; }
+.ys-settings button,.ys-settings input,.ys-settings select,.ys-settings textarea { font: inherit; }
+.ys-settings button,.ys-settings a,.ys-settings input,.ys-settings select,.ys-settings textarea,.ys-settings summary { -webkit-tap-highlight-color: transparent; }
+.ys-settings :is(button,a,input,select,textarea,summary):focus-visible { outline: 2px solid var(--ys-focus); outline-offset: 3px; }
+.ys-settings .ys-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.ys-settings .ys-title { display: flex; align-items: center; gap: 14px; }
+.ys-settings .ys-brand { display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 15px; background: var(--ys-fill); border: 1px solid var(--ys-border); }
+.ys-settings .ys-brand svg { width: 25px; height: 25px; }
+.ys-settings h1 { font-size: 25px; line-height: 1.3; letter-spacing: -.035em; font-weight: 650; }
+.ys-settings .ys-subtitle { color: var(--ys-muted); font-size: 13px; margin-top: 5px; }
+.ys-settings .ys-header-actions { display: flex; align-items: center; gap: 8px; }
+.ys-settings .ys-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 35px; padding: 7px 13px; border: 1px solid var(--ys-border); border-radius: 9px; background: var(--ys-panel); color: var(--ys-fg); font-size: 13px; font-weight: 550; line-height: 1.5; cursor: pointer; text-decoration: none; white-space: nowrap; transition: background .15s, border-color .15s, opacity .15s; }
+.ys-settings .ys-btn:hover:not(:disabled) { background: var(--ys-hover); }
+.ys-settings .ys-btn-primary { color: var(--ys-on-primary); background: var(--ys-primary); border-color: transparent; }
+.ys-settings .ys-btn-primary:hover:not(:disabled) { background: var(--ys-primary); filter: brightness(.94); }
+.ys-settings .ys-btn-quiet { background: transparent; border-color: transparent; color: var(--ys-muted); }
+.ys-settings .ys-btn-danger:hover:not(:disabled) { color: var(--ys-red); background: color-mix(in srgb, var(--ys-red) 8%, var(--ys-panel)); }
+.ys-settings .ys-btn-icon { width: 34px; min-width: 34px; padding: 7px; }
+.ys-settings button:disabled { opacity: .42; cursor: not-allowed; }
+.ys-settings svg { flex-shrink: 0; }
+.ys-settings .ys-badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ys-border); border-radius: 24px; padding: 3px 9px; color: var(--ys-muted); font-size: 12px; font-weight: 550; white-space: nowrap; }
+.ys-settings .ys-badge[data-tone=success] { color: var(--ys-fg); background: color-mix(in srgb, var(--ys-green) 7%, var(--ys-panel)); border-color: color-mix(in srgb, var(--ys-green) 24%, var(--ys-panel)); }
+.ys-settings .ys-badge[data-tone=error] { color: var(--ys-fg); background: color-mix(in srgb, var(--ys-red) 7%, var(--ys-panel)); border-color: color-mix(in srgb, var(--ys-red) 24%, var(--ys-panel)); }
+.ys-settings .ys-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ys-subtle); }
+.ys-settings [data-tone=success] > .ys-dot { background: var(--ys-green); }
+.ys-settings [data-tone=error] > .ys-dot { background: var(--ys-red); }
+.ys-settings .ys-overview { display: grid; grid-template-columns: 1fr 1.4fr .8fr; margin-bottom: 22px; border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-fill); }
+.ys-settings .ys-stat { min-width: 0; padding: 16px 20px; }
+.ys-settings .ys-stat + .ys-stat { border-left: 1px solid var(--ys-border); }
+.ys-settings .ys-stat-label { display: flex; align-items: center; gap: 7px; color: var(--ys-muted); font-size: 12px; margin-bottom: 7px; }
+.ys-settings .ys-stat-value { font-size: 15px; line-height: 1.5; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ys-settings .ys-stat-detail { color: var(--ys-subtle); font-size: 12px; margin-top: 2px; }
+.ys-settings .ys-connection { border: 1px solid var(--ys-border); border-radius: 13px; margin-bottom: 24px; background: var(--ys-panel); }
+.ys-settings .ys-connection-top { display: flex; align-items: center; gap: 11px; padding: 15px 18px; }
+.ys-settings .ys-connection-icon { color: var(--ys-muted); display: grid; place-items: center; }
+.ys-settings .ys-connection-copy { flex: 1; min-width: 0; }
+.ys-settings .ys-connection-copy strong { display: block; font-size: 13px; font-weight: 600; }
+.ys-settings .ys-connection-copy p { color: var(--ys-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ys-settings .ys-connection-body { border-top: 1px solid var(--ys-border); padding: 18px; }
+.ys-settings .ys-connect-grid { display: grid; grid-template-columns: 1.1fr 1.2fr auto; gap: 14px; align-items: end; }
+.ys-settings .ys-help { color: var(--ys-muted); font-size: 12px; line-height: 1.7; margin-top: 10px; }
+.ys-settings .ys-help summary { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; list-style: none; }
+.ys-settings .ys-help summary::-webkit-details-marker { display: none; }
+.ys-settings .ys-help[open] summary svg { transform: rotate(90deg); }
+.ys-settings .ys-help p { margin-top: 6px; }
+.ys-settings .ys-tabs { display: flex; gap: 4px; padding: 4px; width: fit-content; max-width: 100%; border-radius: 11px; background: var(--ys-fill); margin: 0 0 22px; border: 1px solid var(--ys-border); }
+.ys-settings .ys-tab { display: inline-flex; gap: 7px; align-items: center; justify-content: center; padding: 7px 15px; border: 1px solid transparent; background: transparent; color: var(--ys-muted); border-radius: 8px; font-size: 13px; font-weight: 550; cursor: pointer; white-space: nowrap; }
+.ys-settings .ys-tab[aria-selected=true] { color: var(--ys-fg); background: var(--ys-panel); border-color: var(--ys-border); box-shadow: 0 1px 3px #00000005; }
+.ys-settings .ys-count { display: inline-grid; place-items: center; font-size: 11px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 5px; background: var(--ys-hover); }
+.ys-settings .ys-stack { display: grid; gap: 20px; }
+.ys-settings .ys-voice-grid { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 20px; align-items: start; }
+.ys-settings .ys-connection[data-collapsed=true] .ys-connection-top { padding-top: 11px; padding-bottom: 11px; }
+.ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy { display: flex; align-items: center; gap: 12px; }
+.ys-settings .ys-connection[data-collapsed=true] .ys-connection-copy strong { flex-shrink: 0; }
+.ys-settings .ys-card { border: 1px solid var(--ys-border); border-radius: 14px; background: var(--ys-panel); min-width: 0; }
+.ys-settings .ys-card-header { display: flex; align-items: flex-start; gap: 11px; padding: 21px 24px 0; }
+.ys-settings .ys-card-symbol { color: var(--ys-muted); padding-top: 2px; }
+.ys-settings .ys-card-heading { flex: 1; min-width: 0; }
+.ys-settings h2 { font-size: 15px; font-weight: 650; letter-spacing: -.015em; }
+.ys-settings .ys-card-heading p { color: var(--ys-muted); font-size: 12px; margin-top: 3px; }
+.ys-settings .ys-card-body { padding: 21px 24px 24px; }
+.ys-settings .ys-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }
+.ys-settings .ys-field { display: block; min-width: 0; }
+.ys-settings .ys-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ys-fg); font-size: 13px; font-weight: 550; margin-bottom: 7px; }
+.ys-settings .ys-label-meta { color: var(--ys-subtle); font-size: 12px; font-weight: 400; }
+.ys-settings .ys-input,.ys-settings .ys-select,.ys-settings .ys-textarea { width: 100%; min-width: 0; min-height: 37px; padding: 9px 11px; color: var(--ys-fg); background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 8px; font-size: 13px; line-height: 1.5; transition: border-color .15s, background .15s; }
+.ys-settings .ys-input::placeholder,.ys-settings .ys-textarea::placeholder { color: var(--ys-subtle); opacity: .85; }
+.ys-settings .ys-input:hover:not(:disabled),.ys-settings .ys-select:hover:not(:disabled),.ys-settings .ys-textarea:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ys-fg) 26%, var(--ys-panel)); }
+.ys-settings .ys-select { cursor: pointer; padding-right: 30px; }
+.ys-settings option,.ys-settings optgroup { color: var(--ys-fg); background: var(--ys-panel); }
+.ys-settings .ys-textarea { display: block; resize: vertical; min-height: 100px; line-height: 1.85; }
+.ys-settings .ys-control { display: flex; align-items: center; border: 1px solid var(--ys-border); border-radius: 8px; background: var(--ys-fill); padding-right: 3px; }
+.ys-settings .ys-control:focus-within { outline: 2px solid var(--ys-focus); outline-offset: 2px; }
+.ys-settings .ys-control .ys-input { border: 0; background: transparent; outline: none; }
+.ys-settings .ys-control .ys-btn-icon { background: transparent; border: 0; color: var(--ys-muted); min-width: 30px; width: 30px; }
+.ys-settings .ys-field-help { color: var(--ys-muted); font-size: 12px; line-height: 1.65; margin-top: 6px; }
+.ys-settings .ys-row { display: flex; align-items: center; gap: 9px; }
+.ys-settings .ys-between { justify-content: space-between; }
+.ys-settings .ys-separator { height: 1px; background: var(--ys-border); margin: 21px 0; }
+.ys-settings .ys-sliders { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 25px; }
+.ys-settings .ys-slider-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 13px; }
+.ys-settings .ys-slider-top label { font-size: 13px; font-weight: 550; }
+.ys-settings .ys-number { width: 64px; color: var(--ys-fg); background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 6px; padding: 3px 5px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ys-settings input[type=range] { appearance: none; display: block; width: 100%; height: 4px; border-radius: 5px; margin: 0; background: color-mix(in srgb,var(--ys-fg) 14%,var(--ys-panel)); accent-color: var(--ys-primary); cursor: pointer; }
+.ys-settings input[type=range]::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--ys-primary); border: 2px solid var(--ys-panel); box-shadow: 0 0 0 1px var(--ys-border); }
+.ys-settings input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--ys-primary); border: 2px solid var(--ys-panel); }
+.ys-settings .ys-slider-captions { display: flex; justify-content: space-between; color: var(--ys-subtle); font-size: 11px; margin-top: 9px; }
+.ys-settings fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.ys-settings fieldset:disabled :is(input,select,textarea) { opacity: .5; cursor: not-allowed; }
+.ys-settings .ys-inline-status { display: inline-flex; align-items: center; gap: 5px; color: var(--ys-muted); font-size: 12px; }
+.ys-settings .ys-inline-status[data-tone=error] { color: var(--ys-red); }
+.ys-settings .ys-mono { font-family: var(--ds-font-family-code,ui-monospace,SFMono-Regular,Consolas,monospace); font-size: 12px; }
+.ys-settings .ys-code { color: var(--ys-muted); background: var(--ys-fill); border-radius: 5px; padding: 2px 6px; overflow-wrap: anywhere; }
+.ys-settings .ys-custom { padding: 12px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 8px; margin-top: 10px; }
+.ys-settings .ys-timeout { max-width: 270px; }
+.ys-settings .ys-unit { padding: 0 10px; font-size: 12px; color: var(--ys-muted); white-space: nowrap; }
+.ys-settings .ys-note { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--ys-border); background: var(--ys-fill); border-radius: 9px; font-size: 13px; color: var(--ys-muted); }
+.ys-settings .ys-note > svg { margin-top: 2px; }
+.ys-settings .ys-note[data-tone=error] { border-color: color-mix(in srgb,var(--ys-red) 30%,var(--ys-panel)); background: color-mix(in srgb,var(--ys-red) 5%,var(--ys-panel)); color: var(--ys-fg); }
+.ys-settings .ys-note[data-tone=success] { border-color: color-mix(in srgb,var(--ys-green) 27%,var(--ys-panel)); background: color-mix(in srgb,var(--ys-green) 5%,var(--ys-panel)); color: var(--ys-fg); }
+.ys-settings .ys-note-content { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ys-settings .ys-device-form { display: flex; gap: 10px; align-items: end; }
+.ys-settings .ys-device-form .ys-field { flex: 1; }
+.ys-settings .ys-devices { border-top: 1px solid var(--ys-border); margin-top: 20px; }
+.ys-settings .ys-device { display: flex; align-items: center; gap: 12px; padding: 14px 0; }
+.ys-settings .ys-device + .ys-device { border-top: 1px solid var(--ys-border); }
+.ys-settings .ys-device-symbol { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 36px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-muted); }
+.ys-settings .ys-device-info { flex: 1; min-width: 0; }
+.ys-settings .ys-device-name { font-weight: 550; overflow-wrap: anywhere; font-size: 13px; }
+.ys-settings .ys-device-detail { font-size: 12px; color: var(--ys-subtle); }
+.ys-settings .ys-empty { text-align: center; color: var(--ys-muted); padding: 24px 10px 10px; font-size: 13px; }
+.ys-settings .ys-empty p { margin-top: 4px; font-size: 12px; color: var(--ys-subtle); }
+.ys-settings .ys-token { margin-top: 17px; padding: 15px; border: 1px solid color-mix(in srgb,var(--ys-green) 28%,var(--ys-panel)); border-radius: 10px; background: color-mix(in srgb,var(--ys-green) 4%,var(--ys-panel)); }
+.ys-settings .ys-token .ys-label { margin-bottom: 8px; }
+.ys-settings .ys-advanced { border: 1px solid var(--ys-border); border-radius: 13px; background: var(--ys-panel); }
+.ys-settings .ys-advanced > summary { display: flex; align-items: center; gap: 9px; padding: 17px 22px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 550; }
+.ys-settings .ys-advanced > summary::-webkit-details-marker { display: none; }
+.ys-settings .ys-advanced > summary > svg:last-child { margin-left: auto; color: var(--ys-muted); }
+.ys-settings .ys-advanced[open] > summary > svg:last-child { transform: rotate(90deg); }
+.ys-settings .ys-advanced-body { padding: 0 22px 22px; border-top: 1px solid var(--ys-border); }
+.ys-settings .ys-advanced-body > p { margin: 15px 0; color: var(--ys-muted); font-size: 12px; }
+.ys-settings .ys-diag-intro { display: flex; align-items: center; gap: 20px; justify-content: space-between; margin-bottom: 20px; }
+.ys-settings .ys-diag-intro p { font-size: 13px; color: var(--ys-muted); }
+.ys-settings .ys-diagnostics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }
+.ys-settings .ys-diagnostic { padding: 21px; display: flex; flex-direction: column; min-width: 0; }
+.ys-settings .ys-diagnostic-symbol { display: grid; place-items: center; width: 35px; height: 35px; background: var(--ys-fill); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-muted); margin-bottom: 16px; }
+.ys-settings .ys-diagnostic h3 { font-size: 14px; font-weight: 600; }
+.ys-settings .ys-diagnostic-description { color: var(--ys-muted); font-size: 12px; min-height: 39px; margin-top: 5px; }
+.ys-settings .ys-diagnostic .ys-btn { margin-top: 17px; width: 100%; }
+.ys-settings .ys-diagnostic-result { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 16px; color: var(--ys-muted); }
+.ys-settings .ys-diagnostic-message { font-size: 12px; overflow-wrap: anywhere; color: var(--ys-muted); line-height: 1.7; margin-top: 7px; }
+.ys-settings .ys-footer { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 0; margin-top: 24px; background: var(--ys-bg); border-top: 1px solid var(--ys-border); }
+.ys-settings .ys-footer-copy { display: flex; align-items: center; gap: 7px; color: var(--ys-muted); font-size: 12px; }
+.ys-settings .ys-footer-actions { display: flex; gap: 8px; }
+.ys-settings .ys-footer .ys-btn-primary { min-width: 96px; }
+.ys-settings .ys-bottom-note { font-size: 11px; line-height: 1.8; color: var(--ys-subtle); padding: 20px 0 26px; }
+.ys-settings .ys-spin { animation: ys-settings-spin 1s linear infinite; }
+@keyframes ys-settings-spin { to { transform: rotate(360deg); } }
+@container (max-width: 900px) { .ys-settings .ys-voice-grid { grid-template-columns: 1fr; } }
+@container (max-width: 760px) {
+  .ys-settings .ys-wrap { padding: 26px 24px 0; }
+  .ys-settings .ys-connect-grid { grid-template-columns: 1fr 1fr; }
+  .ys-settings .ys-connect-grid > button { grid-column: span 2; justify-self: end; }
+  .ys-settings .ys-card-header { padding: 19px 20px 0; }
+  .ys-settings .ys-card-body { padding: 19px 20px 20px; }
+  .ys-settings .ys-stat { padding: 14px 15px; }
+  .ys-settings .ys-diagnostics { grid-template-columns: 1fr; }
+  .ys-settings .ys-diagnostic { display: grid; grid-template-columns: auto 1fr auto; gap: 0 13px; align-items: center; }
+  .ys-settings .ys-diagnostic-symbol { margin: 0; grid-row: span 2; }
+  .ys-settings .ys-diagnostic-description { min-height: 0; grid-column: 2; }
+  .ys-settings .ys-diagnostic .ys-btn { grid-column: 3; grid-row: 1 / span 2; margin: 0; width: auto; }
+  .ys-settings .ys-diagnostic-result,.ys-settings .ys-diagnostic-message { grid-column: 2 / -1; }
+}
+@container (max-width: 520px) {
+  .ys-settings .ys-wrap { padding: 22px 16px 0; }
+  .ys-settings .ys-header { align-items: flex-start; gap: 12px; margin-bottom: 22px; }
+  .ys-settings h1 { font-size: 22px; }
+  .ys-settings .ys-brand { width: 40px; height: 40px; flex-basis: 40px; border-radius: 12px; }
+  .ys-settings .ys-header-actions .ys-btn span { display: none; }
+  .ys-settings .ys-header-actions .ys-btn { width: 34px; padding: 8px; }
+  .ys-settings .ys-overview { grid-template-columns: 1fr 1fr; }
+  .ys-settings .ys-stat:nth-child(2) { grid-column: 1 / -1; grid-row: 2; border: 0; border-top: 1px solid var(--ys-border); }
+  .ys-settings .ys-stat:last-child { grid-column: 2; grid-row: 1; }
+  .ys-settings .ys-connect-grid,.ys-settings .ys-grid { grid-template-columns: 1fr; gap: 16px; }
+  .ys-settings .ys-connect-grid > button { grid-column: auto; width: 100%; }
+  .ys-settings .ys-sliders { grid-template-columns: 1fr; gap: 22px; }
+  .ys-settings .ys-slider-top { margin-bottom: 12px; }
+  .ys-settings .ys-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; }
+  .ys-settings .ys-tab { padding: 8px 7px; gap: 5px; }
+  .ys-settings .ys-tab > svg { display: none; }
+  .ys-settings .ys-card-header { padding: 18px 17px 0; }
+  .ys-settings .ys-card-body { padding: 18px 17px 20px; }
+  .ys-settings .ys-device-form { flex-direction: column; align-items: stretch; }
+  .ys-settings .ys-diag-intro { align-items: flex-start; gap: 10px; flex-direction: column; }
+  .ys-settings .ys-footer { padding: 14px 0; }
+  .ys-settings .ys-footer-copy { max-width: 45%; font-size: 11px; }
+  .ys-settings .ys-footer-actions { gap: 3px; }
+  .ys-settings .ys-footer .ys-btn { padding: 7px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .ys-settings *, .ys-settings *::before, .ys-settings *::after { animation: none !important; transition: none !important; } }

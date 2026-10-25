@@ -17,7 +17,7 @@ await build({
   outfile: 'lib/index.js',
   external: ['bufferutil', 'utf-8-validate'],
   // ws（CJS）被打进 ESM 产物时需要运行期 require 解析 node 内建模块
-  banner: { js: `import { createRequire } from 'node:module'\nconst require = createRequire(import.meta.url)` },
+  banner: { js: `import { createRequire as __voiceCreateRequire } from 'node:module'\nconst require = __voiceCreateRequire(import.meta.url)` },
   legalComments: 'none',
   logLevel: 'info',
 })
@@ -29,6 +29,7 @@ const result = await build({
   format: 'cjs',
   target: 'es2022',
   jsx: 'automatic',
+  loader: { '.css': 'text' },
   external: ['react', 'react/jsx-runtime', 'react-dom'],
   write: false,
   legalComments: 'none',
@@ -49,3 +50,9 @@ ${code}
 `
 writeFileSync('lib/client.js', wrapped)
 console.log('lib/client.js written (%d bytes)', wrapped.length)
+
+await build({
+  entryPoints: { 'voice-client': 'src/client/voice-client.ts', 'demo-client': 'examples/avatar-client.ts' },
+  bundle: true, platform: 'browser', format: 'esm', target: 'es2022', outdir: 'lib',
+  legalComments: 'none', logLevel: 'info',
+})

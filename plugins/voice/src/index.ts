@@ -20,7 +20,7 @@ function clampPort(value: unknown): number {
 
 export default {
   name: 'yusheng-voice',
-  inject: ['agentDefaultModel', 'agents', 'sessions', 'sessionQuery'],
+  inject: ['agentDefaultModel', 'agents', 'sessions', 'sessionQuery', 'agentPresets', 'permissionPresets'],
   apply(root: any, config: any = {}) {
     const unknown = Object.keys(config).filter((key) => !CONFIG_KEYS.has(key))
     if (unknown.length > 0) {
@@ -35,7 +35,8 @@ export default {
     const store = new SettingsStore(settingsPath)
     const log = (level: 'info' | 'warn', message: string) => {
       try {
-        root.logger?.[level]?.(`yusheng-voice: ${message}`)
+        if (typeof root.logger?.[level] === 'function') root.logger[level](`yusheng-voice: ${message}`)
+        else console[level](`yusheng-voice: ${message}`)
       } catch {
         /* logger 不可用时静默 */
       }
@@ -49,9 +50,7 @@ export default {
     server
       .start()
       .then(() => {
-        if (store.get().token === '') {
-          log('warn', `token 未配置，语音端点与设置接口当前开放；请尽快在设置面板生成令牌（设置文件 ${settingsPath}）`)
-        }
+        log('info', `REST uses a separate adminToken stored in ${settingsPath}`)
       })
       .catch((error: unknown) => {
         log('warn', `voice server failed to start on ${host}:${port}: ${error instanceof Error ? error.message : String(error)}`)

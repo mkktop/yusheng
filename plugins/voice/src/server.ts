@@ -3,20 +3,27 @@
 
 import { Buffer } from 'node:buffer'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { timingSafeEqual } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { AgentBridge } from './llm.js'
 import { VoiceConnection, PROTOCOL_VERSION } from './connection.js'
 import { maskSettings, type SettingsStore } from './settings.js'
 import { transcribePcm, AsrError } from './asr.js'
 import { synthesizeStream, TtsError, TTS_SAMPLE_RATE } from './tts.js'
+import { identifier, newId, SUPPORTED_VERSIONS } from './protocol.js'
+import { SurfaceStore } from './surface.js'
 
-const VERSION = '0.1.0'
+const VERSION = '0.3.0'
 const BODY_LIMIT = 32 * 1024
 const WS_PATH = '/voice'
 
 export interface ServerConfig {
   host: string
   port: number
+  assetsRoot?:string
 }
 
 export class VoiceServer {
@@ -28,6 +35,12 @@ export class VoiceServer {
   private wss: WebSocketServer | undefined
   private connections = new Set<VoiceConnection>()
   private startedAt = 0
+  private heartbeat?: ReturnType<typeof setInterval>
+  private identities = new Map<VoiceConnection, { token: string; deviceId?: string }>()
+  private devices = new Map<string, VoiceConnection>()
+  private conversationOwners: Record<string, string> = Object.create(null)
+  private ownersPath: string
+  private surface:SurfaceStore
   private presetsCache: { at: number; value: Array<{ id: string; name?: string; isDefault: boolean; broken?: boolean }> | undefined } = { at: 0, value: undefined }
 
   constructor(store: SettingsStore, bridge: AgentBridge, config: ServerConfig, log: (level: 'info' | 'warn', message: string) => void) {
@@ -35,12 +48,21 @@ export class VoiceServer {
     this.bridge = bridge
     this.config = config
     this.log = log
+    this.ownersPath = resolve(dirname(store.path), 'conversations.json')
+    this.surface = new SurfaceStore(resolve(dirname(store.path),'ui.json'))
+    if (existsSync(this.ownersPath)) {
+      const raw = JSON.parse(readFileSync(this.ownersPath, 'utf8'))
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('invalid conversation registry')
+      this.conversationOwners = Object.assign(Object.create(null), raw)
+    }
   }
 
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const httpServer = createServer((req, res) => this.handleRest(req, res))
-      const wss = new WebSocketServer({ noServer: true })
+      const httpServer = createServer((req, res) => { void this.handleRest(req, res).catch(e => { this.log('warn', `REST failed: ${e instanceof Error ? e.message : String(e)}`); if (!res.headersSent) json(res, 500, { ok: false, error: 'internal_error' }); else res.end() }) })
+      const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024, perMessageDeflate: false })
+      this.httpServer = httpServer; this.wss = wss
+      httpServer.requestTimeout = 15_000; httpServer.headersTimeout = 15_000
 
       httpServer.on('upgrade', (req, socket, head) => {
         const url = parseUrl(req)
@@ -48,7 +70,7 @@ export class VoiceServer {
           socket.destroy()
           return
         }
-        if (!this.authorize(url)) {
+        if (!this.authorize(url) || !this.originAllowed(req) || this.connections.size >= 64) {
           socket.write('HTTP/1.1 401 Unauthorized\r\nconnection: close\r\n\r\n')
           socket.destroy()
           return
@@ -58,14 +80,29 @@ export class VoiceServer {
         })
       })
 
-      wss.on('connection', (ws: WebSocket) => {
-        const connection = new VoiceConnection(ws as unknown as { readyState: number; send(data: never): void; close(code: number, reason: string): void }, {
+      const alive = new WeakSet<WebSocket>()
+      wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+        // The upgrade URL is rechecked against current settings on every application message.
+        const connection = new VoiceConnection(ws, {
           settings: () => this.store.get(),
           bridge: this.bridge,
+          surface: this.surface,
           log: this.log,
+          claimDevice: deviceId => {
+            const identity = this.identities.get(connection)
+            if (!identity || (identity.deviceId && identity.deviceId !== deviceId) || this.devices.has(deviceId) || !this.claimConversation(deviceId, deviceId)) return false
+            this.devices.set(deviceId, connection); return true
+          },
+          allowConversation: (deviceId, conversationId) => this.claimConversation(deviceId, conversationId),
         })
         this.connections.add(connection)
+        this.identities.set(connection, this.authorize(parseUrl(req)!)!)
+        alive.add(ws)
+        const helloTimer = setTimeout(() => { if (connection.describe().state === 'init') connection.close(1008, 'hello timeout') }, 10_000)
+        ws.on('pong', () => alive.add(ws))
         ws.on('message', (data: Buffer, isBinary: boolean) => {
+          const identity = this.identities.get(connection)
+          if (!identity || !this.validIdentity(identity)) { connection.close(1008, 'credential revoked'); return }
           if (isBinary) {
             connection.handleBinary(data)
           } else {
@@ -74,6 +111,9 @@ export class VoiceServer {
         })
         ws.on('close', () => {
           this.connections.delete(connection)
+          clearTimeout(helloTimer)
+          this.identities.delete(connection)
+          if (this.devices.get(connection.deviceId) === connection) this.devices.delete(connection.deviceId)
           connection.handleClosed()
         })
         ws.on('error', () => {
@@ -81,12 +121,20 @@ export class VoiceServer {
         })
       })
 
+      this.heartbeat = setInterval(() => {
+        for (const ws of wss.clients) {
+          if (!alive.has(ws)) { ws.terminate(); continue }
+          alive.delete(ws); ws.ping()
+        }
+      }, 30_000)
+      this.heartbeat.unref()
+
       httpServer.once('error', reject)
       httpServer.listen(this.config.port, this.config.host, () => {
         this.httpServer = httpServer
         this.wss = wss
         this.startedAt = Date.now()
-        const tokenState = this.store.get().token === '' ? 'OPEN (token 未配置)' : 'token'
+        const tokenState = this.store.get().token === '' ? 'registered devices only' : 'device token'
         this.log('info', `listening on ws://${this.config.host}:${this.config.port}${WS_PATH} (${tokenState})`)
         resolve()
       })
@@ -94,7 +142,9 @@ export class VoiceServer {
   }
 
   stop() {
-    for (const connection of this.connections) connection.handleClosed()
+    clearInterval(this.heartbeat)
+    for (const connection of this.connections) connection.close()
+    for (const ws of this.wss?.clients ?? []) ws.terminate()
     this.connections.clear()
     this.wss?.close()
     this.httpServer?.close()
@@ -102,11 +152,34 @@ export class VoiceServer {
     this.httpServer = undefined
   }
 
-  private authorize(url: URL): boolean {
-    const token = this.store.get().token
-    if (token === '') return true // 引导模式：面板会提示生成令牌
+  private authorize(url: URL): { token: string; deviceId?: string } | undefined {
+    const settings = this.store.get()
     const provided = url.searchParams.get('token') ?? ''
-    return provided === token
+    if (secureEqual(provided, settings.token)) return { token: provided }
+    for (const [deviceId, token] of Object.entries(settings.deviceTokens)) if (secureEqual(provided, token)) return { token: provided, deviceId }
+    return undefined
+  }
+
+  private validIdentity(identity: { token: string; deviceId?: string }): boolean {
+    const settings = this.store.get()
+    return secureEqual(identity.token, identity.deviceId ? settings.deviceTokens[identity.deviceId] : settings.token)
+  }
+
+  private originAllowed(req: IncomingMessage): boolean {
+    const origin = req.headers.origin
+    if (!origin) return true
+    const allowed = this.store.get().allowedOrigins
+    if (allowed.length) return allowed.includes(origin)
+    try { return new URL(origin).hostname === new URL(`http://${req.headers.host}`).hostname && /^https?:/.test(origin) } catch { return false }
+  }
+
+  private claimConversation(deviceId: string, conversationId: string): boolean {
+    if (Object.hasOwn(this.conversationOwners, conversationId)) return this.conversationOwners[conversationId] === deviceId
+    if ((conversationId !== deviceId && !conversationId.startsWith(`${deviceId}-`)) || Object.keys(this.conversationOwners).length >= 4096) return false
+    const next = { ...this.conversationOwners, [conversationId]: deviceId }, temporary = `${this.ownersPath}.${newId()}.tmp`
+    writeFileSync(temporary, JSON.stringify(next), { mode: 0o600 }); renameSync(temporary, this.ownersPath)
+    this.conversationOwners = Object.assign(Object.create(null), next)
+    return true
   }
 
   // ---- REST ----
@@ -114,16 +187,19 @@ export class VoiceServer {
   private static applyCors(req: IncomingMessage, res: ServerResponse) {
     const origin = req.headers.origin
     if (typeof origin === 'string' && origin !== '') res.setHeader('access-control-allow-origin', origin)
-    res.setHeader('access-control-allow-methods', 'GET, POST, PUT, OPTIONS')
+    res.setHeader('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    res.setHeader('vary', 'Origin')
     res.setHeader('access-control-allow-headers', 'content-type, x-voice-token')
     res.setHeader('access-control-max-age', '600')
   }
 
   private tokenOf(req: IncomingMessage, url: URL): string {
-    return (req.headers['x-voice-token'] as string | undefined) ?? url.searchParams.get('token') ?? ''
+    const header = req.headers['x-voice-token']
+    return (typeof header === 'string' ? header : undefined) ?? url.searchParams.get('token') ?? ''
   }
 
-  private handleRest(req: IncomingMessage, res: ServerResponse) {
+  private async handleRest(req: IncomingMessage, res: ServerResponse) {
+    if (!this.originAllowed(req)) { json(res, 403, { ok: false, error: 'origin_denied' }); return }
     VoiceServer.applyCors(req, res)
     if (req.method === 'OPTIONS') {
       res.writeHead(204)
@@ -135,9 +211,15 @@ export class VoiceServer {
       res.writeHead(400).end()
       return
     }
-    const token = this.store.get().token
-    if (token !== '' && this.tokenOf(req, url) !== token) {
-      json(res, 401, { ok: false, error: 'unauthorized', message: '令牌不正确（面板右上可见当前令牌）' })
+    const assets:Record<string,[string,string]>={'/demo':['examples/avatar-client.html','text/html; charset=utf-8'],'/demo-client.js':['lib/demo-client.js','text/javascript; charset=utf-8'],'/voice-client.js':['lib/voice-client.js','text/javascript; charset=utf-8']}
+    if(req.method==='GET'&&Object.hasOwn(assets,url.pathname)) {
+      const [path,type]=assets[url.pathname]
+      res.writeHead(200,{'content-type':type,'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"})
+      res.end(readFileSync(resolve(this.config.assetsRoot??fileURLToPath(new URL('..',import.meta.url)),path)));return
+    }
+    const token = this.store.get().adminToken
+    if (!secureEqual(this.tokenOf(req, url), token)) {
+      json(res, 401, { ok: false, error: 'unauthorized', message: '请填写服务器 settings.json 中的 adminToken；设备令牌不具备管理权限' })
       return
     }
     const route = `${req.method} ${url.pathname}`
@@ -150,21 +232,35 @@ export class VoiceServer {
         json(res, 200, { ok: true, settings: maskSettings(this.store.get()) })
         return
       case 'PUT /settings':
-        void this.handlePutSettings(req, res)
+        await this.handlePutSettings(req, res)
         return
       case 'POST /token':
         json(res, 200, { ok: true, token: this.store.regenerateToken() })
+        this.closeRevoked()
         return
+      case 'POST /devices': {
+        const body = await readBody(req)
+        if (body === null) { json(res, 413, { ok: false, error: 'too_large' }); return }
+        let patch: any
+        try { patch = JSON.parse(body) } catch { json(res, 400, { ok: false, error: 'bad_json' }); return }
+        if (!identifier(patch?.deviceId, 48)) { json(res, 400, { ok: false, error: 'bad_device_id' }); return }
+        const deviceToken = this.store.issueDevice(patch.deviceId)
+        this.closeRevoked(); json(res, 200, { ok: true, deviceId: patch.deviceId, token: deviceToken }); return
+      }
       case 'POST /test/asr':
-        void this.handleTestAsr(res)
+        await this.handleTestAsr(res)
         return
       case 'POST /test/tts':
-        void this.handleTestTts(res)
+        await this.handleTestTts(res)
         return
       case 'POST /test/llm':
-        void this.handleTestLlm(res)
+        await this.handleTestLlm(res)
         return
       default:
+        if (req.method === 'DELETE' && url.pathname.startsWith('/devices/')) {
+          this.store.revokeDevice(decodeURIComponent(url.pathname.slice('/devices/'.length))); this.closeRevoked()
+          json(res, 200, { ok: true }); return
+        }
         json(res, 404, { ok: false, error: 'not_found' })
     }
   }
@@ -178,6 +274,7 @@ export class VoiceServer {
       service: 'dsh-yusheng-voice',
       version: VERSION,
       protocol: PROTOCOL_VERSION,
+      supportedProtocols: SUPPORTED_VERSIONS,
       endpoint: `ws://${this.config.host}:${this.config.port}${WS_PATH}`,
       uptimeSec: Math.round((Date.now() - this.startedAt) / 1000),
       tokenConfigured: settings.token !== '',
@@ -207,11 +304,13 @@ export class VoiceServer {
     let patch: Record<string, unknown>
     try {
       patch = JSON.parse(body === '' ? '{}' : body)
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('invalid object')
     } catch {
       json(res, 400, { ok: false, error: 'bad_json' })
       return
     }
     const { settings, rejected } = this.store.update(patch)
+    this.closeRevoked()
     this.log('info', `settings updated${rejected.length > 0 ? ` (rejected: ${rejected.join(', ')})` : ''}`)
     json(res, 200, { ok: true, rejected, settings: maskSettings(settings) })
   }
@@ -266,7 +365,7 @@ export class VoiceServer {
           gotDelta = true
         },
         onEnd: () => undefined,
-      })
+      }, '', { signal: AbortSignal.timeout(30_000) })
       const outcome = await turn.done
       json(res, 200, {
         ok: outcome.kind === 'completed',
@@ -284,6 +383,16 @@ export class VoiceServer {
       })
     }
   }
+
+  private closeRevoked() {
+    for (const [connection, identity] of this.identities) if (!this.validIdentity(identity)) connection.close(1008, 'credential revoked')
+  }
+}
+
+function secureEqual(provided: string | undefined, expected: string | undefined): boolean {
+  if (!provided || !expected) return false
+  const a = Buffer.from(provided), b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
 
 function parseUrl(req: IncomingMessage): URL | undefined {
@@ -309,9 +418,10 @@ function readBody(req: IncomingMessage): Promise<string | null> {
       }
     }
     req.on('data', (chunk: Buffer) => {
+      if (settled) return
       size += chunk.length
       if (size > BODY_LIMIT) {
-        req.destroy()
+        chunks.length = 0
         finish(null)
         return
       }
@@ -319,6 +429,7 @@ function readBody(req: IncomingMessage): Promise<string | null> {
     })
     req.on('end', () => finish(Buffer.concat(chunks).toString('utf8')))
     req.on('error', () => finish(null))
+    req.on('aborted', () => finish(null))
   })
 }
 

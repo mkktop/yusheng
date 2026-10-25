@@ -18,6 +18,10 @@ if (url === undefined) {
 }
 const tokenIndex = args.indexOf('--token')
 const token = tokenIndex >= 0 ? args.splice(tokenIndex, 2)[1] : ''
+function option(name, fallback) { const index=args.indexOf(name); return index >= 0 ? args.splice(index,2)[1] : fallback }
+const version=Number(option('--version','1'))
+const deviceId=option('--device','test-client')
+const conversationId=option('--conversation',undefined)
 const [command, ...rest] = args
 
 const wsUrl = token !== '' ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : url
@@ -28,9 +32,11 @@ ws.binaryType = 'arraybuffer'
 const audioChunks = []
 let llmText = ''
 let stopped = false
+let exitCode = 0
+let activeTurn
 const startedAt = Date.now()
 
-const finishTimer = setTimeout(() => reallyDone('timeout 120s'), 120_000)
+const finishTimer = setTimeout(() => { exitCode=1; reallyDone('timeout 120s') }, 120_000)
 
 function reallyDone(reason) {
   if (stopped) return
@@ -47,11 +53,11 @@ function reallyDone(reason) {
   }
   console.log(`llm text: ${JSON.stringify(llmText)}`)
   console.log(`done (${reason}, ${(Date.now() - startedAt) / 1000 | 0}s)`)
-  process.exit(0)
+  process.exit(exitCode)
 }
 
 ws.onopen = () => {
-  ws.send(JSON.stringify({ type: 'hello', version: 1, deviceId: 'test-client', deviceName: 'test-client' }))
+  ws.send(JSON.stringify({ type: 'hello', version, deviceId, deviceName: 'test-client', conversationId, ...(version===2?{capabilities:['turns','audio.framed','agent.activity']}: {}) }))
 }
 
 ws.onmessage = async (event) => {
@@ -61,7 +67,8 @@ ws.onmessage = async (event) => {
     return
   }
   if (Buffer.isBuffer(data) || data instanceof ArrayBuffer || Array.isArray(data)) {
-    audioChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data))
+    const frame=Buffer.isBuffer(data) ? data : Buffer.from(data)
+    audioChunks.push(version===2 && frame.subarray(0,4).toString()==='YSV2' ? frame.subarray(24) : frame)
     return
   }
   let message
@@ -75,7 +82,7 @@ ws.onmessage = async (event) => {
   if (message.type === 'welcome') {
     console.log('welcome:', JSON.stringify(message))
     if (command === 'speak' || command === 'query') {
-      ws.send(JSON.stringify({ type: command, text: rest.join(' ') }))
+      ws.send(JSON.stringify({ type: command, text: rest.join(' '), requestId:'cli-1' }))
     } else if (command === 'listen') {
       const file = rest[0]
       if (file === undefined) {
@@ -83,7 +90,7 @@ ws.onmessage = async (event) => {
         process.exit(2)
       }
       const pcm = readFileSync(file)
-      ws.send(JSON.stringify({ type: 'listen', state: 'start' }))
+      ws.send(JSON.stringify({ type: 'listen', state: 'start', requestId:'cli-1' }))
       const CHUNK = 3200 // 100ms
       let offset = 0
       const timer = setInterval(() => {
@@ -102,17 +109,21 @@ ws.onmessage = async (event) => {
     return
   }
   console.log('<<', JSON.stringify(message))
-  if ((message.type === 'tts' && message.state === 'stop') || message.type === 'error') {
-    // 等 40ms 帧节奏发送收尾
-    setTimeout(() => reallyDone(message.reason ?? message.type), 2500)
+  if (message.type==='turn.start') activeTurn=message.turnId
+  if (message.type==='error') { exitCode=1; if(!activeTurn)reallyDone(message.code) }
+  if ((version===1 && message.type==='tts' && message.state==='stop') || (version===2 && message.type==='turn.end')) {
+    if(!['done','completed'].includes(message.reason))exitCode=1
+    reallyDone(message.reason)
   }
 }
 
 ws.onerror = (event) => {
   console.error('ws error:', event?.message ?? event)
+  exitCode=1
 }
 
 ws.onclose = (event) => {
   console.log(`closed: code=${event.code} reason=${event.reason}`)
+  if(!stopped)exitCode=1
   reallyDone('closed')
 }

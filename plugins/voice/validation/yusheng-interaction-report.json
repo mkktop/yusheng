@@ -1,0 +1,54 @@
+{
+  "at": "2026-10-25T01:36:11.717Z",
+  "version": "0.3.0",
+  "checks": [
+    {
+      "name": "public reference client and SDK are served",
+      "ok": true,
+      "durationMs": 480
+    },
+    {
+      "name": "real agent emits expression/gesture synchronized with audio and renders choices",
+      "ok": true,
+      "durationMs": 8799,
+      "expression": "happy",
+      "gesture": "nod",
+      "sampleOffset": 0,
+      "component": "choices",
+      "revision": 3,
+      "audioFrames": 24
+    },
+    {
+      "name": "UI survives reconnect; validated button click drives agent once",
+      "ok": true,
+      "durationMs": 2806,
+      "restored": true,
+      "buttonResult": "按钮闭环成功",
+      "duplicateExecuted": false
+    },
+    {
+      "name": "real agent updates a progress component by revision and creates a typed form",
+      "ok": true,
+      "durationMs": 8612,
+      "progressRevisions": [
+        5,
+        6
+      ],
+      "formSubmitted": true
+    },
+    {
+      "name": "voice-only v2 clients stay compatible and cannot submit UI actions",
+      "ok": true,
+      "durationMs": 67,
+      "compatible": true
+    },
+    {
+      "name": "prepare live interactive component for host restart",
+      "ok": true,
+      "durationMs": 10134,
+      "prepared": true,
+      "componentId": "restart-ui",
+      "sessionId": "voice-validation-ui-restart-1792892192704"
+    }
+  ]
+}

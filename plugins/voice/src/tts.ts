@@ -2,6 +2,7 @@
 // 逐句合成，audio 为 hex 编码的裸 PCM（默认 24kHz 16bit mono），按帧下发。
 
 import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 
 export const TTS_SAMPLE_RATE = 24_000
 /** 下发帧长 40ms：24000Hz × 2 字节 × 0.04s = 1920 字节 */
@@ -34,6 +35,7 @@ const TTS_ENDPOINT = 'https://api.minimax.cn/v1/t2a_v2'
 export async function* synthesizeStream(text: string, options: TtsOptions): AsyncGenerator<Buffer> {
   const apiKey = options.apiKey
   if (apiKey === '') throw new TtsError('no_api_key', 'minimax API key 未配置（设置面板 → MiniMax 凭据）')
+  const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000)
 
   const body = {
     model: options.model || 'speech-2.8-turbo',
@@ -63,7 +65,7 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
         Accept: 'text/event-stream',
       },
       body: JSON.stringify(body),
-      signal: options.signal,
+      signal,
     })
   } catch (error) {
     if (options.signal?.aborted) return
@@ -80,25 +82,32 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
   let buffer = ''
   let finished = false
   let yieldedBytes = 0
+  const emittedHash = createHash('sha256')
 
   try {
     while (!finished) {
       if (options.signal?.aborted) return
       const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
+      if (done) {
+        // A final SSE line need not have a trailing newline.
+        if (buffer.trim()) buffer += '\n'
+        else break
+      }
+      if (value) buffer += decoder.decode(value, { stream: true })
+      if (buffer.length > 17 * 1024 * 1024) throw new TtsError('bad_response', '语音合成事件超过大小上限')
       let newlineIndex: number
       while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
         const line = buffer.slice(0, newlineIndex).trim()
         buffer = buffer.slice(newlineIndex + 1)
         if (!line.startsWith('data:')) continue
         const payloadText = line.slice(5).trim()
-        if (payloadText === '' || payloadText === '[DONE]') continue
+        if (payloadText === '') continue
+        if (payloadText === '[DONE]') { finished = true; continue }
         let payload: any
         try {
           payload = JSON.parse(payloadText)
         } catch {
-          continue
+          throw new TtsError('bad_response', '语音合成返回了无效的 SSE JSON')
         }
         if (payload?.base_resp?.status_code !== undefined && payload.base_resp.status_code !== 0) {
           throw new TtsError(
@@ -108,18 +117,23 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
         }
         const audioHex = payload?.data?.audio
         if (typeof audioHex === 'string' && audioHex !== '') {
-          const chunk = Buffer.from(audioHex, 'hex')
+          if (audioHex.length > 16 * 1024 * 1024 || audioHex.length % 2 || !/^[0-9a-f]+$/i.test(audioHex)) throw new TtsError('bad_audio', '语音合成返回了无效音频编码')
+          let chunk = Buffer.from(audioHex, 'hex')
           // api.minimax.cn 流式的 status=2 末事件会重发整段完整音频；
           // 已收到增量时跳过重发（长度不足视为普通尾片段，兼容旧接口）
-          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes
-          if (chunk.length > 0 && !isFullRecap) {
+          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes && createHash('sha256').update(chunk.subarray(0, yieldedBytes)).digest('hex') === emittedHash.copy().digest('hex')
+          if (isFullRecap) chunk = chunk.subarray(yieldedBytes)
+          if (chunk.length > 0) {
             yieldedBytes += chunk.length
+            emittedHash.update(chunk)
             yield chunk
           }
         }
         if (payload?.data?.status === 2) finished = true
       }
+      if (done) break
     }
+    if (!finished && !options.signal?.aborted) throw new TtsError('incomplete_audio', '语音合成流未正常结束')
   } catch (error) {
     if (options.signal?.aborted) return
     if (error instanceof TtsError) throw error

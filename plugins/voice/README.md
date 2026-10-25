@@ -6,6 +6,18 @@ dsh（DeepSeek Harness）插件：语音交互系统的后端服务。设备通�
 LLM（跟随 profile 的默认模型选择）。
 设置面板入口挂在 dsh 网页**左侧边栏「全局面板」**（「语声语音」按钮，位于「自动化任务」上方）。
 
+## 0.3 形象与智能 UI
+
+新增客户端能力 `presentation.state`、`presentation.cue` 和 `ui.render`。dsh agent 可通过会话工具 `voice_present`、`voice_ui` 驱动表情动作、卡片、选项按钮、进度和表单；点击回传经校验后继续驱动同一对话，UI 状态支持重连和宿主重启恢复。
+
+参考客户端：`http://<host>:8090/demo`（填写设备令牌）。浏览器 SDK：`/voice-client.js`；完整接入、同步和组件定义见 [INTERACTION.md](INTERACTION.md)。v1 与纯语音 v2 客户端保持兼容。
+
+## 0.2 升级说明
+
+协议 v2 与 v1 并行支持，详见 [完整协议](PROTOCOL.md)。修复 ASR 打断后继续执行、旧轮覆盖新轮、同会话并发串流、无效超时和合成失败仍报告成功的问题。音频队列有容量限制，支持背压和播放回执。
+
+REST 现使用独立 `adminToken`，设备令牌只可连接语音 WS。首次升级自动生成管理令牌并保存在服务器 `settings.json`（不会在 REST 或日志输出），旧设备令牌保持有效。打开设置面板，填写服务地址和管理令牌后连接。可为每台设备签发绑定 ID 的独立令牌。
+
 ## 架构
 
 ```
@@ -13,7 +25,7 @@ LLM（跟随 profile 的默认模型选择）。
                                    ① listen stop → 整段 PCM → minimax ASR
                                    ② 文本 → agents 会话（进程内，实时增量流）
                                    ③ 增量切句 → minimax TTS 流式 → PCM 24k 下发
-浏览器设置面板 ──REST(CORS+token)──▶ 同端口的 /status /settings /token /test/*
+浏览器设置面板 ──REST(CORS+adminToken)──▶ 同端口的 /status /settings /token /test/*
 ```
 
 - **无 Opus、无服务端 VAD**：断句与唤醒由客户端负责（`listen start/stop`），
@@ -24,7 +36,7 @@ LLM（跟随 profile 的默认模型选择）。
   注册的预设列出）。预设首轮后锁定，会话 id 按模式派生
   （`voice-<deviceId>-p-<preset>`）：切换模式下一轮自动开新会话，切回原模式
   即恢复原对话。
-- **打断**：`abort` 即时停止下发并本地取消，后台任由本轮自然收敛。
+- **打断**：`abort` / `turn.cancel` 终止本轮 ASR、音频和宿主 agent，旧轮不能继续发送事件或覆盖新轮；`response.stop` 只停止语音，agent 继续执行。宿主完全空闲前保持会话互斥锁。
 
 ## 安装（服务器上）
 
@@ -34,8 +46,8 @@ dsh plugin --profile web add "link:<本目录绝对路径>"
 
 重启 Harness 后监听 `0.0.0.0:8090`（host/port 可在 profile 用户层覆盖插件行
 config，用户层 config 需重述本包 cordis.patch.yml 行的全部字段）。浏览器
-Ctrl+F5，主页左侧边栏 →「语声语音」（全局面板，自动化任务上方）配置 minimax
-凭据并生成接入令牌。
+Ctrl+F5，主页左侧边栏 →「语声语音」（全局面板，自动化任务上方）填写服务器 settings.json 中的 adminToken 后，配置 minimax
+凭据和设备接入令牌。
 
 设置持久化于 `$DSH_HOME/yusheng-voice/settings.json`（0600），密钥不会写进
 profile 配置，也不会出现在日志与 REST 返回中。
@@ -59,9 +71,12 @@ profile 配置，也不会出现在日志与 REST 返回中。
 | `ttsModel` | string ≤64 | `speech-2.8-turbo` | 合成模型；面板下拉：2.8/2.6/02/01 系 × turbo/hd |
 | `ttsVoice` | string ≤128 | `female-shaonv` | 音色 id；面板下拉为官方系统音色表中文部分（普通话 58 + 粤语 6），自定义/复刻 id 可经 PUT 写入 |
 | `ttsSpeed` / `ttsVol` / `ttsPitch` | 0.5–2 / 0–10 / −12–12 | 1 / 1 / 0 | 合成语速、音量、音调 |
-| `promptPrefix` | string ≤4000 | 口语化约束 | 每设备**首轮**用户消息前附加的提示词；留空不包装 |
+| `promptPrefix` | string ≤4000 | 口语化约束 | 每个持久对话**首轮**用户消息前附加的提示词；留空不包装 |
 | `agentPreset` | string ≤64 | 空 | dsh 会话模式（agent preset id）；空 = 跟随默认 |
-| `token` | string ≤128 | 空 | 设备接入令牌；空 = WS/REST 开放（日志告警）。`POST /token` 一键生成 |
+| `token` | string ≤128 | 自动生成 | 共享兼容设备令牌；空 = 禁用共享接入。`POST /token` 轮换 |
+| `adminToken` | 服务端自动生成 | 随机 | REST 管理凭据，只可在服务器文件中读取；PUT 不允许修改 |
+| `deviceTokens` | 服务端维护 | 空映射 | POST /devices 签发、DELETE /devices/:id 撤销；PUT 不允许直接修改 |
+| `allowedOrigins` | string[] ≤32 | [] | CORS 允许的完整 Origin；空列表仅允许同主机网页（可不同端口） |
 | `maxTurnSeconds` | 15–600 | 180 | 单轮最长等待秒数，超时本地取消并按打断收尾 |
 
 PUT 提交任意字段子集，未知字段拒收（响应 `rejected` 数组点名）；**传空串等于
@@ -69,7 +84,7 @@ PUT 提交任意字段子集，未知字段拒收（响应 `rejected` 数组点�
 
 ## WebSocket 语音协议 v1
 
-端点：`ws://<host>:8090/voice?token=<令牌>`（令牌在设置面板生成；未配置时开放）
+端点：`ws://<host>:8090/voice?token=<令牌>`（设备令牌在设置面板管理；未配置时拒绝接入）
 
 音频格式：上行 **PCM 16kHz 16bit mono 小端**，下行 **PCM 24kHz 16bit mono
 小端**（约 40ms 帧节奏下发）。
@@ -127,14 +142,14 @@ start` → (`tts sentence_start` + 音频帧)… → `llm end` → `tts stop`。
 - **损坏会话自动降级**：历史会话校验失败（如中断轮残留）时记警告并换新 id
   起新话，实际采用的 id 记录在 `$DSH_HOME/yusheng-voice/sessions.json`，
   之后重连/重启都回到该会话，不再反复丢上下文。
-- 每轮结束 `sessions.flush` 持久化；首轮附加 `promptPrefix`。
+- 每轮结束 `sessions.flush` 持久化；每个持久对话首轮附加 `promptPrefix`，重连不会重复。提交宿主的消息携带 UUID `id` 和 `role:user`，满足日志恢复校验。
 - **权限全开**：语音会话创建时应用 `danger-full-access` 预设（沙箱全访问 +
   审批策略 never）。语音设备无人交互，默认 workspace-write + ask 会让需要
   升权的工具调用（如沙箱外执行命令）永久挂起等审批。网页交互会话不受影响。
 - 新建会话会应用 profile 默认 agent preset（保证完整工具集）——裸
   `agents.create` 只有 `working_directory` 等基础工具，模型会为完成任务空转。
 
-## REST（设置面板用，令牌同 WS：`?token=` 或 `x-voice-token` 头）
+## REST（仅管理端，使用 adminToken：优先 x-voice-token 头，也兼容 ?token=）
 
 | 路由 | 说明 |
 |---|---|
@@ -146,7 +161,9 @@ start` → (`tts sentence_start` + 音频帧)… → `llm end` → `tts stop`。
 | `POST /test/asr` | 1s 静音走真实 ASR：`{ok, durationMs, text}` 或 `{ok:false, code, message}` |
 | `POST /test/llm` | 固定自检会话跑一轮：`{ok, durationMs, kind, gotDelta, error?, message}` |
 
-CORS：回显任意 Origin（面板跨源调用需要）；未配置令牌时全部开放。
+CORS：默认只接受同主机网页（允许不同端口）；可经 allowedOrigins 配置精确允许列表。设备令牌无 REST 权限。
+
+新增 `POST /devices`，body 为 `{deviceId}`，返回一次新设备令牌；`DELETE /devices/<deviceId>` 撤销。令牌轮换或撤销会关闭旧连接。
 
 ## 测试客户端
 
@@ -195,7 +212,9 @@ node tools/test-client.mjs ws://<host>:8090/voice --token <令牌> listen 问句
 
 ```sh
 npm install && npm run build   # 产出 lib/index.js + lib/client.js（esbuild）
-node tools/smoke.mjs           # 本地冒烟（mock 宿主服务，14+ 断言）
+npm test                      # 构建 + 回归测试 + HTTP/WS 冒烟
+node tools/device-test.mjs     # 在设备上用本地 settings.json 测真实链路
+VOICE_LONG_TEST=1 node tools/device-test.mjs # 加测 >30 秒长播报
 ```
 
 宿主半边改 `src/`，浏览器半边改 `src/client/`；`link:` 安装的包文件变更后
@@ -204,11 +223,22 @@ profile HMR 会自动重组（浏览器侧需硬刷新）。
 ## 安全边界
 
 - 仅面向局域网；本插件不提供 TLS，跨公网请放 HTTPS 反代。
-- 未配置令牌时端点开放（日志会告警）；面板可一键生成。
+- 首次启动自动生成管理与共享设备令牌。配置损坏或凭据不能持久化时拒绝启动，不会回退为开放服务。
+- 管理令牌和设备令牌分离；推荐独立设备令牌。共享兼容令牌属于受信设备权限，无法替代多用户身份体系。
 - 密钥只存于服务器本地设置文件（0600），REST 永不回传，日志不落密钥。
 - **语音会话以 danger-full-access 运行**（用户决策：无人值守不能等审批），
   意味着对话模型可在宿主机上全权执行命令——部署时请自行权衡，如需收紧可
   改回 workspace-write + 自动应答器。
+
+## 兼容性
+
+v1 设备无需升级即可使用；设置面板需填写新管理令牌。v2 示例：
+
+```sh
+node tools/test-client.mjs ws://<host>:8090/voice --token <设备令牌> --version 2 --device esp-01 query "你好"
+```
+
+当前保留整段 ASR 与 PCM 编码；流式 ASR、服务端 VAD、后台任务和多模态 UI 的实现边界见 PROTOCOL.md。
 
 ## 验证过的版本
 

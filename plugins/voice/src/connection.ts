@@ -1,497 +1,432 @@
-// 每设备连接的状态机：hello → listen(start/stop | 二进制 PCM) → ASR →
-// dsh 会话一轮（实时增量）→ 切句 → TTS 流式下发 → tts stop。
-// 辅助触发：query（文本直达 LLM+TTS）、speak（纯 TTS）、abort（全链路打断）。
-
+// Cancellable turn orchestration; v1 clients keep raw PCM and legacy events.
 import { Buffer } from 'node:buffer'
-import { transcribePcm, AsrError } from './asr.js'
-import { synthesizeStream, TtsError, TTS_FRAME_BYTES } from './tts.js'
+import { transcribePcm } from './asr.js'
+import { synthesizeStream } from './tts.js'
 import { SentenceSlicer, type AgentBridge, type TurnHandle } from './llm.js'
 import type { VoiceSettings } from './settings.js'
+import { AudioSender, type VoiceSocket } from './audio.js'
+import { abortable, AUDIO_FORMAT, CAPABILITIES, identifier, newId, SAMPLE_RATE_IN, SAMPLE_RATE_OUT, VoiceError } from './protocol.js'
+import { support, type ClientEffect, type Cue, type PresentationSupport } from './interaction.js'
+import { SurfaceStore } from './surface.js'
+export { PROTOCOL_VERSION, SAMPLE_RATE_IN, SAMPLE_RATE_OUT } from './protocol.js'
 
-export const PROTOCOL_VERSION = 1
-export const SAMPLE_RATE_IN = 16_000
-export const SAMPLE_RATE_OUT = 24_000
-
-/** 单次拾音时长上限 */
-const MAX_CAPTURE_MS = 120_000
-/** 收尾兜底上限：覆盖尾句合成 + 已入队音频按实时节奏发完（TTS 卡死时止损） */
-const DRAIN_MS = 30_000
-
-const sleep = (ms: number) =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms)
-    if (typeof timer.unref === 'function') timer.unref()
-  })
-
-interface PacedSender {
-  push(chunk: Buffer): void
-  /** 等待已入队帧全部按节奏发完（stop/连接关闭立即返回）。 */
-  finish(): Promise<void>
-  stop(): void
-}
-
-/** 以 40ms 帧节奏下发 PCM：先预缓冲若干帧，再按实时率发送。 */
-function createPacedSender(ws: { readyState: number; send(data: Buffer): void }): PacedSender {
-  const PREBUFFER_FRAMES = 6
-  const TICK_MS = 40
-  let frames: Buffer[] = []
-  let timer: ReturnType<typeof setInterval> | undefined
-  let closed = false
-  let finishing = false
-  let waiters: Array<() => void> = []
-
-  const stopTimer = () => {
-    if (timer !== undefined) {
-      clearInterval(timer)
-      timer = undefined
-    }
-  }
-  const wake = () => {
-    const pending = waiters.splice(0)
-    for (const resolve of pending) resolve()
-  }
-  const start = () => {
-    if (timer !== undefined || closed) return
-    timer = setInterval(() => {
-      if (closed || ws.readyState !== 1) {
-        stopTimer()
-        if (finishing) wake()
-        return
-      }
-      const frame = frames.shift()
-      if (frame === undefined) {
-        stopTimer()
-        if (finishing) wake()
-        return
-      }
-      ws.send(frame)
-    }, TICK_MS)
-    if (typeof timer.unref === 'function') timer.unref()
-  }
-
-  return {
-    push(chunk: Buffer) {
-      if (closed) return
-      let offset = 0
-      while (offset < chunk.length) {
-        const end = Math.min(offset + TTS_FRAME_BYTES, chunk.length)
-        frames.push(chunk.subarray(offset, end))
-        offset = end
-      }
-      if (frames.length >= PREBUFFER_FRAMES && timer === undefined) start()
-    },
-    async finish() {
-      if (closed) return
-      finishing = true
-      if (frames.length === 0 && timer === undefined) return
-      start()
-      await new Promise<void>((resolve) => waiters.push(resolve))
-    },
-    stop() {
-      closed = true
-      stopTimer()
-      frames = []
-      wake()
-    },
-  }
-}
-
-/** 顺序句子队列：生产者 push，消费者 await next()，close 后排空返回 null。 */
 class SentenceQueue {
   private pending: string[] = []
+  private size = 0
   private closed = false
-  private waiters: Array<() => void> = []
-
-  push(sentence: string) {
-    if (this.closed || sentence === '') return
-    this.pending.push(sentence)
-    this.wake()
+  private wake?: () => void
+  push(text: string) {
+    if (!text || this.closed) return
+    if (this.size + text.length > 32_000) throw new VoiceError('output_overflow', '待播报文本超过缓冲上限')
+    this.pending.push(text); this.size += text.length; this.wake?.()
   }
-
-  close() {
-    this.closed = true
-    this.wake()
+  close() { this.closed = true; this.wake?.() }
+  async next(): Promise<string | undefined> {
+    while (!this.pending.length && !this.closed) await new Promise<void>(resolve => { this.wake = resolve })
+    const text = this.pending.shift()
+    if (text) this.size -= text.length
+    return text
   }
+}
 
-  private wake() {
-    while (this.waiters.length > 0) {
-      const resolve = this.waiters.shift()
-      if (resolve !== undefined) resolve()
-    }
-  }
-
-  async next(): Promise<string | null> {
-    while (true) {
-      const sentence = this.pending.shift()
-      if (sentence !== undefined) return sentence
-      if (this.closed) return null
-      await new Promise<void>((resolve) => this.waiters.push(resolve))
-    }
-  }
+interface TurnContext {
+  id: string; requestId?: string; streamId: number; conversationId: string
+  settings: VoiceSettings; controller: AbortController; response: AbortController
+  timer: ReturnType<typeof setTimeout>; captureTimer?: ReturnType<typeof setTimeout>
+  handle?: TurnHandle; sender?: AudioSender; queue?: SentenceQueue
+  ended: boolean; ttsStarted: boolean; audioEnded: boolean; responseStopped: boolean
+  llmStarted: boolean; llmEnded: boolean; startedAt: number; pcm: Buffer[]; pcmBytes: number
+  asrMs?: number; firstTextMs?: number
+  bufferedSamples?: number
+  pendingCues: Array<{ cueId:string; cue:Cue }>
+  effectCount:number
 }
 
 export interface ConnectionDeps {
   settings(): VoiceSettings
-  bridge: AgentBridge
+  bridge: Pick<AgentBridge, 'turn' | 'release' | 'sessionId'>
   log: (level: 'info' | 'warn', message: string) => void
+  claimDevice?: (deviceId: string) => boolean
+  allowConversation?: (deviceId: string, conversationId: string) => boolean
+  transcribe?: typeof transcribePcm
+  synthesize?: typeof synthesizeStream
+  surface?: SurfaceStore
 }
 
-type ConnState = 'init' | 'ready' | 'listening' | 'busy'
-
+type ConnState = 'init' | 'ready' | 'listening' | 'busy' | 'closed'
 export class VoiceConnection {
-  private deps: ConnectionDeps
-  private ws: { readyState: number; send(data: string): void; close(code: number, reason: string): void }
   private state: ConnState = 'init'
+  private version = 1
+  private capabilities = new Set<string>()
+  private conversationId = ''
+  private active?: TurnContext
+  private streamNumber = 0
+  private requests = new Map<string, { fingerprint: string; end?: Record<string, unknown> }>()
+  private playback = new Map<number, { turnId: string; samples: number; played: number; ended: boolean }>()
+  private presentation:PresentationSupport = support(undefined)
+  private surface:SurfaceStore
+  private presentationSequence=0
+  private waitingPlayback?:number
+  readonly connectionId = newId()
   deviceId = ''
   deviceName = ''
-  private pcmChunks: Buffer[] = []
-  private pcmBytes = 0
-  private turnCount = 0
-  private activeTurn: TurnHandle | undefined
-  private activeTtsAbort: AbortController | undefined
-  private activeSender: PacedSender | undefined
+  constructor(private ws: VoiceSocket, private deps: ConnectionDeps) {this.surface=deps.surface??new SurfaceStore()}
+  describe() { return { connectionId: this.connectionId, deviceId: this.deviceId, deviceName: this.deviceName, conversationId: this.conversationId, state: this.state, version: this.version, turnId: this.active?.id } }
 
-  constructor(ws: VoiceConnection['ws'], deps: ConnectionDeps) {
-    this.ws = ws
-    this.deps = deps
+  private send(value: Record<string, unknown>, turn?: TurnContext) {
+    if (this.state === 'closed' || this.ws.readyState !== 1 || (turn && !this.current(turn))) return
+    const envelope = this.version === 2 ? { ...value, connectionId: this.connectionId, ...(turn ? { turnId: turn.id, requestId: turn.requestId, conversationId: turn.conversationId, streamId: turn.streamId } : {}) } : value
+    try { this.ws.send(JSON.stringify(envelope)) } catch { this.handleClosed() }
   }
-
-  describe(): { deviceId: string; deviceName: string; state: ConnState } {
-    return { deviceId: this.deviceId, deviceName: this.deviceName, state: this.state }
+  private error(code: string, message: string, turn?: TurnContext, requestId?: unknown) {
+    this.send({ type: 'error', code, message, ...(this.version === 2 && typeof requestId === 'string' ? { requestId } : {}) }, turn)
   }
+  private event(type: string, data: Record<string, unknown>, turn?: TurnContext) { if (this.version === 2) this.send({ type, ...data }, turn) }
+  private current(turn: TurnContext) { return this.active === turn && !turn.ended && !turn.controller.signal.aborted }
 
-  private sendJson(value: Record<string, unknown>) {
-    if (this.ws.readyState !== 1) return
-    this.ws.send(JSON.stringify(value))
-  }
-
-  private sendError(code: string, message: string) {
-    this.sendJson({ type: 'error', code, message })
-  }
-
-  /** 文本消息入口。 */
   handleMessage(raw: string) {
-    let message: any
+    if (this.state === 'closed') return
+    let m: any
     try {
-      message = JSON.parse(raw)
-    } catch {
-      this.sendError('bad_json', '消息不是合法 JSON')
-      return
-    }
-    switch (message?.type) {
-      case 'hello':
-        this.handleHello(message)
-        return
-      case 'listen':
-        this.handleListen(message)
-        return
-      case 'query':
-        this.handleQuery(message)
-        return
-      case 'speak':
-        this.handleSpeak(message)
-        return
-      case 'abort':
-        this.handleAbort()
-        return
-      case 'ping':
-        this.sendJson({ type: 'pong', time: typeof message.time === 'number' ? message.time : Date.now() })
-        return
-      default:
-        this.sendError('unknown_type', `未知消息 type：${String(message?.type)}`)
+      if (Buffer.byteLength(raw) > 32 * 1024) throw new VoiceError('message_too_large', '控制消息超过 32KiB')
+      m = JSON.parse(raw)
+      if (!m || typeof m !== 'object' || Array.isArray(m)) throw new VoiceError('bad_message', '消息必须是 JSON 对象')
+      if (m.type === 'hello') { this.hello(m); return }
+      if (m.type === 'ping') { this.send({ type: 'pong', time: typeof m.time === 'number' ? m.time : Date.now() }); return }
+      if (this.state === 'init') throw new VoiceError('no_hello', '请先发送 hello')
+      switch (m.type) {
+        case 'abort': case 'turn.cancel': this.handleAbort(m); break
+        case 'response.stop': this.stopResponse(m); break
+        case 'playback': this.handlePlayback(m); break
+        case 'conversation.select': this.selectConversation(m); break
+        case 'ui.action': this.uiAction(m); break
+        case 'ui.dismiss': this.uiDismiss(m); break
+        case 'ui.sync': this.uiSnapshot(); break
+        case 'listen': this.listen(m); break
+        case 'query': case 'speak': this.text(m); break
+        default: throw new VoiceError('unknown_type', `未知消息 type：${String(m.type).slice(0, 64)}`)
+      }
+    } catch (e) {
+      this.error(e instanceof VoiceError ? e.code : 'bad_json', e instanceof VoiceError ? e.message : '消息不是合法 JSON', undefined, m?.requestId)
     }
   }
 
-  private requireReady(): boolean {
-    if (this.state === 'init') {
-      this.sendError('no_hello', '请先发送 hello')
-      return false
+  private hello(m: any) {
+    if (this.state !== 'init') throw new VoiceError('already_hello', 'hello 只能发送一次')
+    if (![1, 2].includes(m.version)) throw new VoiceError('unsupported_version', '支持的协议版本为 1、2')
+    const device = m.version === 1 ? sanitizeDeviceId(m.deviceId) : m.deviceId
+    const presentation = support(m.presentation)
+    if (!identifier(device, 48)) throw new VoiceError('bad_device_id', 'deviceId 必须为 1–48 位字母、数字、下划线或连字符')
+    if (m.capabilities !== undefined && (!Array.isArray(m.capabilities) || m.capabilities.length > 32 || m.capabilities.some((x: unknown) => typeof x !== 'string'))) throw new VoiceError('bad_capabilities', 'capabilities 必须是字符串数组')
+    if (m.audio !== undefined) {
+      for (const [direction, rate] of [['input', SAMPLE_RATE_IN], ['output', SAMPLE_RATE_OUT]] as const) {
+        const audio = m.audio?.[direction]
+        if (audio && (audio.encoding !== 'pcm_s16le' || audio.sampleRate !== rate || audio.channels !== 1)) throw new VoiceError('unsupported_audio', '仅支持单声道 PCM s16le，输入 16kHz、输出 24kHz')
+      }
     }
-    return true
-  }
-
-  private requireIdle(): boolean {
-    if (this.state === 'busy') {
-      this.sendError('busy', '上一轮尚未结束，先发送 abort')
-      return false
-    }
-    return true
-  }
-
-  private handleHello(message: any) {
-    if (this.state !== 'init') {
-      this.sendError('already_hello', 'hello 只能发送一次')
-      return
-    }
-    this.deviceId = sanitizeDeviceId(message.deviceId)
-    this.deviceName = typeof message.deviceName === 'string' ? message.deviceName.slice(0, 64) : ''
+    const conversation = m.conversationId ?? device
+    if (!identifier(conversation) || (conversation !== device && !this.deps.allowConversation?.(device, conversation))) throw new VoiceError('bad_conversation', '对话不属于此设备；新对话请使用设备 ID 加连字符前缀')
+    if (this.deps.claimDevice && !this.deps.claimDevice(device)) throw new VoiceError('device_in_use', '此设备已有连接，请关闭旧连接后重试')
+    this.deviceId = device; this.deviceName = typeof m.deviceName === 'string' ? m.deviceName.slice(0, 64) : ''
+    this.version = m.version; this.conversationId = conversation
+    this.capabilities = new Set((m.version===2?m.capabilities??[]:[]).filter((x: string) => (CAPABILITIES as readonly string[]).includes(x)))
+    this.presentation=presentation
     this.state = 'ready'
-    this.sendJson({
-      type: 'welcome',
-      version: PROTOCOL_VERSION,
-      sessionId: `voice-${this.deviceId}`,
-      sampleRateIn: SAMPLE_RATE_IN,
-      sampleRateOut: SAMPLE_RATE_OUT,
+    this.send({ type: 'welcome', version: this.version, sessionId: this.deps.bridge.sessionId(conversation, this.deps.settings().agentPreset), sampleRateIn: SAMPLE_RATE_IN, sampleRateOut: SAMPLE_RATE_OUT,
+      ...(this.version === 2 ? { conversationId: conversation, serverTime:Date.now(), capabilities: [...this.capabilities], supportedCapabilities: CAPABILITIES, presentation:this.presentation, audio: { input: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_IN }, output: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_OUT, framing: this.capabilities.has('audio.framed') ? 'ysv2' : 'raw' } } } : {}) })
+    this.avatarState('idle');if(this.capabilities.has('ui.render'))this.uiSnapshot()
+    this.deps.log('info', `device connected: ${device}`)
+  }
+
+  private requestSeen(m:any):boolean {
+    const requestId = m.requestId
+    const fingerprint = this.fingerprint(m)
+    if (this.version === 2) {
+      if (typeof requestId !== 'string' || !requestId.length || requestId.length > 128) throw new VoiceError('bad_request_id', 'requestId 必须为 1–128 字符')
+      const previous = this.requests.get(requestId)
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) throw new VoiceError('request_conflict', 'requestId 已用于不同请求')
+        this.send(previous.end ?? { type: 'request.duplicate', requestId, turnId: this.active?.id }); return true
+      }
+    }
+    return false
+  }
+  private fingerprint(m:any) {return JSON.stringify([m.type,m.text??'',this.conversationId,m.componentId,m.instanceId,m.revision,m.actionId,m.values&&typeof m.values==='object'?Object.fromEntries(Object.entries(m.values).sort(([a],[b])=>a.localeCompare(b))):m.values])}
+  private begin(m: any, listening = false): TurnContext | undefined {
+    if(this.requestSeen(m))return
+    const requestId=m.requestId, fingerprint=this.fingerprint(m)
+    if (this.active) throw new VoiceError('busy', '上一轮尚未结束，先发送 abort')
+    const turn: TurnContext = { id: newId(), requestId, streamId: ++this.streamNumber, conversationId: this.conversationId, settings: { ...this.deps.settings() }, controller: new AbortController(), response: new AbortController(), timer: undefined as any, ended: false, ttsStarted: false, audioEnded: false, responseStopped: false, llmStarted: false, llmEnded: false, startedAt: Date.now(), pcm: [], pcmBytes: 0, pendingCues:[], effectCount:0 }
+    this.active = turn; this.state = listening ? 'listening' : 'busy'
+    if (this.version === 2) {
+      this.requests.set(requestId, { fingerprint })
+      if (this.requests.size > 256) this.requests.delete(this.requests.keys().next().value!)
+    }
+    turn.timer = setTimeout(() => { this.error('turn_timeout', '本轮超过最长等待时间', turn); this.finish(turn, 'timeout') }, turn.settings.maxTurnSeconds * 1000)
+    if (listening) turn.captureTimer = setTimeout(() => { this.error('too_long', '拾音超过 120 秒上限', turn); this.finish(turn, 'too_long') }, 120_000)
+    this.event('turn.start', { input: m.type, state: listening ? 'listening' : 'processing' }, turn)
+    this.waitingPlayback=undefined;this.avatarState(listening?'listening':'thinking',turn)
+    return turn
+  }
+
+  private listen(m: any) {
+    if (m.state === 'start') { this.begin(m, true); return }
+    if (m.state !== 'stop') throw new VoiceError('bad_listen_state', 'listen.state 必须是 start 或 stop')
+    const turn = this.active
+    if (!turn || this.state !== 'listening') throw new VoiceError('not_listening', '当前没有处于拾音状态')
+    if (m.turnId !== undefined && m.turnId !== turn.id) throw new VoiceError('stale_turn', '轮次不匹配')
+    const pcm = Buffer.concat(turn.pcm); turn.pcm = []; turn.pcmBytes = 0
+    clearTimeout(turn.captureTimer); this.state = 'busy'
+    if (pcm.length % 2) { this.error('bad_audio', 'PCM 数据未对齐 16 位采样', turn); this.finish(turn, 'error'); return }
+    if (pcm.length < SAMPLE_RATE_IN * 2 * .3) { this.finish(turn, 'too_short'); return }
+    this.launch(turn, async () => {
+      this.event('turn.state', { state: 'transcribing' }, turn)
+      this.avatarState('thinking',turn)
+      const asrStarted = Date.now()
+      const text = await abortable((this.deps.transcribe ?? transcribePcm)(pcm, { apiKey: turn.settings.minimaxApiKey, model: turn.settings.asrModel, signal: turn.controller.signal }), turn.controller.signal)
+      if (!this.current(turn)) return
+      turn.asrMs = Date.now() - asrStarted
+      this.send({ type: 'stt', text, ...(this.version === 2 ? { final: true } : {}) }, turn)
+      if (!text) { this.finish(turn, 'empty_asr'); return }
+      await this.pipeline(turn, text)
     })
-    this.deps.log('info', `device connected: ${this.deviceId || '(anonymous)'} ${this.deviceName}`)
   }
 
-  private handleListen(message: any) {
-    if (!this.requireReady()) return
-    if (message?.state === 'start') {
-      if (!this.requireIdle()) return
-      this.state = 'listening'
-      this.pcmChunks = []
-      this.pcmBytes = 0
-      return
-    }
-    if (message?.state === 'stop') {
-      if (this.state !== 'listening') {
-        this.sendError('not_listening', '当前没有处于拾音状态')
-        return
+  private text(m: any) {
+    const limit = m.type === 'speak' ? 1000 : 4000
+    if (typeof m.text !== 'string' || !m.text.trim()) throw new VoiceError('empty_text', `${m.type}.text 不能为空`)
+    if (m.text.length > limit) throw new VoiceError('text_too_long', `文本超过 ${limit} 字符`)
+    const turn = this.begin(m)
+    if (!turn) return
+    this.launch(turn, async () => {
+      if (m.type === 'query') await this.pipeline(turn, m.text.trim())
+      else {
+        turn.sender = this.createSender(turn)
+        try {
+          await this.sentence(turn, m.text.trim(), 0)
+          if (!turn.responseStopped) await abortable(turn.sender.finish(), turn.controller.signal)
+        } catch (e) { if (!turn.responseStopped) throw e }
+        this.finish(turn, turn.responseStopped ? 'stopped' : 'done')
       }
-      const pcm = Buffer.concat(this.pcmChunks)
-      this.pcmChunks = []
-      this.pcmBytes = 0
-      if (pcm.length < SAMPLE_RATE_IN * 2 * 0.3) {
-        this.state = 'ready'
-        this.sendJson({ type: 'tts', state: 'stop', reason: 'too_short' })
-        return
+    })
+  }
+  private launch(turn: TurnContext, fn: () => Promise<void>) {
+    void fn().catch((e: any) => {
+      if (!this.current(turn)) return
+      this.error(typeof e?.code === 'string' ? e.code : 'turn_failed', e instanceof Error ? e.message : String(e), turn)
+      this.finish(turn, 'error')
+    })
+  }
+
+  private createSender(turn: TurnContext) {
+    return new AudioSender(this.ws, turn.response.signal, turn.streamId, this.version === 2 && this.capabilities.has('audio.framed'), () => this.capabilities.has('playback.flow') ? turn.bufferedSamples ?? 0 : 0)
+  }
+
+  private async sentence(turn: TurnContext, text: string, sentenceIndex: number) {
+    if (!this.current(turn) || turn.response.signal.aborted) return
+    if (!turn.ttsStarted) {
+      turn.ttsStarted = true; this.send({ type: 'tts', state: 'start' }, turn)
+      this.event('audio.start', { format: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_OUT }, framing: this.capabilities.has('audio.framed') ? 'ysv2' : 'raw' }, turn)
+    }
+    const sender = turn.sender!, offset = sender.queuedSamples, s = turn.settings
+    let marked = false, bytes = 0
+    for await (const chunk of (this.deps.synthesize ?? synthesizeStream)(text, { apiKey: s.minimaxApiKey, model: s.ttsModel, voiceId: s.ttsVoice, speed: s.ttsSpeed, vol: s.ttsVol, pitch: s.ttsPitch, signal: turn.response.signal })) {
+      if (!this.current(turn) || turn.response.signal.aborted) return
+      if (!marked && chunk.length) {
+        marked = true
+        sender.mark(() => {
+          if(!this.current(turn))return
+          this.avatarState('speaking',turn)
+          for(const pending of turn.pendingCues.splice(0))this.event('presentation.cue',{...pending.cue,cueId:pending.cueId,sampleOffset:offset,sequence:++this.presentationSequence},turn)
+          this.send({ type: 'tts', state: 'sentence_start', text, ...(this.version === 2 ? { sentenceIndex, sampleOffset: offset } : {}) }, turn)
+        })
       }
-      void this.runVoiceTurn(pcm)
-      return
+      bytes += chunk.length; await sender.push(chunk)
     }
-    this.sendError('bad_listen_state', 'listen.state 必须是 start 或 stop')
+    if (!turn.response.signal.aborted && !bytes) throw new VoiceError('empty_audio', '合成服务未返回音频')
+    if (!turn.response.signal.aborted) sender.flushSentence()
   }
 
-  private handleQuery(message: any) {
-    if (!this.requireReady() || !this.requireIdle()) return
-    const text = typeof message?.text === 'string' ? message.text.trim().slice(0, 4000) : ''
-    if (text === '') {
-      this.sendError('empty_text', 'query.text 不能为空')
-      return
-    }
-    void this.runLlmTurn(text)
-  }
-
-  private handleSpeak(message: any) {
-    if (!this.requireReady() || !this.requireIdle()) return
-    const text = typeof message?.text === 'string' ? message.text.trim().slice(0, 1000) : ''
-    if (text === '') {
-      this.sendError('empty_text', 'speak.text 不能为空')
-      return
-    }
-    void this.runSpeakOnly(text)
-  }
-
-  handleAbort() {
-    this.cancelActive()
-    if (this.state === 'listening') {
-      this.pcmChunks = []
-      this.pcmBytes = 0
-    }
-    if (this.state !== 'init') this.state = 'ready'
-    this.sendJson({ type: 'tts', state: 'stop', reason: 'aborted' })
-  }
-
-  /** 二进制帧入口（拾音中累积 PCM）。 */
-  handleBinary(data: Buffer) {
-    if (this.state !== 'listening') return
-    const maxBytes = (SAMPLE_RATE_IN * 2 * MAX_CAPTURE_MS) / 1000
-    if (this.pcmBytes + data.length > maxBytes) {
-      this.sendError('too_long', '单次拾音超过 120 秒上限')
-      this.state = 'ready'
-      this.pcmChunks = []
-      this.pcmBytes = 0
-      return
-    }
-    this.pcmChunks.push(data)
-    this.pcmBytes += data.length
-  }
-
-  handleClosed() {
-    this.cancelActive()
-    if (this.deviceId !== '') this.deps.bridge.release(this.deviceId)
-  }
-
-  private cancelActive() {
-    this.activeTtsAbort?.abort()
-    this.activeTtsAbort = undefined
-    this.activeSender?.stop()
-    this.activeSender = undefined
-    this.activeTurn?.cancel()
-    this.activeTurn = undefined
-  }
-
-  private ttsOptions(signal: AbortSignal) {
-    const s = this.deps.settings()
-    return {
-      apiKey: s.minimaxApiKey,
-      model: s.ttsModel,
-      voiceId: s.ttsVoice,
-      speed: s.ttsSpeed,
-      vol: s.ttsVol,
-      pitch: s.ttsPitch,
-      signal,
-    }
-  }
-
-  /** 合成一句并把 PCM 送入节奏发送器；返回是否完整成功（中断/失败为 false）。 */
-  private async speakSentence(sentence: string, signal: AbortSignal, sender: PacedSender, ttsStarted: { value: boolean }): Promise<boolean> {
-    if (sentence === '' || signal.aborted) return false
-    if (!ttsStarted.value) {
-      ttsStarted.value = true
-      this.sendJson({ type: 'tts', state: 'start' })
-    }
-    this.sendJson({ type: 'tts', state: 'sentence_start', text: sentence })
-    try {
-      for await (const chunk of synthesizeStream(sentence, this.ttsOptions(signal))) {
-        if (signal.aborted) return false
-        sender.push(chunk)
-      }
-      return true
-    } catch (error) {
-      if (signal.aborted) return false
-      if (error instanceof TtsError) {
-        this.deps.log('warn', `tts failed: ${error.code} ${error.message}`)
-        this.sendError(error.code, error.message)
-      } else {
-        this.sendError('tts_failed', error instanceof Error ? error.message : String(error))
-      }
-      return false
-    }
-  }
-
-  /** 完整语音轮：ASR → LLM 流式 → TTS。 */
-  private async runVoiceTurn(pcm: Buffer) {
-    this.state = 'busy'
-    const settings = this.deps.settings()
-    let text: string
-    try {
-      text = await transcribePcm(pcm, { apiKey: settings.minimaxApiKey, model: settings.asrModel })
-    } catch (error) {
-      if (error instanceof AsrError) this.sendError(error.code, error.message)
-      else this.sendError('asr_failed', error instanceof Error ? error.message : String(error))
-      this.sendJson({ type: 'tts', state: 'stop', reason: 'error' })
-      this.state = 'ready'
-      return
-    }
-    this.sendJson({ type: 'stt', text })
-    if (text === '') {
-      this.sendJson({ type: 'tts', state: 'stop', reason: 'empty_asr' })
-      this.state = 'ready'
-      return
-    }
-    await this.runLlmPipeline(text)
-  }
-
-  /** query 入口：文本 → LLM 流式 → TTS。 */
-  private async runLlmTurn(text: string) {
-    this.state = 'busy'
-    try {
-      await this.runLlmPipeline(text)
-    } catch (error) {
-      this.sendError('llm_error', error instanceof Error ? error.message : String(error))
-      this.sendJson({ type: 'tts', state: 'stop', reason: 'error' })
-      this.state = 'ready'
-    }
-  }
-
-  private async runLlmPipeline(userText: string) {
-    const settings = this.deps.settings()
-    this.turnCount += 1
-    const prompt = this.turnCount === 1 && settings.promptPrefix.trim() !== ''
-      ? `${settings.promptPrefix.trim()}\n\n用户说：${userText}`
-      : userText
-
-    const ttsAbort = new AbortController()
-    const sender = createPacedSender(this.ws)
-    const queue = new SentenceQueue()
-    const ttsStarted = { value: false }
-    this.activeTtsAbort = ttsAbort
-    this.activeSender = sender
-
-    // 句子级串行合成：避免并发 TTS 请求音频互相穿插
+  private async pipeline(turn: TurnContext, text: string) {
+    const queue = turn.queue = new SentenceQueue(), slicer = new SentenceSlicer()
+    turn.sender = this.createSender(turn)
+    turn.response.signal.addEventListener('abort', () => queue.close(), { once: true })
     const pump = (async () => {
-      while (!ttsAbort.signal.aborted) {
+      let index = 0
+      while (!turn.response.signal.aborted) {
         const sentence = await queue.next()
-        if (sentence === null) break
-        await this.speakSentence(sentence, ttsAbort.signal, sender, ttsStarted)
+        if (sentence === undefined) break
+        await this.sentence(turn, sentence, index++)
       }
-    })().catch(() => undefined)
-
-    let outcome: { kind: 'completed' | 'error' | 'cancelled'; error?: string }
-    try {
-      this.sendJson({ type: 'llm', state: 'start' })
-      const slicer = new SentenceSlicer()
-      const turn = await this.deps.bridge.turn(this.deviceId, prompt, {
-        onTextDelta: (delta) => {
-          if (ttsAbort.signal.aborted) return
-          this.sendJson({ type: 'llm', state: 'delta', text: delta })
-          for (const sentence of slicer.feed(delta)) queue.push(sentence)
-        },
-        onEnd: () => {
-          /* 结果经 done 聚合 */
-        },
-      }, settings.agentPreset)
-      this.activeTurn = turn
-      outcome = await turn.done
-      if (!ttsAbort.signal.aborted && outcome.kind !== 'cancelled') {
-        const rest = slicer.flush()
-        if (rest !== '') queue.push(rest)
-      }
-    } catch (error) {
-      outcome = { kind: 'error', error: error instanceof Error ? error.message : String(error) }
-    } finally {
-      this.activeTurn = undefined
+    })().catch((e: any) => {
+      if (turn.responseStopped || !this.current(turn)) return
+      this.error(typeof e?.code === 'string' ? e.code : 'tts_failed', e instanceof Error ? e.message : String(e), turn)
+      this.finish(turn, 'error')
+    })
+    turn.llmStarted = true; this.send({ type: 'llm', state: 'start' }, turn)
+    this.event('turn.state', { state: 'thinking' }, turn)
+    const handle = await abortable(this.deps.bridge.turn(turn.conversationId, text, {
+      onTextDelta: delta => {
+        if (!this.current(turn)) return
+        turn.firstTextMs ??= Date.now() - turn.startedAt
+        this.send({ type: 'llm', state: 'delta', text: delta }, turn)
+        if (!turn.response.signal.aborted) {
+          try { for (const sentence of slicer.feed(delta)) queue.push(sentence) }
+          catch (e) { this.error('output_overflow', String(e), turn); this.finish(turn, 'error') }
+        }
+      }, onEnd: () => undefined,
+      onActivity: activity => { if (this.capabilities.has('agent.activity')) this.event('agent.activity', activity, turn) },
+      ...(this.version===2&&(this.capabilities.has('presentation.cue')||this.capabilities.has('ui.render'))?{onClientEffect:(effect:ClientEffect)=>this.clientEffect(turn,effect)}:{}),
+    }, turn.settings.agentPreset, { signal: turn.controller.signal, promptPrefix: turn.settings.promptPrefix, capabilities:[...this.capabilities], presentation:this.presentation }), turn.controller.signal)
+    if (!this.current(turn)) { handle.cancel(); return }
+    turn.handle = handle; this.event('session', { sessionId: handle.sessionId }, turn)
+    const outcome = await abortable(handle.done, turn.controller.signal)
+    if (!this.current(turn)) return
+    turn.handle = undefined; turn.llmEnded = true; this.send({ type: 'llm', state: 'end' }, turn)
+    if (outcome.kind === 'error') throw new VoiceError('llm_error', outcome.error ?? 'dsh 会话出错')
+    if (outcome.kind === 'cancelled') { this.finish(turn, 'cancelled'); return }
+    if (!turn.response.signal.aborted) queue.push(slicer.flush())
+    queue.close(); await abortable(pump, turn.controller.signal)
+    if (!this.current(turn)) return
+    if (!turn.responseStopped) {
+      try { await abortable(turn.sender.finish(), turn.controller.signal) }
+      catch (e) { if (!turn.responseStopped) throw e }
     }
-
-    if (outcome.kind === 'error') {
-      this.sendError('llm_error', outcome.error ?? 'dsh 会话出错')
-    }
-    this.sendJson({ type: 'llm', state: 'end' })
-
-    queue.close()
-    // 排空必须等生产者结束再开始：TTS 流分块间有网络间隙，过早 finish 会在
-    // 队列瞬时清空时提前收口，把后续到达的帧全部丢弃
-    await Promise.race([
-      (async () => {
-        await pump
-        await sender.finish()
-      })(),
-      sleep(DRAIN_MS),
-    ])
-
-    ttsAbort.abort()
-    sender.stop()
-    this.activeSender = undefined
-    this.activeTtsAbort = undefined
-    this.sendJson({ type: 'tts', state: 'stop', reason: outcome.kind })
-    this.state = 'ready'
+    this.finish(turn, 'completed')
   }
 
-  /** speak 入口：纯 TTS（不走 LLM），用于测试与播报。 */
-  private async runSpeakOnly(text: string) {
-    this.state = 'busy'
-    const ttsAbort = new AbortController()
-    const sender = createPacedSender(this.ws)
-    const ttsStarted = { value: false }
-    this.activeTtsAbort = ttsAbort
-    this.activeSender = sender
-    const ok = await this.speakSentence(text, ttsAbort.signal, sender, ttsStarted)
-    // 等已入队帧按实时节奏发完再收尾（兜底防 TTS/发送卡死）
-    await Promise.race([sender.finish(), sleep(DRAIN_MS)])
-    const aborted = ttsAbort.signal.aborted
-    ttsAbort.abort()
-    sender.stop()
-    this.activeSender = undefined
-    this.activeTtsAbort = undefined
-    this.sendJson({ type: 'tts', state: 'stop', reason: aborted ? 'aborted' : ok ? 'done' : 'error' })
-    this.state = 'ready'
+  handleBinary(data: Buffer) {
+    const turn = this.active
+    if (!turn || this.state !== 'listening') { this.error('not_listening', '当前没有处于拾音状态'); return }
+    if (turn.pcmBytes + data.length > SAMPLE_RATE_IN * 2 * 120 || turn.pcm.length >= 4096) {
+      this.error('too_long', '拾音超过时长或分片数量上限', turn); this.finish(turn, 'too_long'); return
+    }
+    if (data.length) { turn.pcm.push(Buffer.from(data)); turn.pcmBytes += data.length }
   }
+  handleAbort(m: any = {}) {
+    const turn = this.active
+    if (turn && m.turnId !== undefined && m.turnId !== turn.id) throw new VoiceError('stale_turn', '轮次不匹配')
+    if (turn) this.finish(turn, 'aborted')
+    else if (this.version === 1) this.send({ type: 'tts', state: 'stop', reason: 'aborted' })
+    else this.event('cancel.ack', { turnId: m.turnId ?? null, active: false })
+  }
+  private stopResponse(m: any) {
+    if (this.version !== 2 || !this.capabilities.has('response.stop')) throw new VoiceError('unsupported_capability', '需要协商 response.stop')
+    const turn = this.active
+    if (!turn || turn.id !== m.turnId) throw new VoiceError('stale_turn', '轮次不匹配')
+    turn.responseStopped = true; turn.response.abort(); turn.queue?.close(); this.audioEnd(turn, 'stopped')
+    turn.pendingCues=[];this.resetPresentation('stopped',turn);this.avatarState('thinking',turn)
+  }
+  private audioEnd(turn: TurnContext, reason: string) {
+    if (turn.audioEnded) return
+    turn.audioEnded = true
+    const samples = turn.sender?.sentSamples ?? 0, previous = this.playback.get(turn.streamId)
+    this.playback.set(turn.streamId, { turnId: turn.id, samples, played: previous?.played ?? 0, ended: false })
+    if (this.playback.size > 32) this.playback.delete(this.playback.keys().next().value!)
+    this.event('audio.end', { reason, samples }, turn)
+  }
+  private finish(turn: TurnContext, reason: string) {
+    if (!this.current(turn)) return
+    if (turn.llmStarted && !turn.llmEnded) { turn.llmEnded = true; this.send({ type: 'llm', state: 'end' }, turn) }
+    this.audioEnd(turn, reason)
+    if(!['completed','done'].includes(reason)) {
+      try {for(const removed of this.surface.invalidateTurn(this.surfaceKey(turn),turn.id))this.event('ui.remove',{...removed,reason},turn)}
+      catch(e){this.deps.log('warn',`cannot invalidate UI: ${String(e)}`)}
+      this.resetPresentation(reason,turn)
+    }
+    if(['completed','done'].includes(reason)&&turn.sender?.sentSamples&&!turn.responseStopped&&this.capabilities.has('playback'))this.waitingPlayback=turn.streamId
+    else this.avatarState(reason==='error'?'error':'idle',turn)
+    turn.pendingCues=[]
+    this.send({ type: 'tts', state: 'stop', reason: this.version === 1 && reason === 'timeout' ? 'cancelled' : reason }, turn)
+    const end = { type: 'turn.end', turnId: turn.id, requestId: turn.requestId, conversationId: turn.conversationId, streamId: turn.streamId, reason, responseStopped: turn.responseStopped, durationMs: Date.now() - turn.startedAt, metrics: { asrMs: turn.asrMs, firstTextMs: turn.firstTextMs, firstAudioMs: turn.sender?.firstSentAt ? turn.sender.firstSentAt - turn.startedAt : undefined, audioSamples: turn.sender?.sentSamples ?? 0 } }
+    this.event('turn.end', end, turn)
+    if (turn.requestId && this.requests.has(turn.requestId)) this.requests.get(turn.requestId)!.end = end
+    turn.ended = true; clearTimeout(turn.timer); clearTimeout(turn.captureTimer)
+    turn.controller.abort(new VoiceError(reason, `turn ${reason}`)); turn.response.abort(); turn.queue?.close()
+    turn.handle?.cancel(); turn.pcm = []
+    if (this.active === turn) { this.active = undefined; if (this.state !== 'closed') this.state = 'ready' }
+    this.deps.log('info', `turn ${turn.id}: ${reason} (${Date.now() - turn.startedAt}ms)`)
+  }
+  private handlePlayback(m: any) {
+    if (this.version !== 2 || !this.capabilities.has('playback')) throw new VoiceError('unsupported_capability', '需要协商 playback')
+    const record = this.playback.get(m.streamId), active = this.active?.streamId === m.streamId ? this.active : undefined
+    const available = active?.sender?.sentSamples ?? record?.samples
+    if (available === undefined || m.turnId !== (record?.turnId ?? active?.id) || !Number.isSafeInteger(m.playedSamples) || m.playedSamples < (record?.played ?? 0) || m.playedSamples > available || !['progress', 'ended', 'cleared'].includes(m.state)) throw new VoiceError('bad_playback', '播放回执的轮次、位置或状态无效')
+    if (m.state === 'ended' && (!(active?.audioEnded ?? !!record) || m.playedSamples !== available)) throw new VoiceError('bad_playback', '音频发送完成且全部播放后才能报告 ended')
+    if (m.bufferedSamples !== undefined) {
+      if (!this.capabilities.has('playback.flow') || !Number.isSafeInteger(m.bufferedSamples) || m.bufferedSamples < 0 || m.bufferedSamples > available - m.playedSamples) throw new VoiceError('bad_playback', '播放缓冲位置无效或未协商 playback.flow')
+      if (active) active.bufferedSamples = m.bufferedSamples
+    }
+    if (record?.ended && (m.state === 'progress' || m.playedSamples !== record.played)) throw new VoiceError('bad_playback', '播放流已结束')
+    this.playback.set(m.streamId, { turnId: m.turnId, samples: available, played: m.playedSamples, ended: m.state !== 'progress' })
+    this.event('playback.ack', { turnId: m.turnId, streamId: m.streamId, playedSamples: m.playedSamples, state: m.state })
+    if(m.state!=='progress'&&this.waitingPlayback===m.streamId&&!this.active){this.waitingPlayback=undefined;this.avatarState('idle')}
+  }
+  private selectConversation(m: any) {
+    if (this.version !== 2 || !this.capabilities.has('conversation.select')) throw new VoiceError('unsupported_capability', '需要协商 conversation.select')
+    if (this.active) throw new VoiceError('busy', '请先结束当前轮')
+    if (!identifier(m.conversationId) || (m.conversationId !== this.deviceId && !this.deps.allowConversation?.(this.deviceId, m.conversationId))) throw new VoiceError('bad_conversation', '对话不属于此设备')
+    this.conversationId = m.conversationId
+    this.event('conversation.selected', { conversationId: this.conversationId, sessionId: this.deps.bridge.sessionId(this.conversationId, this.deps.settings().agentPreset) })
+    this.waitingPlayback=undefined;this.resetPresentation('conversation_changed');this.avatarState('idle');if(this.capabilities.has('ui.render'))this.uiSnapshot()
+  }
+
+  private avatarState(state:string,turn?:TurnContext) {if(this.capabilities.has('presentation.state'))this.event('presentation.state',{state,sequence:++this.presentationSequence},turn)}
+  private resetPresentation(reason:string,turn?:TurnContext) {if(this.capabilities.has('presentation.state')||this.capabilities.has('presentation.cue'))this.event('presentation.reset',{reason},turn)}
+  private surfaceKey(turn?:TurnContext) {return SurfaceStore.key(this.deviceId,turn?.conversationId??this.conversationId,turn?.settings.agentPreset??this.deps.settings().agentPreset)}
+  private requireUI() {if(this.version!==2||!this.capabilities.has('ui.render'))throw new VoiceError('unsupported_capability','需要协商 ui.render')}
+  private uiSnapshot() {
+    this.requireUI()
+    this.event('ui.snapshot',{conversationId:this.conversationId,components:this.surface.snapshot(this.surfaceKey()).filter(c=>this.presentation.components.includes(c.type))})
+  }
+  private clientEffect(turn:TurnContext,effect:ClientEffect) {
+    if(!this.current(turn))throw new VoiceError('cancelled','轮次已结束')
+    if(++turn.effectCount>64)throw new VoiceError('presentation_overflow','单轮最多 64 个表现或界面操作')
+    if(effect.kind==='cue') {
+      if(!this.capabilities.has('presentation.cue')||turn.responseStopped)throw new VoiceError('unsupported_presentation','表现输出不可用')
+      if(turn.pendingCues.length>=16)throw new VoiceError('presentation_overflow','等待音频的动作过多')
+      const cueId=newId()
+      if(effect.cue.timing==='next_sentence')turn.pendingCues.push({cueId,cue:effect.cue})
+      else this.event('presentation.cue',{...effect.cue,cueId,sequence:++this.presentationSequence},turn)
+      return {cueId,status:effect.cue.timing==='now'?'sent':'scheduled'}
+    }
+    this.requireUI()
+    if(effect.kind==='render') {
+      const component=this.surface.render(this.surfaceKey(turn),effect.component,turn.id)
+      this.event('ui.render',{component},turn);return {componentId:component.id,revision:component.revision,instanceId:component.instanceId}
+    }
+    const revision=this.surface.remove(this.surfaceKey(turn),effect.componentId)
+    if(revision!==undefined)this.event('ui.remove',{componentId:effect.componentId,revision},turn)
+    return {removed:revision!==undefined}
+  }
+  private uiAction(m:any) {
+    this.requireUI()
+    if(Object.keys(m).some(k=>!['type','requestId','componentId','instanceId','revision','actionId','values'].includes(k)))throw new VoiceError('bad_ui_action','不接受客户端提供的操作文本')
+    if(this.requestSeen(m))return
+    if(this.active)throw new VoiceError('busy','请等待当前轮结束后操作')
+    if(!identifier(m.componentId)||!identifier(m.actionId)||typeof m.instanceId!=='string'||!Number.isSafeInteger(m.revision))throw new VoiceError('bad_ui_action','操作身份无效')
+    const prepared=this.surface.prepare(this.surfaceKey(),m.componentId,m.revision,m.instanceId,m.actionId,m.values)
+    const turn=this.begin(m)
+    if(!turn)return
+    try {this.event('ui.render',{component:prepared.consume()},turn)}catch(e){this.error('stale_ui',String(e),turn);this.finish(turn,'error');return}
+    this.event('ui.action.accepted',{componentId:m.componentId,actionId:m.actionId},turn)
+    this.launch(turn,()=>this.pipeline(turn,prepared.text))
+  }
+  private uiDismiss(m:any) {
+    this.requireUI()
+    if(!identifier(m.componentId)||!Number.isSafeInteger(m.revision)||typeof m.instanceId!=='string')throw new VoiceError('bad_ui_action','组件身份无效')
+    const revision=this.surface.remove(this.surfaceKey(),m.componentId,m.revision,m.instanceId)
+    if(revision!==undefined)this.event('ui.remove',{componentId:m.componentId,revision})
+  }
+  handleClosed() {
+    if (this.state === 'closed') return
+    this.state = 'closed'
+    if (this.active) this.finish(this.active, 'disconnected')
+    this.playback.clear()
+  }
+  close(code = 1001, reason = 'server shutdown') { this.handleClosed(); this.ws.close(code, reason) }
 }
 
 export function sanitizeDeviceId(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48)
+  return typeof value === 'string' ? value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) : ''
 }

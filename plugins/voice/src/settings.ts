@@ -2,7 +2,7 @@
 // cordis config 只提供监听地址与设置文件路径（见 cordis.patch.yml）。
 
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -25,8 +25,12 @@ export interface VoiceSettings {
   promptPrefix: string
   /** dsh 会话模式（agent preset id）；空 = 跟随 profile 默认 */
   agentPreset: string
-  /** 设备接入令牌；空 = 未配置（接口开放，面板会提示生成） */
+  /** 共享设备接入令牌；空 = 禁用共享接入 */
   token: string
+  /** REST 管理凭据，与设备凭据分离；只在轮换时返回。 */
+  adminToken: string
+  deviceTokens: Record<string, string>
+  allowedOrigins: string[]
   /** 单轮最长等待秒数（超时本地取消下发） */
   maxTurnSeconds: number
 }
@@ -45,6 +49,9 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
   promptPrefix: DEFAULT_PREFIX,
   agentPreset: '',
   token: '',
+  adminToken: '',
+  deviceTokens: {},
+  allowedOrigins: [],
   maxTurnSeconds: 180,
 }
 
@@ -65,6 +72,7 @@ function clampNumber(v: unknown, min: number, max: number, fallback: number): nu
 
 /** 校验并合并一次面板提交；未出现在提交里的键保持原值。 */
 export function mergeSettings(current: VoiceSettings, patch: Record<string, unknown>): { settings: VoiceSettings; rejected: string[] } {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('settings patch must be an object')
   const next: VoiceSettings = { ...current }
   const rejected: string[] = []
   const strings: Array<[keyof VoiceSettings, number]> = [
@@ -87,12 +95,22 @@ export function mergeSettings(current: VoiceSettings, patch: Record<string, unkn
       rejected.push(key)
     }
   }
-  if ('ttsSpeed' in patch) next.ttsSpeed = clampNumber(patch.ttsSpeed, 0.5, 2, current.ttsSpeed)
-  if ('ttsVol' in patch) next.ttsVol = clampNumber(patch.ttsVol, 0, 10, current.ttsVol)
-  if ('ttsPitch' in patch) next.ttsPitch = clampNumber(patch.ttsPitch, -12, 12, current.ttsPitch)
-  if ('maxTurnSeconds' in patch) next.maxTurnSeconds = Math.round(clampNumber(patch.maxTurnSeconds, 15, 600, current.maxTurnSeconds))
+  for (const [key, min, max] of [['ttsSpeed', .5, 2], ['ttsVol', 0, 10], ['ttsPitch', -12, 12], ['maxTurnSeconds', 15, 600]] as const) {
+    if (!Object.hasOwn(patch, key)) continue
+    const value = patch[key]
+    if (typeof value !== 'number' || !Number.isFinite(value)) { rejected.push(key); continue }
+    next[key] = key === 'maxTurnSeconds' ? Math.round(clampNumber(value, min, max, current[key])) : clampNumber(value, min, max, current[key])
+  }
+  if ('allowedOrigins' in patch) {
+    if (Array.isArray(patch.allowedOrigins) && patch.allowedOrigins.length <= 32 && patch.allowedOrigins.every(x => {
+      try { return typeof x === 'string' && new URL(x).origin === x && /^https?:/.test(x) } catch { return false }
+    })) next.allowedOrigins = [...patch.allowedOrigins]
+    else rejected.push('allowedOrigins')
+  }
+  if ('adminToken' in patch) rejected.push('adminToken')
+  if ('deviceTokens' in patch) rejected.push('deviceTokens')
   for (const key of Object.keys(patch)) {
-    if (!(key in DEFAULT_SETTINGS)) rejected.push(key)
+    if (!Object.hasOwn(DEFAULT_SETTINGS, key)) rejected.push(key)
   }
   return { settings: next, rejected }
 }
@@ -111,6 +129,9 @@ export function maskSettings(s: VoiceSettings): Record<string, unknown> {
     promptPrefix: s.promptPrefix,
     agentPreset: s.agentPreset,
     token: s.token,
+    adminTokenConfigured: !!s.adminToken,
+    devices: Object.keys(s.deviceTokens),
+    allowedOrigins: s.allowedOrigins,
     maxTurnSeconds: s.maxTurnSeconds,
   }
 }
@@ -125,25 +146,33 @@ export class SettingsStore {
     try {
       if (existsSync(path)) {
         const raw = JSON.parse(readFileSync(path, 'utf8'))
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('settings must be an object')
         if (raw && typeof raw === 'object') {
           const { settings } = mergeSettings(DEFAULT_SETTINGS, raw as Record<string, unknown>)
           this.data = settings
+          if (typeof raw.adminToken === 'string' && raw.adminToken.length >= 24) this.data.adminToken = raw.adminToken
+          if (raw.deviceTokens && typeof raw.deviceTokens === 'object' && !Array.isArray(raw.deviceTokens)) {
+            this.data.deviceTokens = Object.fromEntries(Object.entries(raw.deviceTokens).filter(([id, token]) => /^[a-zA-Z0-9_-]{1,48}$/.test(id) && typeof token === 'string' && token.length >= 24)) as Record<string, string>
+          }
         }
       }
     } catch (error) {
-      // 损坏的设置文件按默认值起步，不阻塞插件启动
-      console.warn(`[yusheng-voice] settings file unreadable, starting from defaults: ${String(error)}`)
+      throw new Error(`yusheng-voice: cannot read settings; refusing to reset credentials: ${String(error)}`)
+    }
+    if (!this.data.adminToken) {
+      this.data = { ...this.data, adminToken: `ysa-${randomBytes(32).toString('base64url')}`, token: this.data.token || `ysv-${randomBytes(24).toString('base64url')}` }
+      this.save(this.data)
     }
   }
 
   get(): VoiceSettings {
-    return this.data
+    return { ...this.data, deviceTokens: { ...this.data.deviceTokens }, allowedOrigins: [...this.data.allowedOrigins] }
   }
 
   update(patch: Record<string, unknown>): { settings: VoiceSettings; rejected: string[] } {
     const merged = mergeSettings(this.data, patch)
+    this.save(merged.settings)
     this.data = merged.settings
-    this.save()
     return merged
   }
 
@@ -152,22 +181,33 @@ export class SettingsStore {
     const bytes = randomBytes(24)
     let token = 'ysv-'
     for (const b of bytes) token += alphabet[b % alphabet.length]
-    this.data = { ...this.data, token }
-    this.save()
+    const next = { ...this.data, token }
+    this.save(next); this.data = next
     return token
   }
 
-  private save() {
+  issueDevice(id: string): string {
+    if (!/^[a-zA-Z0-9_-]{1,48}$/.test(id)) throw new Error('invalid deviceId')
+    if (Object.keys(this.data.deviceTokens).length >= 256 && !Object.hasOwn(this.data.deviceTokens, id)) throw new Error('device limit reached')
+    const token = `ysd-${randomBytes(32).toString('base64url')}`
+    const next = { ...this.data, deviceTokens: { ...this.data.deviceTokens, [id]: token } }
+    this.save(next); this.data = next; return token
+  }
+
+  revokeDevice(id: string) {
+    const deviceTokens = { ...this.data.deviceTokens }; delete deviceTokens[id]
+    const next = { ...this.data, deviceTokens }; this.save(next); this.data = next
+  }
+
+  private save(data: VoiceSettings) {
+    const temporary = `${this.path}.${randomBytes(8).toString('hex')}.tmp`
     try {
       mkdirSync(dirname(this.path), { recursive: true })
-      writeFileSync(this.path, JSON.stringify(this.data, null, 2) + '\n', { mode: 0o600 })
-      try {
-        chmodSync(this.path, 0o600)
-      } catch {
-        // Windows / 某些文件系统不支持 chmod
-      }
+      writeFileSync(temporary, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 })
+      renameSync(temporary, this.path)
     } catch (error) {
-      console.warn(`[yusheng-voice] cannot persist settings: ${String(error)}`)
+      try { unlinkSync(temporary) } catch { /* best effort temporary cleanup */ }
+      throw new Error(`cannot persist voice settings: ${String(error)}`)
     }
   }
 }

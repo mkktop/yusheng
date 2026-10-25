@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>语声 · 形象与智能界面</title>
+<style>
+:root{color-scheme:dark;font:15px/1.6 system-ui,sans-serif;background:#101521;color:#edf1fa}*{box-sizing:border-box}body{margin:0}main{max-width:1080px;margin:auto;padding:32px 24px}h1{font-size:26px;margin:0}small,.hint{color:#a9b5cb}.layout{display:grid;grid-template-columns:320px 1fr;gap:24px;margin-top:24px}.panel,.voice-card{border:1px solid #303c52;border-radius:18px;background:#192234;padding:22px}label{display:block;margin:12px 0 4px}input,select,textarea{font:inherit;color:inherit;background:#101827;border:1px solid #40516b;border-radius:9px;padding:9px;width:100%}input[type=checkbox]{width:auto;margin-left:12px}button{font:inherit;border:0;border-radius:9px;padding:10px 16px;background:#91dfc9;color:#092e25;cursor:pointer;margin:8px 8px 0 0}button.secondary,.voice-dismiss{background:#2d3d55;color:#d9e2f3}button:disabled{opacity:.4;cursor:default}textarea{height:90px;resize:vertical}.avatar-zone{text-align:center;margin:20px auto}#avatar{width:210px;height:220px;transform-origin:50% 75%}.head{fill:#9edbcf}.eye{fill:#153a3e}.mouth{fill:none;stroke:#153a3e;stroke-width:6;stroke-linecap:round}.hand{stroke:#9edbcf;stroke-width:15;stroke-linecap:round;transform-origin:174px 150px}#avatar[data-state=thinking]{animation:float 2.5s infinite}#avatar[data-state=listening] .eye{transform:scaleY(1.2);transform-origin:center}#avatar[data-state=speaking] .mouth{animation:talk .25s infinite alternate}#avatar[data-expression=happy] .head{fill:#b6ecd8}#avatar[data-expression=sad] .mouth{transform:rotate(180deg);transform-origin:110px 130px}#avatar[data-expression=surprised] .eye{rx:12;ry:13}#avatar[data-expression=confused]{rotate:-8deg}#avatar[data-gesture=nod]{animation:nod .5s 3}#avatar[data-gesture=shake]{animation:shake .4s 3}#avatar[data-gesture=wave] .hand{animation:wave .5s 3}#avatar[data-gesture=point] .hand{transform:rotate(-55deg)}#avatar[data-gesture=celebrate]{animation:celebrate .5s 3}.voice-card{margin-bottom:16px}.voice-card h3{margin:0 0 8px;font-size:18px}.voice-card p{white-space:pre-wrap}.voice-card dl{display:grid;grid-template-columns:1fr 2fr;gap:8px}.voice-card dd{margin:0}.voice-card progress{width:100%;accent-color:#91dfc9}.voice-error,#error{color:#ffb1a7}.voice-dismiss{font-size:12px;padding:4px 10px}#transcript{min-height:70px;white-space:pre-wrap;border-left:3px solid #91dfc9;padding-left:14px;margin:20px 0}#events{max-height:180px;overflow:auto;font:12px/1.5 monospace;color:#9babc5;white-space:pre-wrap}.status{display:inline-block;border-radius:40px;background:#26384a;padding:4px 14px}#surface:empty:before{content:'界面组件会显示在这里。试试让助手给出两个可点击的选项。';color:#a9b5cb;display:block;padding:25px;border:1px dashed #40516b;border-radius:16px}@keyframes nod{50%{transform:translateY(8px) rotate(7deg)}}@keyframes shake{25%{transform:rotate(-9deg)}75%{transform:rotate(9deg)}}@keyframes wave{50%{transform:rotate(-55deg)}}@keyframes celebrate{50%{transform:translateY(-16px)}}@keyframes float{50%{transform:translateY(-7px)}}@keyframes talk{to{stroke-width:11}}@media(max-width:760px){.layout{grid-template-columns:1fr}main{padding:20px 16px}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important}}
+</style>
+<main>
+<h1>语声 · 形象与智能界面</h1><small>协议 v2 参考客户端：真实 agent 工具、表情动作、同步语音与可交互卡片。</small>
+<div class="layout"><aside class="panel">
+<label for="endpoint">语音服务</label><input id="endpoint" autocomplete="off">
+<label for="device">设备 ID</label><input id="device" value="web-avatar-demo" autocomplete="off">
+<label for="token">设备令牌</label><input id="token" type="password" autocomplete="off" placeholder="填写 token 或该设备的独立令牌">
+<button id="connect">连接</button><button id="disconnect" class="secondary">断开</button>
+<p id="connection" class="hint" role="status">尚未连接</p><p id="error" role="alert"></p>
+<div class="avatar-zone"><svg id="avatar" viewBox="0 0 220 220" aria-label="助手形象" role="img" data-state="idle" data-expression="neutral">
+<ellipse cx="110" cy="205" rx="57" ry="8" fill="#0d1727"/><path d="M72 171 Q110 147 148 171 L157 202 H63Z" fill="#628f9c"/>
+<path class="hand" d="M174 150 L185 117"/><rect class="head" x="42" y="32" width="136" height="139" rx="48"/>
+<ellipse class="eye" cx="83" cy="95" rx="6" ry="9"/><ellipse class="eye" cx="137" cy="95" rx="6" ry="9"/>
+<path class="mouth" d="M91 126 Q110 143 129 126"/><circle cx="65" cy="120" r="9" fill="#f4baac" opacity=".65"/><circle cx="155" cy="120" r="9" fill="#f4baac" opacity=".65"/>
+</svg><div><span id="state" class="status">空闲</span></div></div>
+<p class="hint">动画随播放时钟同步。令牌仅在本次连接使用，不写入浏览器存储。</p>
+</aside><section>
+<div class="panel"><label for="query">对助手说</label><textarea id="query">请开心地点头，和下一句语音同步。展示一张包含「轻松聊天」和「安排今天」两个按钮的选项卡，然后问我想选哪一个。</textarea>
+<button id="send" disabled>发送</button><button id="stop" class="secondary" disabled>停止播报</button><button id="cancel" class="secondary" disabled>取消本轮</button>
+<div id="transcript" aria-live="polite"></div></div>
+<div id="surface" style="margin-top:20px"></div>
+<details style="margin-top:20px"><summary>交互事件</summary><div id="events"></div></details>
+</section></div>
+</main><script type="module" src="/demo-client.js"></script>
+</html>

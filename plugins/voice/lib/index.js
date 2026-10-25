@@ -1,5 +1,5 @@
-import { createRequire } from 'node:module'
-const require = createRequire(import.meta.url)
+import { createRequire as __voiceCreateRequire } from 'node:module'
+const require = __voiceCreateRequire(import.meta.url)
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -61,13 +61,13 @@ var require_buffer_util = __commonJS({
     "use strict";
     var { EMPTY_BUFFER } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
-    function concat(list, totalLength) {
-      if (list.length === 0) return EMPTY_BUFFER;
-      if (list.length === 1) return list[0];
+    function concat(list2, totalLength) {
+      if (list2.length === 0) return EMPTY_BUFFER;
+      if (list2.length === 1) return list2[0];
       const target = Buffer.allocUnsafe(totalLength);
       let offset = 0;
-      for (let i = 0; i < list.length; i++) {
-        const buf = list[i];
+      for (let i = 0; i < list2.length; i++) {
+        const buf = list2[i];
         target.set(buf, offset);
         offset += buf.length;
       }
@@ -1853,14 +1853,14 @@ var require_sender = __commonJS({
        * @param {Function} [cb] Callback
        * @private
        */
-      sendFrame(list, cb) {
-        if (list.length === 2) {
+      sendFrame(list2, cb) {
+        if (list2.length === 2) {
           this._socket.cork();
-          this._socket.write(list[0]);
-          this._socket.write(list[1], cb);
+          this._socket.write(list2[0]);
+          this._socket.write(list2[1], cb);
           this._socket.uncork();
         } else {
-          this._socket.write(list[0], cb);
+          this._socket.write(list2[0], cb);
         }
       }
     };
@@ -2271,7 +2271,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes2, createHash } = __require("crypto");
+    var { randomBytes: randomBytes2, createHash: createHash3 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2952,7 +2952,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash3("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -3321,7 +3321,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash } = __require("crypto");
+    var { createHash: createHash3 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3628,7 +3628,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash3("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -3716,11 +3716,221 @@ var require_websocket_server = __commonJS({
 });
 
 // src/index.ts
-import { dirname as dirname3, resolve as resolve2 } from "node:path";
+import { dirname as dirname5, resolve as resolve3 } from "node:path";
 
 // src/llm.ts
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, realpathSync } from "node:fs";
+import { createHash, randomUUID as randomUUID2 } from "node:crypto";
 import { dirname } from "node:path";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+
+// src/protocol.ts
+import { randomUUID } from "node:crypto";
+var PROTOCOL_VERSION = 2;
+var SUPPORTED_VERSIONS = [1, 2];
+var SAMPLE_RATE_IN = 16e3;
+var SAMPLE_RATE_OUT = 24e3;
+var AUDIO_FORMAT = { encoding: "pcm_s16le", channels: 1 };
+var CAPABILITIES = ["turns", "conversation.select", "playback", "playback.flow", "response.stop", "audio.framed", "agent.activity", "presentation.state", "presentation.cue", "ui.render"];
+var VoiceError = class extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+};
+function identifier(value, max = 64) {
+  return typeof value === "string" && value.length > 0 && value.length <= max && /^[a-zA-Z0-9_-]+$/.test(value);
+}
+function newId() {
+  return randomUUID();
+}
+function abortable(operation, signal) {
+  if (signal.aborted) {
+    void operation.catch(() => void 0);
+    return Promise.reject(signal.reason);
+  }
+  return new Promise((resolve4, reject) => {
+    const cancel = () => {
+      cleanup();
+      reject(signal.reason);
+    };
+    const cleanup = () => signal.removeEventListener("abort", cancel);
+    signal.addEventListener("abort", cancel, { once: true });
+    operation.then((value) => {
+      cleanup();
+      resolve4(value);
+    }, (error) => {
+      cleanup();
+      reject(error);
+    });
+  });
+}
+function delay(ms, signal) {
+  return new Promise((resolve4, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const cancel = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", cancel);
+      resolve4();
+    }, ms);
+    signal.addEventListener("abort", cancel, { once: true });
+  });
+}
+
+// src/interaction.ts
+import { Buffer as Buffer2 } from "node:buffer";
+var EXPRESSIONS = ["neutral", "happy", "sad", "surprised", "thinking", "confused", "calm"];
+var GESTURES = ["nod", "shake", "wave", "point", "celebrate"];
+var COMPONENTS = ["card", "choices", "progress", "form"];
+function object(value, allowed) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new VoiceError("bad_interaction", "\u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+  for (const key of Object.keys(value)) if (!allowed.includes(key)) throw new VoiceError("bad_interaction", `\u4E0D\u652F\u6301\u5B57\u6BB5 ${key}`);
+  return value;
+}
+function text(value, max, optional = false) {
+  if (optional && value === void 0) return;
+  if (typeof value !== "string" || !value.trim() || value.length > max) throw new VoiceError("bad_interaction", `\u6587\u672C\u5FC5\u987B\u4E3A 1\u2013${max} \u5B57\u7B26`);
+  return value;
+}
+function id(value) {
+  if (!identifier(value)) throw new VoiceError("bad_interaction", "ID \u5FC5\u987B\u4E3A 1\u201364 \u4F4D\u5B57\u6BCD\u3001\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u6216\u8FDE\u5B57\u7B26");
+  return value;
+}
+function number(value, min, max, fallback) {
+  if (value === void 0 && fallback !== void 0) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new VoiceError("bad_interaction", `\u6570\u503C\u5FC5\u987B\u5728 ${min}\u2013${max} \u4E4B\u95F4`);
+  return value;
+}
+function list(value, max, parse) {
+  if (!Array.isArray(value) || !value.length || value.length > max) throw new VoiceError("bad_interaction", `\u6570\u7EC4\u9700\u5305\u542B 1\u2013${max} \u9879`);
+  return value.map(parse);
+}
+function unique(items) {
+  if (new Set(items.map((item) => item.id)).size !== items.length) throw new VoiceError("bad_interaction", "\u5B58\u5728\u91CD\u590D ID");
+}
+function support(value) {
+  const source = value === void 0 ? {} : object(value, ["expressions", "gestures", "components"]);
+  const names = (v, defaults) => v === void 0 ? [...defaults] : Array.isArray(v) && v.length === 0 ? [] : [...new Set(list(v, 32, id))];
+  const components = names(source.components, COMPONENTS);
+  if (components.some((name) => !COMPONENTS.includes(name))) throw new VoiceError("bad_interaction", "\u672A\u77E5 UI \u7EC4\u4EF6\u7C7B\u578B");
+  return { expressions: names(source.expressions, EXPRESSIONS), gestures: names(source.gestures, GESTURES), components };
+}
+function cue(value, supported) {
+  const source = object(value, ["expression", "gesture", "durationMs", "intensity", "timing"]);
+  if (!source.expression && !source.gesture) throw new VoiceError("bad_interaction", "\u81F3\u5C11\u6307\u5B9A\u8868\u60C5\u6216\u52A8\u4F5C");
+  if (source.expression !== void 0 && !supported.expressions.includes(source.expression)) throw new VoiceError("unsupported_presentation", "\u5BA2\u6237\u7AEF\u4E0D\u652F\u6301\u8BE5\u8868\u60C5");
+  if (source.gesture !== void 0 && !supported.gestures.includes(source.gesture)) throw new VoiceError("unsupported_presentation", "\u5BA2\u6237\u7AEF\u4E0D\u652F\u6301\u8BE5\u52A8\u4F5C");
+  if (source.timing !== void 0 && !["now", "next_sentence"].includes(source.timing)) throw new VoiceError("bad_interaction", "timing \u5FC5\u987B\u4E3A now \u6216 next_sentence");
+  return { ...source.expression ? { expression: source.expression } : {}, ...source.gesture ? { gesture: source.gesture } : {}, durationMs: number(source.durationMs, 100, 1e4, 1800), intensity: number(source.intensity, 0, 1, 0.7), timing: source.timing ?? "now" };
+}
+function component(value, supported) {
+  const s = object(value, ["id", "type", "title", "text", "rows", "actions", "fields", "value", "expiresInMs"]);
+  if (!supported.components.includes(s.type)) throw new VoiceError("unsupported_component", "\u5BA2\u6237\u7AEF\u4E0D\u652F\u6301\u8BE5\u7EC4\u4EF6");
+  const result = { id: id(s.id), type: s.type, title: text(s.title, 120), expiresInMs: number(s.expiresInMs, 1e4, 18e5, 3e5) };
+  const body = text(s.text, 2e3, true);
+  if (body !== void 0) result.text = body;
+  if (s.rows !== void 0) result.rows = list(s.rows, 12, (item) => {
+    const r = object(item, ["label", "value"]);
+    return { label: text(r.label, 80), value: text(r.value, 256) };
+  });
+  if (s.actions !== void 0) {
+    result.actions = list(s.actions, 8, (item) => {
+      const a = object(item, ["id", "label", "prompt"]);
+      return { id: id(a.id), label: text(a.label, 80), prompt: text(a.prompt, 1e3) };
+    });
+    unique(result.actions);
+  }
+  if (s.fields !== void 0) {
+    result.fields = list(s.fields, 8, (item) => {
+      const f = object(item, ["id", "label", "type", "required", "options", "min", "max"]);
+      if (!["text", "number", "boolean", "select"].includes(f.type) || f.required !== void 0 && typeof f.required !== "boolean") throw new VoiceError("bad_interaction", "\u65E0\u6548\u8868\u5355\u5B57\u6BB5");
+      const field = { id: id(f.id), label: text(f.label, 80), type: f.type, required: f.required ?? false };
+      if (f.type === "select") {
+        field.options = list(f.options, 12, (item2) => {
+          const o = object(item2, ["value", "label"]);
+          return { value: text(o.value, 80), label: text(o.label, 80) };
+        });
+        if (new Set(field.options.map((o) => o.value)).size !== field.options.length) throw new VoiceError("bad_interaction", "\u9009\u9879\u503C\u91CD\u590D");
+      } else if (f.options !== void 0) throw new VoiceError("bad_interaction", "\u53EA\u6709 select \u652F\u6301 options");
+      if (f.min !== void 0) field.min = number(f.min, -1e9, 1e9);
+      if (f.max !== void 0) field.max = number(f.max, -1e9, 1e9);
+      if ((f.min !== void 0 || f.max !== void 0) && f.type !== "number") throw new VoiceError("bad_interaction", "\u53EA\u6709 number \u652F\u6301\u8303\u56F4");
+      if (field.min !== void 0 && field.max !== void 0 && field.min > field.max) throw new VoiceError("bad_interaction", "\u6570\u503C\u8303\u56F4\u98A0\u5012");
+      return field;
+    });
+    unique(result.fields);
+  }
+  if (s.type === "progress") {
+    if (s.value !== void 0) result.value = number(s.value, 0, 1);
+    if (s.actions !== void 0 || s.fields !== void 0 || s.rows !== void 0) throw new VoiceError("bad_interaction", "\u8FDB\u5EA6\u7EC4\u4EF6\u4E0D\u5305\u542B\u8868\u5355\u6216\u64CD\u4F5C");
+  } else if (s.value !== void 0) throw new VoiceError("bad_interaction", "\u53EA\u6709 progress \u652F\u6301 value");
+  if (s.type === "choices" && !result.actions?.length) throw new VoiceError("bad_interaction", "\u9009\u9879\u7EC4\u4EF6\u5FC5\u987B\u63D0\u4F9B actions");
+  if (s.type === "form" && (!result.fields?.length || result.actions?.length !== 1)) throw new VoiceError("bad_interaction", "\u8868\u5355\u9700\u5B57\u6BB5\u548C\u4E00\u4E2A\u63D0\u4EA4\u64CD\u4F5C");
+  if (s.type !== "form" && s.fields !== void 0) throw new VoiceError("bad_interaction", "\u53EA\u6709 form \u652F\u6301 fields");
+  if (Buffer2.byteLength(JSON.stringify(result), "utf8") > 12 * 1024) throw new VoiceError("bad_interaction", "\u7EC4\u4EF6\u8D85\u8FC7 12KiB \u5927\u5C0F\u4E0A\u9650");
+  return result;
+}
+function formValues(fields = [], value) {
+  const source = object(value ?? {}, fields.map((f) => f.id)), result = /* @__PURE__ */ Object.create(null);
+  for (const field of fields) {
+    const v = Object.hasOwn(source, field.id) ? source[field.id] : void 0;
+    if (v === void 0 || v === "") {
+      if (field.required) throw new VoiceError("bad_ui_values", `${field.label} \u4E3A\u5FC5\u586B\u9879`);
+      continue;
+    }
+    if (field.type === "number") result[field.id] = number(v, field.min ?? -1e9, field.max ?? 1e9);
+    else if (field.type === "boolean") {
+      if (typeof v !== "boolean") throw new VoiceError("bad_ui_values", "\u5E03\u5C14\u5B57\u6BB5\u7C7B\u578B\u9519\u8BEF");
+      if (field.required && !v) throw new VoiceError("bad_ui_values", `${field.label} \u9700\u8981\u52FE\u9009`);
+      result[field.id] = v;
+    } else {
+      const parsed = text(v, 256);
+      if (field.type === "select" && !field.options.some((o) => o.value === parsed)) throw new VoiceError("bad_ui_values", "\u9009\u62E9\u4E86\u4E0D\u5B58\u5728\u7684\u9009\u9879");
+      result[field.id] = parsed;
+    }
+  }
+  return result;
+}
+var string = (maxLength = 128) => ({ type: "string", maxLength });
+function interactionTools(supported, capabilities, emit, valid) {
+  const output = { schema: { type: "object", properties: { ok: { type: "boolean" }, result: { type: "string" } }, required: ["ok", "result"], additionalProperties: false }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] };
+  const tool = (name, description, properties, required, execute) => ({ name, description, parameters: { type: "object", properties, required, additionalProperties: false }, output, async execute(args, exec) {
+    valid(exec);
+    exec.signal.throwIfAborted();
+    return { ok: true, result: JSON.stringify(execute(args)) };
+  } });
+  const tools = [];
+  if (capabilities.includes("presentation.cue") && (supported.expressions.length || supported.gestures.length)) tools.push(tool("voice_present", "Control this voice client avatar. Emit a supported expression/gesture; next_sentence synchronizes with the first audio of your next spoken sentence. Do not put animation instructions in spoken text.", {
+    ...supported.expressions.length ? { expression: { type: "string", enum: supported.expressions } } : {},
+    ...supported.gestures.length ? { gesture: { type: "string", enum: supported.gestures } } : {},
+    durationMs: { type: "number", minimum: 100, maximum: 1e4 },
+    intensity: { type: "number", minimum: 0, maximum: 1 },
+    timing: { type: "string", enum: ["now", "next_sentence"] }
+  }, [], (args) => emit({ kind: "cue", cue: cue(args, supported) })));
+  if (capabilities.includes("ui.render") && supported.components.length) tools.push(tool("voice_ui", "Render or update a declarative client component by id. Server owns revision and expiry. Actions use server-stored prompt text and submit a new user turn after the current turn ends. Use card, choices, progress or form. Text is plain text. Remove with operation=remove and componentId.", {
+    operation: { type: "string", enum: ["render", "remove"] },
+    componentId: string(64),
+    component: { type: "object", properties: { id: string(64), type: { type: "string", enum: supported.components }, title: string(120), text: string(2e3), value: { type: "number", minimum: 0, maximum: 1 }, expiresInMs: { type: "number", minimum: 1e4, maximum: 18e5 }, rows: { type: "array", maxItems: 12, items: { type: "object", properties: { label: string(80), value: string(256) }, required: ["label", "value"], additionalProperties: false } }, actions: { type: "array", maxItems: 8, items: { type: "object", properties: { id: string(64), label: string(80), prompt: string(1e3) }, required: ["id", "label", "prompt"], additionalProperties: false } }, fields: { type: "array", maxItems: 8, items: { type: "object", properties: { id: string(64), label: string(80), type: { type: "string", enum: ["text", "number", "boolean", "select"] }, required: { type: "boolean" }, min: { type: "number" }, max: { type: "number" }, options: { type: "array", maxItems: 12, items: { type: "object", properties: { value: string(80), label: string(80) }, required: ["value", "label"], additionalProperties: false } } }, required: ["id", "label", "type"], additionalProperties: false } } }, required: ["id", "type", "title"], additionalProperties: false }
+  }, ["operation"], (args) => {
+    const s = object(args, ["operation", "componentId", "component"]);
+    if (s.operation === "remove") {
+      if (s.component !== void 0) throw new VoiceError("bad_interaction", "remove \u4E0D\u63A5\u53D7 component");
+      return emit({ kind: "remove", componentId: id(s.componentId) });
+    }
+    if (s.operation !== "render" || s.componentId !== void 0) throw new VoiceError("bad_interaction", "render \u9700\u8981 component");
+    return emit({ kind: "render", component: component(s.component, supported) });
+  }));
+  return tools;
+}
+
+// src/llm.ts
 var SentenceSlicer = class _SentenceSlicer {
   buffer = "";
   static MAJOR = /* @__PURE__ */ new Set(["\u3002", "\uFF01", "\uFF1F", "!", "?", "\uFF1B", ";", "\n"]);
@@ -3763,11 +3973,21 @@ var AgentBridge = class _AgentBridge {
   sessions;
   agentsBySession = /* @__PURE__ */ new Map();
   /** 已应用全开权限预设的 agent（permissionPresets.set 幂等，此集合只为省重复解析） */
-  accessApplied = /* @__PURE__ */ new Set();
+  accessApplied = /* @__PURE__ */ new WeakSet();
+  preparing = /* @__PURE__ */ new Map();
+  leases = /* @__PURE__ */ new Set();
+  agentLeases = /* @__PURE__ */ new WeakSet();
+  prefixedSessions = /* @__PURE__ */ new Set();
+  selections = /* @__PURE__ */ new WeakMap();
+  selectionApi;
   /** cacheKey → 实际采用的会话 id（原始派生 id 的会话损坏降级后，记住替补避免每次重连都丢上下文） */
   adoptedByCacheKey = /* @__PURE__ */ new Map();
   adoptionPath;
   cwdPromise;
+  warn(message) {
+    if (typeof this.ctx.logger?.warn === "function") this.ctx.logger.warn(`yusheng-voice: ${message}`);
+    else console.warn(`yusheng-voice: ${message}`);
+  }
   constructor(ctx, adoptionPath) {
     this.ctx = ctx;
     this.agents = ctx.get("agents");
@@ -3779,8 +3999,14 @@ var AgentBridge = class _AgentBridge {
       if (adoptionPath !== void 0 && existsSync(adoptionPath)) {
         const raw = JSON.parse(readFileSync(adoptionPath, "utf8"));
         if (raw && typeof raw === "object") {
+          if (Array.isArray(raw._voicePrefixed)) {
+            for (const id2 of raw._voicePrefixed) if (typeof id2 === "string") this.prefixedSessions.add(id2);
+          }
           for (const [key, value] of Object.entries(raw)) {
-            if (typeof value === "string" && value !== "") this.adoptedByCacheKey.set(key, value);
+            if (typeof value === "string" && value !== "") {
+              const legacy = key.split("::");
+              this.adoptedByCacheKey.set(key.startsWith("[") ? key : this.cacheKey(legacy[0], legacy[1] ?? ""), value);
+            }
           }
         }
       }
@@ -3790,12 +4016,17 @@ var AgentBridge = class _AgentBridge {
   recordAdoption(cacheKey, sessionId) {
     if (this.adoptedByCacheKey.get(cacheKey) === sessionId) return;
     this.adoptedByCacheKey.set(cacheKey, sessionId);
+    this.persistIndex();
+  }
+  persistIndex() {
     const path = this.adoptionPath;
     if (path === void 0) return;
     try {
-      const entries = Object.fromEntries(this.adoptedByCacheKey);
+      const entries = { ...Object.fromEntries(this.adoptedByCacheKey), _voicePrefixed: [...this.prefixedSessions] };
       mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, JSON.stringify(entries, null, 2) + "\n", { mode: 384 });
+      const temporary = `${path}.${randomUUID2()}.tmp`;
+      writeFileSync(temporary, JSON.stringify(entries, null, 2) + "\n", { mode: 384 });
+      renameSync(temporary, path);
     } catch {
     }
   }
@@ -3829,8 +4060,15 @@ var AgentBridge = class _AgentBridge {
    * 锁定），切回默认则无缝恢复原对话。
    */
   static sessionIdFor(deviceKey, presetId) {
-    const preset = presetId.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "");
+    const preset = /^[a-z0-9_-]+$/.test(presetId) ? presetId : presetId === "" ? "" : `id-${createHash("sha256").update(presetId).digest("hex").slice(0, 16)}`;
     return preset === "" ? `voice-${deviceKey}` : `voice-${deviceKey}-p-${preset}`;
+  }
+  sessionId(deviceKey, presetId = "") {
+    const key = this.cacheKey(deviceKey, presetId);
+    return this.adoptedByCacheKey.get(key) ?? _AgentBridge.sessionIdFor(deviceKey, presetId);
+  }
+  cacheKey(deviceKey, presetId) {
+    return JSON.stringify([deviceKey, presetId]);
   }
   /** 枚举可用的 dsh 会话模式（agent preset）；服务缺失返回 undefined。 */
   async listPresets() {
@@ -3859,21 +4097,45 @@ var AgentBridge = class _AgentBridge {
       return void 0;
     }
     const agentOptions = { provider: selection.provider, model: selection.model };
-    const setup = (agentCtx) => {
-      agentCtx.on("system-prompt/assemble", async (_assembly, _context, next) => {
-        const assembled = await next();
-        return {
-          ...assembled,
-          variables: { ...assembled?.variables ?? {}, provider: selection.provider, model: selection.model }
-        };
-      });
+    const setup = async (agentCtx, agent) => {
+      await this.installSelection(agentCtx, agent);
     };
     return { agentOptions, setup };
   }
+  async installSelection(agentCtx, agent) {
+    if (this.selections.has(agent) || !agentCtx) return;
+    const ref = { current: this.currentModel(), assembled: void 0 };
+    this.selectionApi ??= (async () => {
+      const resolver = createRequire(realpathSync(process.argv[1]));
+      return import(pathToFileURL(resolver.resolve("@deepseek-ai/dsh-agent")).href);
+    })();
+    const api = await this.selectionApi;
+    if (typeof api.installModelSelection !== "function") throw new Error("dsh installModelSelection API unavailable");
+    const stop = api.installModelSelection(agentCtx, ref);
+    this.ctx.effect?.(() => stop(), "yusheng-voice: model selection");
+    this.selections.set(agent, ref);
+  }
   async agentFor(deviceKey, presetId) {
-    const cacheKey = presetId === "" ? deviceKey : `${deviceKey}::${presetId}`;
+    const cacheKey = this.cacheKey(deviceKey, presetId);
+    const pending = this.preparing.get(cacheKey);
+    if (pending) return pending;
+    const operation = this.prepareAgent(deviceKey, presetId, cacheKey);
+    this.preparing.set(cacheKey, operation);
+    try {
+      return await operation;
+    } finally {
+      this.preparing.delete(cacheKey);
+    }
+  }
+  async prepareAgent(deviceKey, presetId, cacheKey) {
     const cached = this.agentsBySession.get(cacheKey);
     if (cached !== void 0) return cached;
+    const presets = this.ctx.get("agentPresets");
+    if (presetId && presets?.compositionInventory) {
+      const inventory = await presets.compositionInventory();
+      const selected = inventory.find((item) => item.id === presetId);
+      if (!selected || selected.broken) throw new VoiceError("invalid_preset", "\u6307\u5B9A\u7684\u4F1A\u8BDD\u6A21\u5F0F\u4E0D\u5B58\u5728\u6216\u4E0D\u53EF\u7528");
+    }
     const cwd = await this.resolveCwd();
     const model = this.modelSetup();
     const derived = _AgentBridge.sessionIdFor(deviceKey, presetId);
@@ -3904,7 +4166,7 @@ var AgentBridge = class _AgentBridge {
         const notFound = error?.code === "SESSION_QUERY_SESSION_NOT_FOUND" || message.includes("SESSION_QUERY_SESSION_NOT_FOUND") || message.toLowerCase().includes("not found");
         if (notFound) continue;
         persisted = true;
-        this.ctx.logger?.warn?.(`yusheng-voice: observeSession("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`);
+        this.warn(`observeSession("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`);
       }
       if (!persisted) continue;
       existed.add(sessionId);
@@ -3914,24 +4176,24 @@ var AgentBridge = class _AgentBridge {
         this.recordAdoption(cacheKey, sessionId);
         break;
       } catch (error) {
-        this.ctx.logger?.warn?.(`yusheng-voice: resume("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`);
+        this.warn(`resume("${sessionId}") failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     let created = false;
     if (agent === void 0) {
-      const createId = existed.has(derived) ? `${derived}-r${Date.now().toString(36).slice(-4)}` : derived;
+      const createId = existed.has(derived) ? `${derived}-r${randomUUID2().slice(0, 8)}` : derived;
       const createdAgent = await this.agents.create({ sessionId: createId, meta: { cwd }, ...model ?? {} });
       agent = createdAgent?.agent ?? createdAgent;
       created = true;
       this.recordAdoption(cacheKey, createId);
     }
     if (created) {
-      const presets = this.ctx.get("agentPresets");
-      if (presets !== void 0) {
+      const presets2 = this.ctx.get("agentPresets");
+      if (presets2 !== void 0) {
         let toApply = presetId;
         if (toApply === "") {
           try {
-            const inventory = await presets.compositionInventory();
+            const inventory = await presets2.compositionInventory();
             const def = (inventory ?? []).find((record) => record.isDefault === true);
             if (def !== void 0) toApply = String(def.id);
           } catch {
@@ -3939,14 +4201,15 @@ var AgentBridge = class _AgentBridge {
         }
         if (toApply !== "") {
           try {
-            await presets.select(agent, toApply);
+            await presets2.select(agent, toApply);
           } catch (error) {
-            this.ctx.logger?.warn?.(`yusheng-voice: cannot select agent preset "${toApply}": ${error instanceof Error ? error.message : String(error)}`);
+            throw new VoiceError("preset_failed", `\u65E0\u6CD5\u5E94\u7528\u4F1A\u8BDD\u6A21\u5F0F ${toApply}: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       }
     }
     this.applyFullAccess(agent);
+    await this.installSelection(agent.ctx, agent);
     this.agentsBySession.set(cacheKey, agent);
     return agent;
   }
@@ -3963,80 +4226,126 @@ var AgentBridge = class _AgentBridge {
     try {
       presets.set(agent.session, "danger-full-access");
     } catch (error) {
-      this.ctx.logger?.warn?.(`yusheng-voice: cannot apply danger-full-access preset: ${error instanceof Error ? error.message : String(error)}`);
+      this.warn(`cannot apply danger-full-access preset: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   /** 释放缓存引用（连接关闭时调用；会话日志持久化，下次可 resume）。 */
   release(deviceKey) {
-    for (const key of [...this.agentsBySession.keys()]) {
-      if (key === deviceKey || key.startsWith(`${deviceKey}::`)) this.agentsBySession.delete(key);
-    }
+    for (const key of this.agentsBySession.keys()) if (JSON.parse(key)[0] === deviceKey && !this.leases.has(key)) this.agentsBySession.delete(key);
   }
   /** 提交一轮用户消息并跟踪该 agent 的实时文本增量直至收敛。 */
-  async turn(deviceKey, text, callbacks, presetId = "") {
-    const agent = await this.agentFor(deviceKey, presetId);
-    let cancelled = false;
-    let failure;
-    const stopStream = this.ctx.on("agent/assistant-stream", ({ agent: subject, frame }) => {
+  async turn(deviceKey, text2, callbacks, presetId = "", options = {}) {
+    const key = this.cacheKey(deviceKey, presetId);
+    options.signal?.throwIfAborted();
+    if (this.leases.has(key)) throw new VoiceError("session_busy", "\u4F1A\u8BDD\u4ECD\u5728\u6267\u884C\u6216\u53D6\u6D88\u6536\u5C3E\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5");
+    this.leases.add(key);
+    let agent;
+    try {
+      agent = await this.agentFor(deviceKey, presetId);
+      options.signal?.throwIfAborted();
+      if (this.agentLeases.has(agent) || agent.status !== void 0 && agent.status !== "idle") throw new VoiceError("session_busy", "\u5BBF\u4E3B\u4F1A\u8BDD\u5C1A\u672A\u7A7A\u95F2");
+    } catch (e) {
+      this.leases.delete(key);
+      throw e;
+    }
+    this.agentLeases.add(agent);
+    const selection = this.selections.get(agent);
+    if (selection) selection.current = this.currentModel();
+    let cancelled = false, failure, fullText = "";
+    const stops = [];
+    const toolStops = [];
+    const detach = () => {
+      for (const stop of stops.splice(0)) stop();
+    };
+    const local = new AbortController();
+    const cancel = () => {
+      if (cancelled) return;
+      cancelled = true;
+      detach();
+      local.abort();
+      try {
+        if (agent.cancel) agent.cancel({ kind: "user" });
+        else Promise.resolve(agent.abort?.("yusheng-voice: cancelled")).catch(() => void 0);
+      } catch {
+      }
+    };
+    options.signal?.addEventListener("abort", cancel, { once: true });
+    stops.push(this.ctx.on("agent/assistant-stream", ({ agent: subject, frame }) => {
       if (subject !== agent || cancelled) return;
       const chunk = frame?.chunk;
-      if (chunk?.type === "text-delta" && typeof chunk.text === "string" && chunk.text !== "") {
+      if (chunk?.type === "tool-call-delta" && chunk.name) callbacks.onActivity?.({ state: "tool", toolCallId: String(chunk.id).slice(0, 128), name: String(chunk.name).slice(0, 128) });
+      if (chunk?.type === "text-delta" && typeof chunk.text === "string" && chunk.text) {
+        fullText = (fullText + chunk.text).slice(-64e3);
         callbacks.onTextDelta(chunk.text);
       }
-    });
-    const stopErrors = this.ctx.on("agent/error", ({ agent: subject, error }) => {
-      if (subject === agent) failure = { error };
-    });
-    const done = (async () => {
+    }));
+    stops.push(this.ctx.on("agent/error", ({ agent: subject, error }) => {
+      if (subject === agent) failure = error;
+    }));
+    stops.push(this.ctx.on("agent/status", ({ agent: subject, status }) => {
+      if (subject === agent && !cancelled) callbacks.onActivity?.({ state: status });
+    }));
+    const execution = (async () => {
       try {
-        agent.followup({
-          content: [{ type: "text", text }],
-          source: { kind: "user" }
-        });
-        while (!cancelled) {
+        if (callbacks.onClientEffect && options.presentation) {
+          const tools = agent.ctx?.get("tools");
+          if (!tools?.register) throw new VoiceError("client_tools_unavailable", "\u5BBF\u4E3B\u4E0D\u63D0\u4F9B\u4F1A\u8BDD\u5DE5\u5177\u6CE8\u518C\u63A5\u53E3");
+          for (const definition of interactionTools(options.presentation, options.capabilities ?? [], callbacks.onClientEffect, (exec) => {
+            if (exec.agent !== agent) throw new VoiceError("wrong_agent", "\u8868\u73B0\u5DE5\u5177\u4EC5\u4F9B\u5F53\u524D\u8BED\u97F3\u4F1A\u8BDD\u4F7F\u7528");
+            if (cancelled) throw new VoiceError("cancelled", "\u672C\u8F6E\u5DF2\u53D6\u6D88");
+            options.signal?.throwIfAborted();
+          })) toolStops.push(tools.register(definition));
+        }
+        const sessionId = this.sessionId(deviceKey, presetId);
+        const first = !this.prefixedSessions.has(sessionId);
+        const style = first && options.promptPrefix?.trim() ? `${options.promptPrefix.trim()}
+
+` : "";
+        const client = toolStops.length ? `\u5BA2\u6237\u7AEF\u80FD\u529B\uFF1A${JSON.stringify(options.presentation)}\u3002\u53EF\u4F7F\u7528 voice_present \u8868\u8FBE\u8868\u60C5\u52A8\u4F5C\uFF0Cvoice_ui \u5C55\u793A\u754C\u9762\uFF08\u4EC5\u5DF2\u6CE8\u518C\u7684\u5DE5\u5177\u53EF\u7528\uFF09\u3002\u754C\u9762\u64CD\u4F5C\u4F1A\u4F5C\u4E3A\u540E\u7EED\u7528\u6237\u6D88\u606F\u8FD4\u56DE\u3002
+
+` : "";
+        const prompt = `${style}${client}${style || client ? "\u7528\u6237\u8BF4\uFF1A" : ""}${text2}`;
+        await agent.followup({ id: randomUUID2(), role: "user", content: [{ type: "text", text: prompt }], source: { kind: "user" } });
+        if (first) {
+          this.prefixedSessions.add(sessionId);
+          this.persistIndex();
+        }
+        while (true) {
           await agent.whenIdle();
-          const subagents = this.ctx.get("subagents");
-          const settled = subagents?.waitForChildren ? await subagents.waitForChildren(agent) : true;
-          if (!settled && agent.status !== "idle") continue;
-          break;
+          if (cancelled) break;
+          const children = this.ctx.get("subagents");
+          const joined = children?.waitForChildren ? await children.waitForChildren(agent) : false;
+          if (!joined && (agent.status === void 0 || agent.status === "idle")) break;
         }
-        await this.sessions.flush(agent.session).catch(() => void 0);
-        if (cancelled) {
-          const result2 = { kind: "cancelled", text: "" };
-          callbacks.onEnd(result2);
-          return result2;
-        }
-        if (failure !== void 0) {
-          const error = failure.error instanceof Error ? failure.error.message : String(failure.error);
-          const result2 = { kind: "error", text: "", error };
-          callbacks.onEnd(result2);
-          return result2;
-        }
-        const result = { kind: "completed", text: "" };
-        callbacks.onEnd(result);
-        return result;
+        await this.sessions.flush(agent.session);
+        if (failure !== void 0) throw failure;
+        return { kind: "completed", text: fullText };
+      } catch (e) {
+        return { kind: "error", text: fullText, error: e instanceof Error ? e.message : String(e) };
       } finally {
-        stopStream();
-        stopErrors();
+        detach();
+        options.signal?.removeEventListener("abort", cancel);
+        for (const stop of toolStops.splice(0)) stop();
+        this.leases.delete(key);
+        this.agentLeases.delete(agent);
+        this.agentsBySession.delete(key);
       }
     })();
-    return {
-      cancel: () => {
-        if (cancelled) return;
-        cancelled = true;
-        try {
-          agent.abort?.("yusheng-voice: user aborted");
-        } catch {
-        }
-      },
-      done
-    };
+    const done = abortable(execution, local.signal).catch(() => ({ kind: "cancelled", text: fullText })).then((result) => {
+      callbacks.onEnd(result);
+      return result;
+    });
+    return { sessionId: this.sessionId(deviceKey, presetId), cancel, done };
   }
 };
 
 // src/server.ts
-import { Buffer as Buffer5 } from "node:buffer";
+import { Buffer as Buffer8 } from "node:buffer";
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync4, renameSync as renameSync4 } from "node:fs";
+import { dirname as dirname4, resolve as resolve2 } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);
@@ -4049,10 +4358,10 @@ var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // src/connection.ts
-import { Buffer as Buffer4 } from "node:buffer";
+import { Buffer as Buffer7 } from "node:buffer";
 
 // src/asr.ts
-import { Buffer as Buffer2 } from "node:buffer";
+import { Buffer as Buffer3 } from "node:buffer";
 var ASR_ENDPOINT = "https://api.minimax.cn/v1/speech_to_text";
 var AsrError = class extends Error {
   code;
@@ -4064,7 +4373,7 @@ var AsrError = class extends Error {
 function pcmToWav(pcm, sampleRate = 16e3, channels = 1, bitsPerSample = 16) {
   const blockAlign = channels * bitsPerSample / 8;
   const byteRate = sampleRate * blockAlign;
-  const header = Buffer2.alloc(44);
+  const header = Buffer3.alloc(44);
   header.write("RIFF", 0);
   header.writeUInt32LE(36 + pcm.length, 4);
   header.write("WAVE", 8);
@@ -4078,7 +4387,7 @@ function pcmToWav(pcm, sampleRate = 16e3, channels = 1, bitsPerSample = 16) {
   header.writeUInt16LE(bitsPerSample, 34);
   header.write("data", 36);
   header.writeUInt32LE(pcm.length, 40);
-  return Buffer2.concat([header, pcm]);
+  return Buffer3.concat([header, pcm]);
 }
 async function transcribePcm(pcm, options) {
   const model = options.model || "asr-1.0";
@@ -4096,7 +4405,7 @@ async function transcribePcm(pcm, options) {
       method: "POST",
       headers: { Authorization: `Bearer ${options.apiKey}` },
       body: form,
-      signal: AbortSignal.timeout(timeoutMs)
+      signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs)
     });
   } catch (error) {
     throw new AsrError("network", `\u8BED\u97F3\u8BC6\u522B\u8BF7\u6C42\u5931\u8D25\uFF1A${String(error)}`);
@@ -4114,12 +4423,14 @@ async function transcribePcm(pcm, options) {
   if (payload?.base_resp?.status_code !== void 0 && payload.base_resp.status_code !== 0) {
     throw new AsrError("api_" + String(payload.base_resp.status_code), `\u8BED\u97F3\u8BC6\u522B\u4E1A\u52A1\u9519\u8BEF\uFF1A${String(payload.base_resp.status_msg)}`);
   }
-  const text = typeof payload?.text === "string" ? payload.text : "";
-  return text.trim();
+  if (typeof payload?.text !== "string") throw new AsrError("bad_response", "\u8BED\u97F3\u8BC6\u522B\u54CD\u5E94\u7F3A\u5C11 text \u5B57\u6BB5");
+  const text2 = payload.text;
+  return text2.trim();
 }
 
 // src/tts.ts
-import { Buffer as Buffer3 } from "node:buffer";
+import { Buffer as Buffer4 } from "node:buffer";
+import { createHash as createHash2 } from "node:crypto";
 var TTS_SAMPLE_RATE = 24e3;
 var TTS_FRAME_BYTES = TTS_SAMPLE_RATE * 2 * 40 / 1e3;
 var TtsError = class extends Error {
@@ -4130,12 +4441,13 @@ var TtsError = class extends Error {
   }
 };
 var TTS_ENDPOINT = "https://api.minimax.cn/v1/t2a_v2";
-async function* synthesizeStream(text, options) {
+async function* synthesizeStream(text2, options) {
   const apiKey = options.apiKey;
   if (apiKey === "") throw new TtsError("no_api_key", "minimax API key \u672A\u914D\u7F6E\uFF08\u8BBE\u7F6E\u9762\u677F \u2192 MiniMax \u51ED\u636E\uFF09");
+  const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(6e4)]) : AbortSignal.timeout(6e4);
   const body = {
     model: options.model || "speech-2.8-turbo",
-    text,
+    text: text2,
     stream: true,
     voice_setting: {
       voice_id: options.voiceId || "female-shaonv",
@@ -4160,7 +4472,7 @@ async function* synthesizeStream(text, options) {
         Accept: "text/event-stream"
       },
       body: JSON.stringify(body),
-      signal: options.signal
+      signal
     });
   } catch (error) {
     if (options.signal?.aborted) return;
@@ -4175,24 +4487,33 @@ async function* synthesizeStream(text, options) {
   let buffer = "";
   let finished = false;
   let yieldedBytes = 0;
+  const emittedHash = createHash2("sha256");
   try {
     while (!finished) {
       if (options.signal?.aborted) return;
       const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      if (done) {
+        if (buffer.trim()) buffer += "\n";
+        else break;
+      }
+      if (value) buffer += decoder.decode(value, { stream: true });
+      if (buffer.length > 17 * 1024 * 1024) throw new TtsError("bad_response", "\u8BED\u97F3\u5408\u6210\u4E8B\u4EF6\u8D85\u8FC7\u5927\u5C0F\u4E0A\u9650");
       let newlineIndex;
       while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, newlineIndex).trim();
         buffer = buffer.slice(newlineIndex + 1);
         if (!line.startsWith("data:")) continue;
         const payloadText = line.slice(5).trim();
-        if (payloadText === "" || payloadText === "[DONE]") continue;
+        if (payloadText === "") continue;
+        if (payloadText === "[DONE]") {
+          finished = true;
+          continue;
+        }
         let payload;
         try {
           payload = JSON.parse(payloadText);
         } catch {
-          continue;
+          throw new TtsError("bad_response", "\u8BED\u97F3\u5408\u6210\u8FD4\u56DE\u4E86\u65E0\u6548\u7684 SSE JSON");
         }
         if (payload?.base_resp?.status_code !== void 0 && payload.base_resp.status_code !== 0) {
           throw new TtsError(
@@ -4202,16 +4523,21 @@ async function* synthesizeStream(text, options) {
         }
         const audioHex = payload?.data?.audio;
         if (typeof audioHex === "string" && audioHex !== "") {
-          const chunk = Buffer3.from(audioHex, "hex");
-          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes;
-          if (chunk.length > 0 && !isFullRecap) {
+          if (audioHex.length > 16 * 1024 * 1024 || audioHex.length % 2 || !/^[0-9a-f]+$/i.test(audioHex)) throw new TtsError("bad_audio", "\u8BED\u97F3\u5408\u6210\u8FD4\u56DE\u4E86\u65E0\u6548\u97F3\u9891\u7F16\u7801");
+          let chunk = Buffer4.from(audioHex, "hex");
+          const isFullRecap = payload?.data?.status === 2 && yieldedBytes > 0 && chunk.length >= yieldedBytes && createHash2("sha256").update(chunk.subarray(0, yieldedBytes)).digest("hex") === emittedHash.copy().digest("hex");
+          if (isFullRecap) chunk = chunk.subarray(yieldedBytes);
+          if (chunk.length > 0) {
             yieldedBytes += chunk.length;
+            emittedHash.update(chunk);
             yield chunk;
           }
         }
         if (payload?.data?.status === 2) finished = true;
       }
+      if (done) break;
     }
+    if (!finished && !options.signal?.aborted) throw new TtsError("incomplete_audio", "\u8BED\u97F3\u5408\u6210\u6D41\u672A\u6B63\u5E38\u7ED3\u675F");
   } catch (error) {
     if (options.signal?.aborted) return;
     if (error instanceof TtsError) throw error;
@@ -4224,435 +4550,772 @@ async function* synthesizeStream(text, options) {
   }
 }
 
+// src/audio.ts
+import { Buffer as Buffer5 } from "node:buffer";
+var FRAME_BYTES = 1920;
+var QUEUE_BYTES = SAMPLE_RATE_OUT * 2 * 5;
+var SOCKET_BYTES = 256 * 1024;
+var AudioSender = class {
+  constructor(ws, signal, streamId, framed, clientBuffered = () => 0) {
+    this.ws = ws;
+    this.signal = signal;
+    this.streamId = streamId;
+    this.framed = framed;
+    this.clientBuffered = clientBuffered;
+    this.worker = this.run().catch((error) => {
+      this.failure = error;
+      this.wake();
+    });
+    signal.addEventListener("abort", () => this.wake(), { once: true });
+  }
+  items = [];
+  bytes = 0;
+  tail = Buffer5.alloc(0);
+  ending = false;
+  waiters = /* @__PURE__ */ new Set();
+  worker;
+  failure;
+  sequence = 0;
+  sentSamples = 0;
+  queuedSamples = 0;
+  firstSentAt;
+  wake() {
+    for (const fn of [...this.waiters]) fn();
+  }
+  check() {
+    this.signal.throwIfAborted();
+    if (this.failure) throw this.failure;
+    if (this.ws.readyState !== 1) throw new VoiceError("disconnected", "\u8FDE\u63A5\u5DF2\u5173\u95ED");
+  }
+  changed() {
+    return new Promise((resolve4) => {
+      const fn = () => {
+        this.waiters.delete(fn);
+        resolve4();
+      };
+      this.waiters.add(fn);
+    });
+  }
+  mark(marker) {
+    this.check();
+    this.items.push({ marker });
+    this.wake();
+  }
+  async push(chunk) {
+    this.check();
+    if (chunk.length > 8 * 1024 * 1024) throw new VoiceError("audio_overflow", "\u5408\u6210\u97F3\u9891\u5757\u8FC7\u5927");
+    const data = this.tail.length ? Buffer5.concat([this.tail, chunk]) : chunk;
+    let offset = 0;
+    while (data.length - offset >= FRAME_BYTES) {
+      while (this.bytes >= QUEUE_BYTES) {
+        this.check();
+        await this.changed();
+      }
+      this.check();
+      const frame = Buffer5.from(data.subarray(offset, offset + FRAME_BYTES));
+      this.items.push({ audio: frame });
+      this.bytes += frame.length;
+      this.queuedSamples += frame.length / 2;
+      offset += FRAME_BYTES;
+      this.wake();
+    }
+    this.tail = Buffer5.from(data.subarray(offset));
+  }
+  /** Flush each sentence's short tail before its next boundary marker. */
+  flushSentence() {
+    this.check();
+    if (this.tail.length % 2) throw new VoiceError("bad_audio", "PCM \u6570\u636E\u672A\u5BF9\u9F50 16 \u4F4D\u91C7\u6837");
+    if (this.tail.length) {
+      this.items.push({ audio: this.tail });
+      this.bytes += this.tail.length;
+      this.queuedSamples += this.tail.length / 2;
+      this.tail = Buffer5.alloc(0);
+      this.wake();
+    }
+  }
+  async finish() {
+    this.flushSentence();
+    this.ending = true;
+    this.wake();
+    await this.worker;
+    this.check();
+  }
+  async run() {
+    let nextSend = Date.now();
+    while (!this.signal.aborted) {
+      if (!this.items.length) {
+        if (this.ending) return;
+        await this.changed();
+        nextSend = Date.now();
+        continue;
+      }
+      this.check();
+      const item = this.items.shift();
+      if ("marker" in item) {
+        item.marker();
+        continue;
+      }
+      while ((this.ws.bufferedAmount ?? 0) > SOCKET_BYTES || this.clientBuffered() > SAMPLE_RATE_OUT * 2) await delay(20, this.signal);
+      await delay(Math.max(0, nextSend - Date.now()), this.signal);
+      this.check();
+      const pcm = item.audio;
+      this.firstSentAt ??= Date.now();
+      if (this.framed) {
+        const header = Buffer5.alloc(24);
+        header.write("YSV2");
+        header.writeUInt32LE(this.streamId, 4);
+        header.writeUInt32LE(this.sequence++, 8);
+        header.writeDoubleLE(this.sentSamples, 12);
+        header.writeUInt32LE(pcm.length, 20);
+        this.ws.send(Buffer5.concat([header, pcm]));
+      } else this.ws.send(pcm);
+      this.sentSamples += pcm.length / 2;
+      this.bytes -= pcm.length;
+      this.wake();
+      nextSend = Math.max(nextSend, Date.now()) + pcm.length / (SAMPLE_RATE_OUT * 2) * 1e3;
+    }
+    this.items = [];
+    this.tail = Buffer5.alloc(0);
+    this.bytes = 0;
+  }
+};
+
+// src/surface.ts
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, renameSync as renameSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname2 } from "node:path";
+import { Buffer as Buffer6 } from "node:buffer";
+var SurfaceStore = class {
+  constructor(path) {
+    this.path = path;
+    if (path && existsSync2(path)) {
+      const raw = JSON.parse(readFileSync2(path, "utf8"));
+      if (!raw || typeof raw !== "object" || Array.isArray(raw) || Buffer6.byteLength(JSON.stringify(raw)) > 4 * 1024 * 1024) throw new Error("invalid voice UI registry");
+      this.scopes = raw;
+    }
+  }
+  scopes = /* @__PURE__ */ Object.create(null);
+  static key(deviceId, conversationId, preset) {
+    return JSON.stringify([deviceId, conversationId, preset]);
+  }
+  view(entry) {
+    const { actions, expiresInMs, ...component2 } = entry.component;
+    return { ...component2, ...actions ? { actions: actions.map(({ id: id2, label }) => ({ id: id2, label })) } : {}, revision: entry.revision, expiresAt: entry.expiresAt, disabled: entry.disabled, instanceId: entry.instanceId };
+  }
+  snapshot(key) {
+    return Object.values(this.scopes[key]?.components ?? {}).filter((e) => e.expiresAt > Date.now()).map((e) => this.view(e));
+  }
+  save(key, scope) {
+    const next = { ...this.scopes, [key]: scope };
+    for (const [k, s] of Object.entries(next)) if (k !== key && Object.values(s.components).every((e) => e.expiresAt <= Date.now())) delete next[k];
+    const data = JSON.stringify(next);
+    if (Object.keys(next).length > 256 || Buffer6.byteLength(data) > 4 * 1024 * 1024) throw new VoiceError("ui_overflow", "UI \u72B6\u6001\u8D85\u8FC7\u5BB9\u91CF\u4E0A\u9650");
+    if (this.path) {
+      mkdirSync2(dirname2(this.path), { recursive: true });
+      const temp = `${this.path}.${newId()}.tmp`;
+      writeFileSync2(temp, data, { mode: 384 });
+      renameSync2(temp, this.path);
+    }
+    this.scopes = next;
+  }
+  render(key, component2, turnId) {
+    const original = this.scopes[key] ?? { revision: 0, components: {} };
+    const components = Object.fromEntries(Object.entries(original.components).filter(([, e]) => e.expiresAt > Date.now()));
+    if (!Object.hasOwn(components, component2.id) && Object.keys(components).length >= 16) throw new VoiceError("ui_overflow", "\u5355\u4E2A\u5BF9\u8BDD\u6700\u591A\u4FDD\u7559 16 \u4E2A\u7EC4\u4EF6");
+    const entry = { component: structuredClone(component2), revision: original.revision + 1, expiresAt: Date.now() + component2.expiresInMs, disabled: false, turnId, instanceId: newId() };
+    components[component2.id] = entry;
+    this.save(key, { revision: entry.revision, components });
+    return this.view(entry);
+  }
+  remove(key, id2, revision, instanceId) {
+    const scope = this.scopes[key], entry = scope && Object.hasOwn(scope.components, id2) ? scope.components[id2] : void 0;
+    if (!entry) return;
+    if (revision !== void 0 && entry.revision !== revision) throw new VoiceError("stale_ui", "\u7EC4\u4EF6\u5DF2\u66F4\u65B0");
+    if (instanceId !== void 0 && entry.instanceId !== instanceId) throw new VoiceError("stale_ui", "\u7EC4\u4EF6\u5B9E\u4F8B\u5DF2\u53D8\u5316");
+    const components = { ...scope.components };
+    delete components[id2];
+    const next = scope.revision + 1;
+    this.save(key, { revision: next, components });
+    return next;
+  }
+  invalidateTurn(key, turnId) {
+    const scope = this.scopes[key];
+    if (!scope) return [];
+    const removed = [], components = { ...scope.components };
+    let revision = scope.revision;
+    for (const [id2, e] of Object.entries(components)) if (e.turnId === turnId) {
+      delete components[id2];
+      removed.push({ componentId: id2, revision: ++revision });
+    }
+    if (removed.length) this.save(key, { revision, components });
+    return removed;
+  }
+  prepare(key, id2, revision, instanceId, actionId, values) {
+    const entry = this.scopes[key]?.components[id2];
+    if (!entry || entry.expiresAt <= Date.now() || entry.revision !== revision || entry.instanceId !== instanceId || entry.disabled) throw new VoiceError("stale_ui", "\u7EC4\u4EF6\u5DF2\u8FC7\u671F\u3001\u66F4\u65B0\u6216\u88AB\u63D0\u4EA4");
+    const action = entry.component.actions?.find((a) => a.id === actionId);
+    if (!action) throw new VoiceError("bad_ui_action", "\u64CD\u4F5C\u4E0D\u5B58\u5728");
+    const parsed = formValues(entry.component.fields, values);
+    const text2 = `\u7528\u6237\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u4E86\u300C${entry.component.title}\u300D\u4E2D\u7684\u300C${action.label}\u300D\u3002
+${action.prompt}${Object.keys(parsed).length ? `
+\u7528\u6237\u63D0\u4EA4\u7684\u6570\u636E\uFF1A${JSON.stringify(parsed)}` : ""}`;
+    return { text: text2, consume: () => {
+      const current = this.scopes[key];
+      if (current?.components[id2] !== entry) throw new VoiceError("stale_ui", "\u7EC4\u4EF6\u5DF2\u66F4\u65B0");
+      const changed = { ...entry, disabled: true, revision: current.revision + 1 };
+      this.save(key, { revision: changed.revision, components: { ...current.components, [id2]: changed } });
+      return this.view(changed);
+    } };
+  }
+};
+
 // src/connection.ts
-var PROTOCOL_VERSION = 1;
-var SAMPLE_RATE_IN = 16e3;
-var SAMPLE_RATE_OUT = 24e3;
-var MAX_CAPTURE_MS = 12e4;
-var DRAIN_MS = 3e4;
-var sleep = (ms) => new Promise((resolve3) => {
-  const timer = setTimeout(resolve3, ms);
-  if (typeof timer.unref === "function") timer.unref();
-});
-function createPacedSender(ws) {
-  const PREBUFFER_FRAMES = 6;
-  const TICK_MS = 40;
-  let frames = [];
-  let timer;
-  let closed = false;
-  let finishing = false;
-  let waiters = [];
-  const stopTimer = () => {
-    if (timer !== void 0) {
-      clearInterval(timer);
-      timer = void 0;
-    }
-  };
-  const wake = () => {
-    const pending = waiters.splice(0);
-    for (const resolve3 of pending) resolve3();
-  };
-  const start = () => {
-    if (timer !== void 0 || closed) return;
-    timer = setInterval(() => {
-      if (closed || ws.readyState !== 1) {
-        stopTimer();
-        if (finishing) wake();
-        return;
-      }
-      const frame = frames.shift();
-      if (frame === void 0) {
-        stopTimer();
-        if (finishing) wake();
-        return;
-      }
-      ws.send(frame);
-    }, TICK_MS);
-    if (typeof timer.unref === "function") timer.unref();
-  };
-  return {
-    push(chunk) {
-      if (closed) return;
-      let offset = 0;
-      while (offset < chunk.length) {
-        const end = Math.min(offset + TTS_FRAME_BYTES, chunk.length);
-        frames.push(chunk.subarray(offset, end));
-        offset = end;
-      }
-      if (frames.length >= PREBUFFER_FRAMES && timer === void 0) start();
-    },
-    async finish() {
-      if (closed) return;
-      finishing = true;
-      if (frames.length === 0 && timer === void 0) return;
-      start();
-      await new Promise((resolve3) => waiters.push(resolve3));
-    },
-    stop() {
-      closed = true;
-      stopTimer();
-      frames = [];
-      wake();
-    }
-  };
-}
 var SentenceQueue = class {
   pending = [];
+  size = 0;
   closed = false;
-  waiters = [];
-  push(sentence) {
-    if (this.closed || sentence === "") return;
-    this.pending.push(sentence);
-    this.wake();
+  wake;
+  push(text2) {
+    if (!text2 || this.closed) return;
+    if (this.size + text2.length > 32e3) throw new VoiceError("output_overflow", "\u5F85\u64AD\u62A5\u6587\u672C\u8D85\u8FC7\u7F13\u51B2\u4E0A\u9650");
+    this.pending.push(text2);
+    this.size += text2.length;
+    this.wake?.();
   }
   close() {
     this.closed = true;
-    this.wake();
-  }
-  wake() {
-    while (this.waiters.length > 0) {
-      const resolve3 = this.waiters.shift();
-      if (resolve3 !== void 0) resolve3();
-    }
+    this.wake?.();
   }
   async next() {
-    while (true) {
-      const sentence = this.pending.shift();
-      if (sentence !== void 0) return sentence;
-      if (this.closed) return null;
-      await new Promise((resolve3) => this.waiters.push(resolve3));
-    }
+    while (!this.pending.length && !this.closed) await new Promise((resolve4) => {
+      this.wake = resolve4;
+    });
+    const text2 = this.pending.shift();
+    if (text2) this.size -= text2.length;
+    return text2;
   }
 };
 var VoiceConnection = class {
-  deps;
-  ws;
-  state = "init";
-  deviceId = "";
-  deviceName = "";
-  pcmChunks = [];
-  pcmBytes = 0;
-  turnCount = 0;
-  activeTurn;
-  activeTtsAbort;
-  activeSender;
   constructor(ws, deps) {
     this.ws = ws;
     this.deps = deps;
+    this.surface = deps.surface ?? new SurfaceStore();
   }
+  state = "init";
+  version = 1;
+  capabilities = /* @__PURE__ */ new Set();
+  conversationId = "";
+  active;
+  streamNumber = 0;
+  requests = /* @__PURE__ */ new Map();
+  playback = /* @__PURE__ */ new Map();
+  presentation = support(void 0);
+  surface;
+  presentationSequence = 0;
+  waitingPlayback;
+  connectionId = newId();
+  deviceId = "";
+  deviceName = "";
   describe() {
-    return { deviceId: this.deviceId, deviceName: this.deviceName, state: this.state };
+    return { connectionId: this.connectionId, deviceId: this.deviceId, deviceName: this.deviceName, conversationId: this.conversationId, state: this.state, version: this.version, turnId: this.active?.id };
   }
-  sendJson(value) {
-    if (this.ws.readyState !== 1) return;
-    this.ws.send(JSON.stringify(value));
-  }
-  sendError(code, message) {
-    this.sendJson({ type: "error", code, message });
-  }
-  /** 文本消息入口。 */
-  handleMessage(raw) {
-    let message;
+  send(value, turn) {
+    if (this.state === "closed" || this.ws.readyState !== 1 || turn && !this.current(turn)) return;
+    const envelope = this.version === 2 ? { ...value, connectionId: this.connectionId, ...turn ? { turnId: turn.id, requestId: turn.requestId, conversationId: turn.conversationId, streamId: turn.streamId } : {} } : value;
     try {
-      message = JSON.parse(raw);
+      this.ws.send(JSON.stringify(envelope));
     } catch {
-      this.sendError("bad_json", "\u6D88\u606F\u4E0D\u662F\u5408\u6CD5 JSON");
-      return;
-    }
-    switch (message?.type) {
-      case "hello":
-        this.handleHello(message);
-        return;
-      case "listen":
-        this.handleListen(message);
-        return;
-      case "query":
-        this.handleQuery(message);
-        return;
-      case "speak":
-        this.handleSpeak(message);
-        return;
-      case "abort":
-        this.handleAbort();
-        return;
-      case "ping":
-        this.sendJson({ type: "pong", time: typeof message.time === "number" ? message.time : Date.now() });
-        return;
-      default:
-        this.sendError("unknown_type", `\u672A\u77E5\u6D88\u606F type\uFF1A${String(message?.type)}`);
+      this.handleClosed();
     }
   }
-  requireReady() {
-    if (this.state === "init") {
-      this.sendError("no_hello", "\u8BF7\u5148\u53D1\u9001 hello");
-      return false;
-    }
-    return true;
+  error(code, message, turn, requestId) {
+    this.send({ type: "error", code, message, ...this.version === 2 && typeof requestId === "string" ? { requestId } : {} }, turn);
   }
-  requireIdle() {
-    if (this.state === "busy") {
-      this.sendError("busy", "\u4E0A\u4E00\u8F6E\u5C1A\u672A\u7ED3\u675F\uFF0C\u5148\u53D1\u9001 abort");
-      return false;
-    }
-    return true;
+  event(type, data, turn) {
+    if (this.version === 2) this.send({ type, ...data }, turn);
   }
-  handleHello(message) {
-    if (this.state !== "init") {
-      this.sendError("already_hello", "hello \u53EA\u80FD\u53D1\u9001\u4E00\u6B21");
-      return;
+  current(turn) {
+    return this.active === turn && !turn.ended && !turn.controller.signal.aborted;
+  }
+  handleMessage(raw) {
+    if (this.state === "closed") return;
+    let m;
+    try {
+      if (Buffer7.byteLength(raw) > 32 * 1024) throw new VoiceError("message_too_large", "\u63A7\u5236\u6D88\u606F\u8D85\u8FC7 32KiB");
+      m = JSON.parse(raw);
+      if (!m || typeof m !== "object" || Array.isArray(m)) throw new VoiceError("bad_message", "\u6D88\u606F\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
+      if (m.type === "hello") {
+        this.hello(m);
+        return;
+      }
+      if (m.type === "ping") {
+        this.send({ type: "pong", time: typeof m.time === "number" ? m.time : Date.now() });
+        return;
+      }
+      if (this.state === "init") throw new VoiceError("no_hello", "\u8BF7\u5148\u53D1\u9001 hello");
+      switch (m.type) {
+        case "abort":
+        case "turn.cancel":
+          this.handleAbort(m);
+          break;
+        case "response.stop":
+          this.stopResponse(m);
+          break;
+        case "playback":
+          this.handlePlayback(m);
+          break;
+        case "conversation.select":
+          this.selectConversation(m);
+          break;
+        case "ui.action":
+          this.uiAction(m);
+          break;
+        case "ui.dismiss":
+          this.uiDismiss(m);
+          break;
+        case "ui.sync":
+          this.uiSnapshot();
+          break;
+        case "listen":
+          this.listen(m);
+          break;
+        case "query":
+        case "speak":
+          this.text(m);
+          break;
+        default:
+          throw new VoiceError("unknown_type", `\u672A\u77E5\u6D88\u606F type\uFF1A${String(m.type).slice(0, 64)}`);
+      }
+    } catch (e) {
+      this.error(e instanceof VoiceError ? e.code : "bad_json", e instanceof VoiceError ? e.message : "\u6D88\u606F\u4E0D\u662F\u5408\u6CD5 JSON", void 0, m?.requestId);
     }
-    this.deviceId = sanitizeDeviceId(message.deviceId);
-    this.deviceName = typeof message.deviceName === "string" ? message.deviceName.slice(0, 64) : "";
+  }
+  hello(m) {
+    if (this.state !== "init") throw new VoiceError("already_hello", "hello \u53EA\u80FD\u53D1\u9001\u4E00\u6B21");
+    if (![1, 2].includes(m.version)) throw new VoiceError("unsupported_version", "\u652F\u6301\u7684\u534F\u8BAE\u7248\u672C\u4E3A 1\u30012");
+    const device = m.version === 1 ? sanitizeDeviceId(m.deviceId) : m.deviceId;
+    const presentation = support(m.presentation);
+    if (!identifier(device, 48)) throw new VoiceError("bad_device_id", "deviceId \u5FC5\u987B\u4E3A 1\u201348 \u4F4D\u5B57\u6BCD\u3001\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u6216\u8FDE\u5B57\u7B26");
+    if (m.capabilities !== void 0 && (!Array.isArray(m.capabilities) || m.capabilities.length > 32 || m.capabilities.some((x) => typeof x !== "string"))) throw new VoiceError("bad_capabilities", "capabilities \u5FC5\u987B\u662F\u5B57\u7B26\u4E32\u6570\u7EC4");
+    if (m.audio !== void 0) {
+      for (const [direction, rate] of [["input", SAMPLE_RATE_IN], ["output", SAMPLE_RATE_OUT]]) {
+        const audio = m.audio?.[direction];
+        if (audio && (audio.encoding !== "pcm_s16le" || audio.sampleRate !== rate || audio.channels !== 1)) throw new VoiceError("unsupported_audio", "\u4EC5\u652F\u6301\u5355\u58F0\u9053 PCM s16le\uFF0C\u8F93\u5165 16kHz\u3001\u8F93\u51FA 24kHz");
+      }
+    }
+    const conversation = m.conversationId ?? device;
+    if (!identifier(conversation) || conversation !== device && !this.deps.allowConversation?.(device, conversation)) throw new VoiceError("bad_conversation", "\u5BF9\u8BDD\u4E0D\u5C5E\u4E8E\u6B64\u8BBE\u5907\uFF1B\u65B0\u5BF9\u8BDD\u8BF7\u4F7F\u7528\u8BBE\u5907 ID \u52A0\u8FDE\u5B57\u7B26\u524D\u7F00");
+    if (this.deps.claimDevice && !this.deps.claimDevice(device)) throw new VoiceError("device_in_use", "\u6B64\u8BBE\u5907\u5DF2\u6709\u8FDE\u63A5\uFF0C\u8BF7\u5173\u95ED\u65E7\u8FDE\u63A5\u540E\u91CD\u8BD5");
+    this.deviceId = device;
+    this.deviceName = typeof m.deviceName === "string" ? m.deviceName.slice(0, 64) : "";
+    this.version = m.version;
+    this.conversationId = conversation;
+    this.capabilities = new Set((m.version === 2 ? m.capabilities ?? [] : []).filter((x) => CAPABILITIES.includes(x)));
+    this.presentation = presentation;
     this.state = "ready";
-    this.sendJson({
+    this.send({
       type: "welcome",
-      version: PROTOCOL_VERSION,
-      sessionId: `voice-${this.deviceId}`,
+      version: this.version,
+      sessionId: this.deps.bridge.sessionId(conversation, this.deps.settings().agentPreset),
       sampleRateIn: SAMPLE_RATE_IN,
-      sampleRateOut: SAMPLE_RATE_OUT
+      sampleRateOut: SAMPLE_RATE_OUT,
+      ...this.version === 2 ? { conversationId: conversation, serverTime: Date.now(), capabilities: [...this.capabilities], supportedCapabilities: CAPABILITIES, presentation: this.presentation, audio: { input: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_IN }, output: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_OUT, framing: this.capabilities.has("audio.framed") ? "ysv2" : "raw" } } } : {}
     });
-    this.deps.log("info", `device connected: ${this.deviceId || "(anonymous)"} ${this.deviceName}`);
+    this.avatarState("idle");
+    if (this.capabilities.has("ui.render")) this.uiSnapshot();
+    this.deps.log("info", `device connected: ${device}`);
   }
-  handleListen(message) {
-    if (!this.requireReady()) return;
-    if (message?.state === "start") {
-      if (!this.requireIdle()) return;
-      this.state = "listening";
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
+  requestSeen(m) {
+    const requestId = m.requestId;
+    const fingerprint = this.fingerprint(m);
+    if (this.version === 2) {
+      if (typeof requestId !== "string" || !requestId.length || requestId.length > 128) throw new VoiceError("bad_request_id", "requestId \u5FC5\u987B\u4E3A 1\u2013128 \u5B57\u7B26");
+      const previous = this.requests.get(requestId);
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) throw new VoiceError("request_conflict", "requestId \u5DF2\u7528\u4E8E\u4E0D\u540C\u8BF7\u6C42");
+        this.send(previous.end ?? { type: "request.duplicate", requestId, turnId: this.active?.id });
+        return true;
+      }
+    }
+    return false;
+  }
+  fingerprint(m) {
+    return JSON.stringify([m.type, m.text ?? "", this.conversationId, m.componentId, m.instanceId, m.revision, m.actionId, m.values && typeof m.values === "object" ? Object.fromEntries(Object.entries(m.values).sort(([a], [b]) => a.localeCompare(b))) : m.values]);
+  }
+  begin(m, listening = false) {
+    if (this.requestSeen(m)) return;
+    const requestId = m.requestId, fingerprint = this.fingerprint(m);
+    if (this.active) throw new VoiceError("busy", "\u4E0A\u4E00\u8F6E\u5C1A\u672A\u7ED3\u675F\uFF0C\u5148\u53D1\u9001 abort");
+    const turn = { id: newId(), requestId, streamId: ++this.streamNumber, conversationId: this.conversationId, settings: { ...this.deps.settings() }, controller: new AbortController(), response: new AbortController(), timer: void 0, ended: false, ttsStarted: false, audioEnded: false, responseStopped: false, llmStarted: false, llmEnded: false, startedAt: Date.now(), pcm: [], pcmBytes: 0, pendingCues: [], effectCount: 0 };
+    this.active = turn;
+    this.state = listening ? "listening" : "busy";
+    if (this.version === 2) {
+      this.requests.set(requestId, { fingerprint });
+      if (this.requests.size > 256) this.requests.delete(this.requests.keys().next().value);
+    }
+    turn.timer = setTimeout(() => {
+      this.error("turn_timeout", "\u672C\u8F6E\u8D85\u8FC7\u6700\u957F\u7B49\u5F85\u65F6\u95F4", turn);
+      this.finish(turn, "timeout");
+    }, turn.settings.maxTurnSeconds * 1e3);
+    if (listening) turn.captureTimer = setTimeout(() => {
+      this.error("too_long", "\u62FE\u97F3\u8D85\u8FC7 120 \u79D2\u4E0A\u9650", turn);
+      this.finish(turn, "too_long");
+    }, 12e4);
+    this.event("turn.start", { input: m.type, state: listening ? "listening" : "processing" }, turn);
+    this.waitingPlayback = void 0;
+    this.avatarState(listening ? "listening" : "thinking", turn);
+    return turn;
+  }
+  listen(m) {
+    if (m.state === "start") {
+      this.begin(m, true);
       return;
     }
-    if (message?.state === "stop") {
-      if (this.state !== "listening") {
-        this.sendError("not_listening", "\u5F53\u524D\u6CA1\u6709\u5904\u4E8E\u62FE\u97F3\u72B6\u6001");
+    if (m.state !== "stop") throw new VoiceError("bad_listen_state", "listen.state \u5FC5\u987B\u662F start \u6216 stop");
+    const turn = this.active;
+    if (!turn || this.state !== "listening") throw new VoiceError("not_listening", "\u5F53\u524D\u6CA1\u6709\u5904\u4E8E\u62FE\u97F3\u72B6\u6001");
+    if (m.turnId !== void 0 && m.turnId !== turn.id) throw new VoiceError("stale_turn", "\u8F6E\u6B21\u4E0D\u5339\u914D");
+    const pcm = Buffer7.concat(turn.pcm);
+    turn.pcm = [];
+    turn.pcmBytes = 0;
+    clearTimeout(turn.captureTimer);
+    this.state = "busy";
+    if (pcm.length % 2) {
+      this.error("bad_audio", "PCM \u6570\u636E\u672A\u5BF9\u9F50 16 \u4F4D\u91C7\u6837", turn);
+      this.finish(turn, "error");
+      return;
+    }
+    if (pcm.length < SAMPLE_RATE_IN * 2 * 0.3) {
+      this.finish(turn, "too_short");
+      return;
+    }
+    this.launch(turn, async () => {
+      this.event("turn.state", { state: "transcribing" }, turn);
+      this.avatarState("thinking", turn);
+      const asrStarted = Date.now();
+      const text2 = await abortable((this.deps.transcribe ?? transcribePcm)(pcm, { apiKey: turn.settings.minimaxApiKey, model: turn.settings.asrModel, signal: turn.controller.signal }), turn.controller.signal);
+      if (!this.current(turn)) return;
+      turn.asrMs = Date.now() - asrStarted;
+      this.send({ type: "stt", text: text2, ...this.version === 2 ? { final: true } : {} }, turn);
+      if (!text2) {
+        this.finish(turn, "empty_asr");
         return;
       }
-      const pcm = Buffer4.concat(this.pcmChunks);
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
-      if (pcm.length < SAMPLE_RATE_IN * 2 * 0.3) {
-        this.state = "ready";
-        this.sendJson({ type: "tts", state: "stop", reason: "too_short" });
-        return;
+      await this.pipeline(turn, text2);
+    });
+  }
+  text(m) {
+    const limit = m.type === "speak" ? 1e3 : 4e3;
+    if (typeof m.text !== "string" || !m.text.trim()) throw new VoiceError("empty_text", `${m.type}.text \u4E0D\u80FD\u4E3A\u7A7A`);
+    if (m.text.length > limit) throw new VoiceError("text_too_long", `\u6587\u672C\u8D85\u8FC7 ${limit} \u5B57\u7B26`);
+    const turn = this.begin(m);
+    if (!turn) return;
+    this.launch(turn, async () => {
+      if (m.type === "query") await this.pipeline(turn, m.text.trim());
+      else {
+        turn.sender = this.createSender(turn);
+        try {
+          await this.sentence(turn, m.text.trim(), 0);
+          if (!turn.responseStopped) await abortable(turn.sender.finish(), turn.controller.signal);
+        } catch (e) {
+          if (!turn.responseStopped) throw e;
+        }
+        this.finish(turn, turn.responseStopped ? "stopped" : "done");
       }
-      void this.runVoiceTurn(pcm);
+    });
+  }
+  launch(turn, fn) {
+    void fn().catch((e) => {
+      if (!this.current(turn)) return;
+      this.error(typeof e?.code === "string" ? e.code : "turn_failed", e instanceof Error ? e.message : String(e), turn);
+      this.finish(turn, "error");
+    });
+  }
+  createSender(turn) {
+    return new AudioSender(this.ws, turn.response.signal, turn.streamId, this.version === 2 && this.capabilities.has("audio.framed"), () => this.capabilities.has("playback.flow") ? turn.bufferedSamples ?? 0 : 0);
+  }
+  async sentence(turn, text2, sentenceIndex) {
+    if (!this.current(turn) || turn.response.signal.aborted) return;
+    if (!turn.ttsStarted) {
+      turn.ttsStarted = true;
+      this.send({ type: "tts", state: "start" }, turn);
+      this.event("audio.start", { format: { ...AUDIO_FORMAT, sampleRate: SAMPLE_RATE_OUT }, framing: this.capabilities.has("audio.framed") ? "ysv2" : "raw" }, turn);
+    }
+    const sender = turn.sender, offset = sender.queuedSamples, s = turn.settings;
+    let marked = false, bytes = 0;
+    for await (const chunk of (this.deps.synthesize ?? synthesizeStream)(text2, { apiKey: s.minimaxApiKey, model: s.ttsModel, voiceId: s.ttsVoice, speed: s.ttsSpeed, vol: s.ttsVol, pitch: s.ttsPitch, signal: turn.response.signal })) {
+      if (!this.current(turn) || turn.response.signal.aborted) return;
+      if (!marked && chunk.length) {
+        marked = true;
+        sender.mark(() => {
+          if (!this.current(turn)) return;
+          this.avatarState("speaking", turn);
+          for (const pending of turn.pendingCues.splice(0)) this.event("presentation.cue", { ...pending.cue, cueId: pending.cueId, sampleOffset: offset, sequence: ++this.presentationSequence }, turn);
+          this.send({ type: "tts", state: "sentence_start", text: text2, ...this.version === 2 ? { sentenceIndex, sampleOffset: offset } : {} }, turn);
+        });
+      }
+      bytes += chunk.length;
+      await sender.push(chunk);
+    }
+    if (!turn.response.signal.aborted && !bytes) throw new VoiceError("empty_audio", "\u5408\u6210\u670D\u52A1\u672A\u8FD4\u56DE\u97F3\u9891");
+    if (!turn.response.signal.aborted) sender.flushSentence();
+  }
+  async pipeline(turn, text2) {
+    const queue = turn.queue = new SentenceQueue(), slicer = new SentenceSlicer();
+    turn.sender = this.createSender(turn);
+    turn.response.signal.addEventListener("abort", () => queue.close(), { once: true });
+    const pump = (async () => {
+      let index = 0;
+      while (!turn.response.signal.aborted) {
+        const sentence = await queue.next();
+        if (sentence === void 0) break;
+        await this.sentence(turn, sentence, index++);
+      }
+    })().catch((e) => {
+      if (turn.responseStopped || !this.current(turn)) return;
+      this.error(typeof e?.code === "string" ? e.code : "tts_failed", e instanceof Error ? e.message : String(e), turn);
+      this.finish(turn, "error");
+    });
+    turn.llmStarted = true;
+    this.send({ type: "llm", state: "start" }, turn);
+    this.event("turn.state", { state: "thinking" }, turn);
+    const handle = await abortable(this.deps.bridge.turn(turn.conversationId, text2, {
+      onTextDelta: (delta) => {
+        if (!this.current(turn)) return;
+        turn.firstTextMs ??= Date.now() - turn.startedAt;
+        this.send({ type: "llm", state: "delta", text: delta }, turn);
+        if (!turn.response.signal.aborted) {
+          try {
+            for (const sentence of slicer.feed(delta)) queue.push(sentence);
+          } catch (e) {
+            this.error("output_overflow", String(e), turn);
+            this.finish(turn, "error");
+          }
+        }
+      },
+      onEnd: () => void 0,
+      onActivity: (activity) => {
+        if (this.capabilities.has("agent.activity")) this.event("agent.activity", activity, turn);
+      },
+      ...this.version === 2 && (this.capabilities.has("presentation.cue") || this.capabilities.has("ui.render")) ? { onClientEffect: (effect) => this.clientEffect(turn, effect) } : {}
+    }, turn.settings.agentPreset, { signal: turn.controller.signal, promptPrefix: turn.settings.promptPrefix, capabilities: [...this.capabilities], presentation: this.presentation }), turn.controller.signal);
+    if (!this.current(turn)) {
+      handle.cancel();
       return;
     }
-    this.sendError("bad_listen_state", "listen.state \u5FC5\u987B\u662F start \u6216 stop");
-  }
-  handleQuery(message) {
-    if (!this.requireReady() || !this.requireIdle()) return;
-    const text = typeof message?.text === "string" ? message.text.trim().slice(0, 4e3) : "";
-    if (text === "") {
-      this.sendError("empty_text", "query.text \u4E0D\u80FD\u4E3A\u7A7A");
+    turn.handle = handle;
+    this.event("session", { sessionId: handle.sessionId }, turn);
+    const outcome = await abortable(handle.done, turn.controller.signal);
+    if (!this.current(turn)) return;
+    turn.handle = void 0;
+    turn.llmEnded = true;
+    this.send({ type: "llm", state: "end" }, turn);
+    if (outcome.kind === "error") throw new VoiceError("llm_error", outcome.error ?? "dsh \u4F1A\u8BDD\u51FA\u9519");
+    if (outcome.kind === "cancelled") {
+      this.finish(turn, "cancelled");
       return;
     }
-    void this.runLlmTurn(text);
-  }
-  handleSpeak(message) {
-    if (!this.requireReady() || !this.requireIdle()) return;
-    const text = typeof message?.text === "string" ? message.text.trim().slice(0, 1e3) : "";
-    if (text === "") {
-      this.sendError("empty_text", "speak.text \u4E0D\u80FD\u4E3A\u7A7A");
-      return;
+    if (!turn.response.signal.aborted) queue.push(slicer.flush());
+    queue.close();
+    await abortable(pump, turn.controller.signal);
+    if (!this.current(turn)) return;
+    if (!turn.responseStopped) {
+      try {
+        await abortable(turn.sender.finish(), turn.controller.signal);
+      } catch (e) {
+        if (!turn.responseStopped) throw e;
+      }
     }
-    void this.runSpeakOnly(text);
+    this.finish(turn, "completed");
   }
-  handleAbort() {
-    this.cancelActive();
-    if (this.state === "listening") {
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
-    }
-    if (this.state !== "init") this.state = "ready";
-    this.sendJson({ type: "tts", state: "stop", reason: "aborted" });
-  }
-  /** 二进制帧入口（拾音中累积 PCM）。 */
   handleBinary(data) {
-    if (this.state !== "listening") return;
-    const maxBytes = SAMPLE_RATE_IN * 2 * MAX_CAPTURE_MS / 1e3;
-    if (this.pcmBytes + data.length > maxBytes) {
-      this.sendError("too_long", "\u5355\u6B21\u62FE\u97F3\u8D85\u8FC7 120 \u79D2\u4E0A\u9650");
-      this.state = "ready";
-      this.pcmChunks = [];
-      this.pcmBytes = 0;
+    const turn = this.active;
+    if (!turn || this.state !== "listening") {
+      this.error("not_listening", "\u5F53\u524D\u6CA1\u6709\u5904\u4E8E\u62FE\u97F3\u72B6\u6001");
       return;
     }
-    this.pcmChunks.push(data);
-    this.pcmBytes += data.length;
+    if (turn.pcmBytes + data.length > SAMPLE_RATE_IN * 2 * 120 || turn.pcm.length >= 4096) {
+      this.error("too_long", "\u62FE\u97F3\u8D85\u8FC7\u65F6\u957F\u6216\u5206\u7247\u6570\u91CF\u4E0A\u9650", turn);
+      this.finish(turn, "too_long");
+      return;
+    }
+    if (data.length) {
+      turn.pcm.push(Buffer7.from(data));
+      turn.pcmBytes += data.length;
+    }
+  }
+  handleAbort(m = {}) {
+    const turn = this.active;
+    if (turn && m.turnId !== void 0 && m.turnId !== turn.id) throw new VoiceError("stale_turn", "\u8F6E\u6B21\u4E0D\u5339\u914D");
+    if (turn) this.finish(turn, "aborted");
+    else if (this.version === 1) this.send({ type: "tts", state: "stop", reason: "aborted" });
+    else this.event("cancel.ack", { turnId: m.turnId ?? null, active: false });
+  }
+  stopResponse(m) {
+    if (this.version !== 2 || !this.capabilities.has("response.stop")) throw new VoiceError("unsupported_capability", "\u9700\u8981\u534F\u5546 response.stop");
+    const turn = this.active;
+    if (!turn || turn.id !== m.turnId) throw new VoiceError("stale_turn", "\u8F6E\u6B21\u4E0D\u5339\u914D");
+    turn.responseStopped = true;
+    turn.response.abort();
+    turn.queue?.close();
+    this.audioEnd(turn, "stopped");
+    turn.pendingCues = [];
+    this.resetPresentation("stopped", turn);
+    this.avatarState("thinking", turn);
+  }
+  audioEnd(turn, reason) {
+    if (turn.audioEnded) return;
+    turn.audioEnded = true;
+    const samples = turn.sender?.sentSamples ?? 0, previous = this.playback.get(turn.streamId);
+    this.playback.set(turn.streamId, { turnId: turn.id, samples, played: previous?.played ?? 0, ended: false });
+    if (this.playback.size > 32) this.playback.delete(this.playback.keys().next().value);
+    this.event("audio.end", { reason, samples }, turn);
+  }
+  finish(turn, reason) {
+    if (!this.current(turn)) return;
+    if (turn.llmStarted && !turn.llmEnded) {
+      turn.llmEnded = true;
+      this.send({ type: "llm", state: "end" }, turn);
+    }
+    this.audioEnd(turn, reason);
+    if (!["completed", "done"].includes(reason)) {
+      try {
+        for (const removed of this.surface.invalidateTurn(this.surfaceKey(turn), turn.id)) this.event("ui.remove", { ...removed, reason }, turn);
+      } catch (e) {
+        this.deps.log("warn", `cannot invalidate UI: ${String(e)}`);
+      }
+      this.resetPresentation(reason, turn);
+    }
+    if (["completed", "done"].includes(reason) && turn.sender?.sentSamples && !turn.responseStopped && this.capabilities.has("playback")) this.waitingPlayback = turn.streamId;
+    else this.avatarState(reason === "error" ? "error" : "idle", turn);
+    turn.pendingCues = [];
+    this.send({ type: "tts", state: "stop", reason: this.version === 1 && reason === "timeout" ? "cancelled" : reason }, turn);
+    const end = { type: "turn.end", turnId: turn.id, requestId: turn.requestId, conversationId: turn.conversationId, streamId: turn.streamId, reason, responseStopped: turn.responseStopped, durationMs: Date.now() - turn.startedAt, metrics: { asrMs: turn.asrMs, firstTextMs: turn.firstTextMs, firstAudioMs: turn.sender?.firstSentAt ? turn.sender.firstSentAt - turn.startedAt : void 0, audioSamples: turn.sender?.sentSamples ?? 0 } };
+    this.event("turn.end", end, turn);
+    if (turn.requestId && this.requests.has(turn.requestId)) this.requests.get(turn.requestId).end = end;
+    turn.ended = true;
+    clearTimeout(turn.timer);
+    clearTimeout(turn.captureTimer);
+    turn.controller.abort(new VoiceError(reason, `turn ${reason}`));
+    turn.response.abort();
+    turn.queue?.close();
+    turn.handle?.cancel();
+    turn.pcm = [];
+    if (this.active === turn) {
+      this.active = void 0;
+      if (this.state !== "closed") this.state = "ready";
+    }
+    this.deps.log("info", `turn ${turn.id}: ${reason} (${Date.now() - turn.startedAt}ms)`);
+  }
+  handlePlayback(m) {
+    if (this.version !== 2 || !this.capabilities.has("playback")) throw new VoiceError("unsupported_capability", "\u9700\u8981\u534F\u5546 playback");
+    const record = this.playback.get(m.streamId), active = this.active?.streamId === m.streamId ? this.active : void 0;
+    const available = active?.sender?.sentSamples ?? record?.samples;
+    if (available === void 0 || m.turnId !== (record?.turnId ?? active?.id) || !Number.isSafeInteger(m.playedSamples) || m.playedSamples < (record?.played ?? 0) || m.playedSamples > available || !["progress", "ended", "cleared"].includes(m.state)) throw new VoiceError("bad_playback", "\u64AD\u653E\u56DE\u6267\u7684\u8F6E\u6B21\u3001\u4F4D\u7F6E\u6216\u72B6\u6001\u65E0\u6548");
+    if (m.state === "ended" && (!(active?.audioEnded ?? !!record) || m.playedSamples !== available)) throw new VoiceError("bad_playback", "\u97F3\u9891\u53D1\u9001\u5B8C\u6210\u4E14\u5168\u90E8\u64AD\u653E\u540E\u624D\u80FD\u62A5\u544A ended");
+    if (m.bufferedSamples !== void 0) {
+      if (!this.capabilities.has("playback.flow") || !Number.isSafeInteger(m.bufferedSamples) || m.bufferedSamples < 0 || m.bufferedSamples > available - m.playedSamples) throw new VoiceError("bad_playback", "\u64AD\u653E\u7F13\u51B2\u4F4D\u7F6E\u65E0\u6548\u6216\u672A\u534F\u5546 playback.flow");
+      if (active) active.bufferedSamples = m.bufferedSamples;
+    }
+    if (record?.ended && (m.state === "progress" || m.playedSamples !== record.played)) throw new VoiceError("bad_playback", "\u64AD\u653E\u6D41\u5DF2\u7ED3\u675F");
+    this.playback.set(m.streamId, { turnId: m.turnId, samples: available, played: m.playedSamples, ended: m.state !== "progress" });
+    this.event("playback.ack", { turnId: m.turnId, streamId: m.streamId, playedSamples: m.playedSamples, state: m.state });
+    if (m.state !== "progress" && this.waitingPlayback === m.streamId && !this.active) {
+      this.waitingPlayback = void 0;
+      this.avatarState("idle");
+    }
+  }
+  selectConversation(m) {
+    if (this.version !== 2 || !this.capabilities.has("conversation.select")) throw new VoiceError("unsupported_capability", "\u9700\u8981\u534F\u5546 conversation.select");
+    if (this.active) throw new VoiceError("busy", "\u8BF7\u5148\u7ED3\u675F\u5F53\u524D\u8F6E");
+    if (!identifier(m.conversationId) || m.conversationId !== this.deviceId && !this.deps.allowConversation?.(this.deviceId, m.conversationId)) throw new VoiceError("bad_conversation", "\u5BF9\u8BDD\u4E0D\u5C5E\u4E8E\u6B64\u8BBE\u5907");
+    this.conversationId = m.conversationId;
+    this.event("conversation.selected", { conversationId: this.conversationId, sessionId: this.deps.bridge.sessionId(this.conversationId, this.deps.settings().agentPreset) });
+    this.waitingPlayback = void 0;
+    this.resetPresentation("conversation_changed");
+    this.avatarState("idle");
+    if (this.capabilities.has("ui.render")) this.uiSnapshot();
+  }
+  avatarState(state, turn) {
+    if (this.capabilities.has("presentation.state")) this.event("presentation.state", { state, sequence: ++this.presentationSequence }, turn);
+  }
+  resetPresentation(reason, turn) {
+    if (this.capabilities.has("presentation.state") || this.capabilities.has("presentation.cue")) this.event("presentation.reset", { reason }, turn);
+  }
+  surfaceKey(turn) {
+    return SurfaceStore.key(this.deviceId, turn?.conversationId ?? this.conversationId, turn?.settings.agentPreset ?? this.deps.settings().agentPreset);
+  }
+  requireUI() {
+    if (this.version !== 2 || !this.capabilities.has("ui.render")) throw new VoiceError("unsupported_capability", "\u9700\u8981\u534F\u5546 ui.render");
+  }
+  uiSnapshot() {
+    this.requireUI();
+    this.event("ui.snapshot", { conversationId: this.conversationId, components: this.surface.snapshot(this.surfaceKey()).filter((c) => this.presentation.components.includes(c.type)) });
+  }
+  clientEffect(turn, effect) {
+    if (!this.current(turn)) throw new VoiceError("cancelled", "\u8F6E\u6B21\u5DF2\u7ED3\u675F");
+    if (++turn.effectCount > 64) throw new VoiceError("presentation_overflow", "\u5355\u8F6E\u6700\u591A 64 \u4E2A\u8868\u73B0\u6216\u754C\u9762\u64CD\u4F5C");
+    if (effect.kind === "cue") {
+      if (!this.capabilities.has("presentation.cue") || turn.responseStopped) throw new VoiceError("unsupported_presentation", "\u8868\u73B0\u8F93\u51FA\u4E0D\u53EF\u7528");
+      if (turn.pendingCues.length >= 16) throw new VoiceError("presentation_overflow", "\u7B49\u5F85\u97F3\u9891\u7684\u52A8\u4F5C\u8FC7\u591A");
+      const cueId = newId();
+      if (effect.cue.timing === "next_sentence") turn.pendingCues.push({ cueId, cue: effect.cue });
+      else this.event("presentation.cue", { ...effect.cue, cueId, sequence: ++this.presentationSequence }, turn);
+      return { cueId, status: effect.cue.timing === "now" ? "sent" : "scheduled" };
+    }
+    this.requireUI();
+    if (effect.kind === "render") {
+      const component2 = this.surface.render(this.surfaceKey(turn), effect.component, turn.id);
+      this.event("ui.render", { component: component2 }, turn);
+      return { componentId: component2.id, revision: component2.revision, instanceId: component2.instanceId };
+    }
+    const revision = this.surface.remove(this.surfaceKey(turn), effect.componentId);
+    if (revision !== void 0) this.event("ui.remove", { componentId: effect.componentId, revision }, turn);
+    return { removed: revision !== void 0 };
+  }
+  uiAction(m) {
+    this.requireUI();
+    if (Object.keys(m).some((k) => !["type", "requestId", "componentId", "instanceId", "revision", "actionId", "values"].includes(k))) throw new VoiceError("bad_ui_action", "\u4E0D\u63A5\u53D7\u5BA2\u6237\u7AEF\u63D0\u4F9B\u7684\u64CD\u4F5C\u6587\u672C");
+    if (this.requestSeen(m)) return;
+    if (this.active) throw new VoiceError("busy", "\u8BF7\u7B49\u5F85\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u64CD\u4F5C");
+    if (!identifier(m.componentId) || !identifier(m.actionId) || typeof m.instanceId !== "string" || !Number.isSafeInteger(m.revision)) throw new VoiceError("bad_ui_action", "\u64CD\u4F5C\u8EAB\u4EFD\u65E0\u6548");
+    const prepared = this.surface.prepare(this.surfaceKey(), m.componentId, m.revision, m.instanceId, m.actionId, m.values);
+    const turn = this.begin(m);
+    if (!turn) return;
+    try {
+      this.event("ui.render", { component: prepared.consume() }, turn);
+    } catch (e) {
+      this.error("stale_ui", String(e), turn);
+      this.finish(turn, "error");
+      return;
+    }
+    this.event("ui.action.accepted", { componentId: m.componentId, actionId: m.actionId }, turn);
+    this.launch(turn, () => this.pipeline(turn, prepared.text));
+  }
+  uiDismiss(m) {
+    this.requireUI();
+    if (!identifier(m.componentId) || !Number.isSafeInteger(m.revision) || typeof m.instanceId !== "string") throw new VoiceError("bad_ui_action", "\u7EC4\u4EF6\u8EAB\u4EFD\u65E0\u6548");
+    const revision = this.surface.remove(this.surfaceKey(), m.componentId, m.revision, m.instanceId);
+    if (revision !== void 0) this.event("ui.remove", { componentId: m.componentId, revision });
   }
   handleClosed() {
-    this.cancelActive();
-    if (this.deviceId !== "") this.deps.bridge.release(this.deviceId);
+    if (this.state === "closed") return;
+    this.state = "closed";
+    if (this.active) this.finish(this.active, "disconnected");
+    this.playback.clear();
   }
-  cancelActive() {
-    this.activeTtsAbort?.abort();
-    this.activeTtsAbort = void 0;
-    this.activeSender?.stop();
-    this.activeSender = void 0;
-    this.activeTurn?.cancel();
-    this.activeTurn = void 0;
-  }
-  ttsOptions(signal) {
-    const s = this.deps.settings();
-    return {
-      apiKey: s.minimaxApiKey,
-      model: s.ttsModel,
-      voiceId: s.ttsVoice,
-      speed: s.ttsSpeed,
-      vol: s.ttsVol,
-      pitch: s.ttsPitch,
-      signal
-    };
-  }
-  /** 合成一句并把 PCM 送入节奏发送器；返回是否完整成功（中断/失败为 false）。 */
-  async speakSentence(sentence, signal, sender, ttsStarted) {
-    if (sentence === "" || signal.aborted) return false;
-    if (!ttsStarted.value) {
-      ttsStarted.value = true;
-      this.sendJson({ type: "tts", state: "start" });
-    }
-    this.sendJson({ type: "tts", state: "sentence_start", text: sentence });
-    try {
-      for await (const chunk of synthesizeStream(sentence, this.ttsOptions(signal))) {
-        if (signal.aborted) return false;
-        sender.push(chunk);
-      }
-      return true;
-    } catch (error) {
-      if (signal.aborted) return false;
-      if (error instanceof TtsError) {
-        this.deps.log("warn", `tts failed: ${error.code} ${error.message}`);
-        this.sendError(error.code, error.message);
-      } else {
-        this.sendError("tts_failed", error instanceof Error ? error.message : String(error));
-      }
-      return false;
-    }
-  }
-  /** 完整语音轮：ASR → LLM 流式 → TTS。 */
-  async runVoiceTurn(pcm) {
-    this.state = "busy";
-    const settings = this.deps.settings();
-    let text;
-    try {
-      text = await transcribePcm(pcm, { apiKey: settings.minimaxApiKey, model: settings.asrModel });
-    } catch (error) {
-      if (error instanceof AsrError) this.sendError(error.code, error.message);
-      else this.sendError("asr_failed", error instanceof Error ? error.message : String(error));
-      this.sendJson({ type: "tts", state: "stop", reason: "error" });
-      this.state = "ready";
-      return;
-    }
-    this.sendJson({ type: "stt", text });
-    if (text === "") {
-      this.sendJson({ type: "tts", state: "stop", reason: "empty_asr" });
-      this.state = "ready";
-      return;
-    }
-    await this.runLlmPipeline(text);
-  }
-  /** query 入口：文本 → LLM 流式 → TTS。 */
-  async runLlmTurn(text) {
-    this.state = "busy";
-    try {
-      await this.runLlmPipeline(text);
-    } catch (error) {
-      this.sendError("llm_error", error instanceof Error ? error.message : String(error));
-      this.sendJson({ type: "tts", state: "stop", reason: "error" });
-      this.state = "ready";
-    }
-  }
-  async runLlmPipeline(userText) {
-    const settings = this.deps.settings();
-    this.turnCount += 1;
-    const prompt = this.turnCount === 1 && settings.promptPrefix.trim() !== "" ? `${settings.promptPrefix.trim()}
-
-\u7528\u6237\u8BF4\uFF1A${userText}` : userText;
-    const ttsAbort = new AbortController();
-    const sender = createPacedSender(this.ws);
-    const queue = new SentenceQueue();
-    const ttsStarted = { value: false };
-    this.activeTtsAbort = ttsAbort;
-    this.activeSender = sender;
-    const pump = (async () => {
-      while (!ttsAbort.signal.aborted) {
-        const sentence = await queue.next();
-        if (sentence === null) break;
-        await this.speakSentence(sentence, ttsAbort.signal, sender, ttsStarted);
-      }
-    })().catch(() => void 0);
-    let outcome;
-    try {
-      this.sendJson({ type: "llm", state: "start" });
-      const slicer = new SentenceSlicer();
-      const turn = await this.deps.bridge.turn(this.deviceId, prompt, {
-        onTextDelta: (delta) => {
-          if (ttsAbort.signal.aborted) return;
-          this.sendJson({ type: "llm", state: "delta", text: delta });
-          for (const sentence of slicer.feed(delta)) queue.push(sentence);
-        },
-        onEnd: () => {
-        }
-      }, settings.agentPreset);
-      this.activeTurn = turn;
-      outcome = await turn.done;
-      if (!ttsAbort.signal.aborted && outcome.kind !== "cancelled") {
-        const rest = slicer.flush();
-        if (rest !== "") queue.push(rest);
-      }
-    } catch (error) {
-      outcome = { kind: "error", error: error instanceof Error ? error.message : String(error) };
-    } finally {
-      this.activeTurn = void 0;
-    }
-    if (outcome.kind === "error") {
-      this.sendError("llm_error", outcome.error ?? "dsh \u4F1A\u8BDD\u51FA\u9519");
-    }
-    this.sendJson({ type: "llm", state: "end" });
-    queue.close();
-    await Promise.race([
-      (async () => {
-        await pump;
-        await sender.finish();
-      })(),
-      sleep(DRAIN_MS)
-    ]);
-    ttsAbort.abort();
-    sender.stop();
-    this.activeSender = void 0;
-    this.activeTtsAbort = void 0;
-    this.sendJson({ type: "tts", state: "stop", reason: outcome.kind });
-    this.state = "ready";
-  }
-  /** speak 入口：纯 TTS（不走 LLM），用于测试与播报。 */
-  async runSpeakOnly(text) {
-    this.state = "busy";
-    const ttsAbort = new AbortController();
-    const sender = createPacedSender(this.ws);
-    const ttsStarted = { value: false };
-    this.activeTtsAbort = ttsAbort;
-    this.activeSender = sender;
-    const ok = await this.speakSentence(text, ttsAbort.signal, sender, ttsStarted);
-    await Promise.race([sender.finish(), sleep(DRAIN_MS)]);
-    const aborted = ttsAbort.signal.aborted;
-    ttsAbort.abort();
-    sender.stop();
-    this.activeSender = void 0;
-    this.activeTtsAbort = void 0;
-    this.sendJson({ type: "tts", state: "stop", reason: aborted ? "aborted" : ok ? "done" : "error" });
-    this.state = "ready";
+  close(code = 1001, reason = "server shutdown") {
+    this.handleClosed();
+    this.ws.close(code, reason);
   }
 };
 function sanitizeDeviceId(value) {
-  if (typeof value !== "string") return "";
-  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+  return typeof value === "string" ? value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) : "";
 }
 
 // src/settings.ts
 import { randomBytes } from "node:crypto";
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, chmodSync } from "node:fs";
-import { dirname as dirname2, resolve } from "node:path";
+import { existsSync as existsSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync3, renameSync as renameSync3, unlinkSync } from "node:fs";
+import { dirname as dirname3, resolve } from "node:path";
 import { homedir } from "node:os";
 var DEFAULT_PREFIX = "\u4F60\u662F\u8BED\u97F3\u52A9\u624B\u3002\u59CB\u7EC8\u7528\u7B80\u77ED\u3001\u53E3\u8BED\u5316\u7684\u4E2D\u6587\u56DE\u7B54\uFF08\u901A\u5E38\u4E0D\u8D85\u8FC7\u4E09\u53E5\u8BDD\uFF09\uFF0C\u4E0D\u8981\u4F7F\u7528 Markdown\u3001\u4EE3\u7801\u5757\u6216\u5217\u8868\u3002";
 var DEFAULT_SETTINGS = {
@@ -4666,6 +5329,9 @@ var DEFAULT_SETTINGS = {
   promptPrefix: DEFAULT_PREFIX,
   agentPreset: "",
   token: "",
+  adminToken: "",
+  deviceTokens: {},
+  allowedOrigins: [],
   maxTurnSeconds: 180
 };
 function defaultSettingsPath() {
@@ -4681,6 +5347,7 @@ function clampNumber(v, min, max, fallback) {
   return Math.min(max, Math.max(min, n));
 }
 function mergeSettings(current, patch) {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new Error("settings patch must be an object");
   const next = { ...current };
   const rejected = [];
   const strings = [
@@ -4705,12 +5372,29 @@ function mergeSettings(current, patch) {
       rejected.push(key);
     }
   }
-  if ("ttsSpeed" in patch) next.ttsSpeed = clampNumber(patch.ttsSpeed, 0.5, 2, current.ttsSpeed);
-  if ("ttsVol" in patch) next.ttsVol = clampNumber(patch.ttsVol, 0, 10, current.ttsVol);
-  if ("ttsPitch" in patch) next.ttsPitch = clampNumber(patch.ttsPitch, -12, 12, current.ttsPitch);
-  if ("maxTurnSeconds" in patch) next.maxTurnSeconds = Math.round(clampNumber(patch.maxTurnSeconds, 15, 600, current.maxTurnSeconds));
+  for (const [key, min, max] of [["ttsSpeed", 0.5, 2], ["ttsVol", 0, 10], ["ttsPitch", -12, 12], ["maxTurnSeconds", 15, 600]]) {
+    if (!Object.hasOwn(patch, key)) continue;
+    const value = patch[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      rejected.push(key);
+      continue;
+    }
+    next[key] = key === "maxTurnSeconds" ? Math.round(clampNumber(value, min, max, current[key])) : clampNumber(value, min, max, current[key]);
+  }
+  if ("allowedOrigins" in patch) {
+    if (Array.isArray(patch.allowedOrigins) && patch.allowedOrigins.length <= 32 && patch.allowedOrigins.every((x) => {
+      try {
+        return typeof x === "string" && new URL(x).origin === x && /^https?:/.test(x);
+      } catch {
+        return false;
+      }
+    })) next.allowedOrigins = [...patch.allowedOrigins];
+    else rejected.push("allowedOrigins");
+  }
+  if ("adminToken" in patch) rejected.push("adminToken");
+  if ("deviceTokens" in patch) rejected.push("deviceTokens");
   for (const key of Object.keys(patch)) {
-    if (!(key in DEFAULT_SETTINGS)) rejected.push(key);
+    if (!Object.hasOwn(DEFAULT_SETTINGS, key)) rejected.push(key);
   }
   return { settings: next, rejected };
 }
@@ -4727,6 +5411,9 @@ function maskSettings(s) {
     promptPrefix: s.promptPrefix,
     agentPreset: s.agentPreset,
     token: s.token,
+    adminTokenConfigured: !!s.adminToken,
+    devices: Object.keys(s.deviceTokens),
+    allowedOrigins: s.allowedOrigins,
     maxTurnSeconds: s.maxTurnSeconds
   };
 }
@@ -4737,24 +5424,33 @@ var SettingsStore = class {
     this.path = path;
     this.data = { ...DEFAULT_SETTINGS };
     try {
-      if (existsSync2(path)) {
-        const raw = JSON.parse(readFileSync2(path, "utf8"));
+      if (existsSync3(path)) {
+        const raw = JSON.parse(readFileSync3(path, "utf8"));
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("settings must be an object");
         if (raw && typeof raw === "object") {
           const { settings } = mergeSettings(DEFAULT_SETTINGS, raw);
           this.data = settings;
+          if (typeof raw.adminToken === "string" && raw.adminToken.length >= 24) this.data.adminToken = raw.adminToken;
+          if (raw.deviceTokens && typeof raw.deviceTokens === "object" && !Array.isArray(raw.deviceTokens)) {
+            this.data.deviceTokens = Object.fromEntries(Object.entries(raw.deviceTokens).filter(([id2, token]) => /^[a-zA-Z0-9_-]{1,48}$/.test(id2) && typeof token === "string" && token.length >= 24));
+          }
         }
       }
     } catch (error) {
-      console.warn(`[yusheng-voice] settings file unreadable, starting from defaults: ${String(error)}`);
+      throw new Error(`yusheng-voice: cannot read settings; refusing to reset credentials: ${String(error)}`);
+    }
+    if (!this.data.adminToken) {
+      this.data = { ...this.data, adminToken: `ysa-${randomBytes(32).toString("base64url")}`, token: this.data.token || `ysv-${randomBytes(24).toString("base64url")}` };
+      this.save(this.data);
     }
   }
   get() {
-    return this.data;
+    return { ...this.data, deviceTokens: { ...this.data.deviceTokens }, allowedOrigins: [...this.data.allowedOrigins] };
   }
   update(patch) {
     const merged = mergeSettings(this.data, patch);
+    this.save(merged.settings);
     this.data = merged.settings;
-    this.save();
     return merged;
   }
   regenerateToken() {
@@ -4762,26 +5458,45 @@ var SettingsStore = class {
     const bytes = randomBytes(24);
     let token = "ysv-";
     for (const b of bytes) token += alphabet[b % alphabet.length];
-    this.data = { ...this.data, token };
-    this.save();
+    const next = { ...this.data, token };
+    this.save(next);
+    this.data = next;
     return token;
   }
-  save() {
+  issueDevice(id2) {
+    if (!/^[a-zA-Z0-9_-]{1,48}$/.test(id2)) throw new Error("invalid deviceId");
+    if (Object.keys(this.data.deviceTokens).length >= 256 && !Object.hasOwn(this.data.deviceTokens, id2)) throw new Error("device limit reached");
+    const token = `ysd-${randomBytes(32).toString("base64url")}`;
+    const next = { ...this.data, deviceTokens: { ...this.data.deviceTokens, [id2]: token } };
+    this.save(next);
+    this.data = next;
+    return token;
+  }
+  revokeDevice(id2) {
+    const deviceTokens = { ...this.data.deviceTokens };
+    delete deviceTokens[id2];
+    const next = { ...this.data, deviceTokens };
+    this.save(next);
+    this.data = next;
+  }
+  save(data) {
+    const temporary = `${this.path}.${randomBytes(8).toString("hex")}.tmp`;
     try {
-      mkdirSync2(dirname2(this.path), { recursive: true });
-      writeFileSync2(this.path, JSON.stringify(this.data, null, 2) + "\n", { mode: 384 });
+      mkdirSync3(dirname3(this.path), { recursive: true });
+      writeFileSync3(temporary, JSON.stringify(data, null, 2) + "\n", { mode: 384 });
+      renameSync3(temporary, this.path);
+    } catch (error) {
       try {
-        chmodSync(this.path, 384);
+        unlinkSync(temporary);
       } catch {
       }
-    } catch (error) {
-      console.warn(`[yusheng-voice] cannot persist settings: ${String(error)}`);
+      throw new Error(`cannot persist voice settings: ${String(error)}`);
     }
   }
 };
 
 // src/server.ts
-var VERSION = "0.1.0";
+var VERSION = "0.3.0";
 var BODY_LIMIT = 32 * 1024;
 var WS_PATH = "/voice";
 var VoiceServer = class _VoiceServer {
@@ -4793,24 +5508,47 @@ var VoiceServer = class _VoiceServer {
   wss;
   connections = /* @__PURE__ */ new Set();
   startedAt = 0;
+  heartbeat;
+  identities = /* @__PURE__ */ new Map();
+  devices = /* @__PURE__ */ new Map();
+  conversationOwners = /* @__PURE__ */ Object.create(null);
+  ownersPath;
+  surface;
   presetsCache = { at: 0, value: void 0 };
   constructor(store, bridge, config, log) {
     this.store = store;
     this.bridge = bridge;
     this.config = config;
     this.log = log;
+    this.ownersPath = resolve2(dirname4(store.path), "conversations.json");
+    this.surface = new SurfaceStore(resolve2(dirname4(store.path), "ui.json"));
+    if (existsSync4(this.ownersPath)) {
+      const raw = JSON.parse(readFileSync4(this.ownersPath, "utf8"));
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("invalid conversation registry");
+      this.conversationOwners = Object.assign(/* @__PURE__ */ Object.create(null), raw);
+    }
   }
   start() {
-    return new Promise((resolve3, reject) => {
-      const httpServer = createServer((req, res) => this.handleRest(req, res));
-      const wss = new import_websocket_server.default({ noServer: true });
+    return new Promise((resolve4, reject) => {
+      const httpServer = createServer((req, res) => {
+        void this.handleRest(req, res).catch((e) => {
+          this.log("warn", `REST failed: ${e instanceof Error ? e.message : String(e)}`);
+          if (!res.headersSent) json(res, 500, { ok: false, error: "internal_error" });
+          else res.end();
+        });
+      });
+      const wss = new import_websocket_server.default({ noServer: true, maxPayload: 256 * 1024, perMessageDeflate: false });
+      this.httpServer = httpServer;
+      this.wss = wss;
+      httpServer.requestTimeout = 15e3;
+      httpServer.headersTimeout = 15e3;
       httpServer.on("upgrade", (req, socket, head) => {
         const url = parseUrl(req);
         if (url?.pathname !== WS_PATH) {
           socket.destroy();
           return;
         }
-        if (!this.authorize(url)) {
+        if (!this.authorize(url) || !this.originAllowed(req) || this.connections.size >= 64) {
           socket.write("HTTP/1.1 401 Unauthorized\r\nconnection: close\r\n\r\n");
           socket.destroy();
           return;
@@ -4819,14 +5557,34 @@ var VoiceServer = class _VoiceServer {
           wss.emit("connection", ws, req);
         });
       });
-      wss.on("connection", (ws) => {
+      const alive = /* @__PURE__ */ new WeakSet();
+      wss.on("connection", (ws, req) => {
         const connection = new VoiceConnection(ws, {
           settings: () => this.store.get(),
           bridge: this.bridge,
-          log: this.log
+          surface: this.surface,
+          log: this.log,
+          claimDevice: (deviceId) => {
+            const identity = this.identities.get(connection);
+            if (!identity || identity.deviceId && identity.deviceId !== deviceId || this.devices.has(deviceId) || !this.claimConversation(deviceId, deviceId)) return false;
+            this.devices.set(deviceId, connection);
+            return true;
+          },
+          allowConversation: (deviceId, conversationId) => this.claimConversation(deviceId, conversationId)
         });
         this.connections.add(connection);
+        this.identities.set(connection, this.authorize(parseUrl(req)));
+        alive.add(ws);
+        const helloTimer = setTimeout(() => {
+          if (connection.describe().state === "init") connection.close(1008, "hello timeout");
+        }, 1e4);
+        ws.on("pong", () => alive.add(ws));
         ws.on("message", (data, isBinary) => {
+          const identity = this.identities.get(connection);
+          if (!identity || !this.validIdentity(identity)) {
+            connection.close(1008, "credential revoked");
+            return;
+          }
           if (isBinary) {
             connection.handleBinary(data);
           } else {
@@ -4835,24 +5593,40 @@ var VoiceServer = class _VoiceServer {
         });
         ws.on("close", () => {
           this.connections.delete(connection);
+          clearTimeout(helloTimer);
+          this.identities.delete(connection);
+          if (this.devices.get(connection.deviceId) === connection) this.devices.delete(connection.deviceId);
           connection.handleClosed();
         });
         ws.on("error", () => {
         });
       });
+      this.heartbeat = setInterval(() => {
+        for (const ws of wss.clients) {
+          if (!alive.has(ws)) {
+            ws.terminate();
+            continue;
+          }
+          alive.delete(ws);
+          ws.ping();
+        }
+      }, 3e4);
+      this.heartbeat.unref();
       httpServer.once("error", reject);
       httpServer.listen(this.config.port, this.config.host, () => {
         this.httpServer = httpServer;
         this.wss = wss;
         this.startedAt = Date.now();
-        const tokenState = this.store.get().token === "" ? "OPEN (token \u672A\u914D\u7F6E)" : "token";
+        const tokenState = this.store.get().token === "" ? "registered devices only" : "device token";
         this.log("info", `listening on ws://${this.config.host}:${this.config.port}${WS_PATH} (${tokenState})`);
-        resolve3();
+        resolve4();
       });
     });
   }
   stop() {
-    for (const connection of this.connections) connection.handleClosed();
+    clearInterval(this.heartbeat);
+    for (const connection of this.connections) connection.close();
+    for (const ws of this.wss?.clients ?? []) ws.terminate();
     this.connections.clear();
     this.wss?.close();
     this.httpServer?.close();
@@ -4860,23 +5634,54 @@ var VoiceServer = class _VoiceServer {
     this.httpServer = void 0;
   }
   authorize(url) {
-    const token = this.store.get().token;
-    if (token === "") return true;
+    const settings = this.store.get();
     const provided = url.searchParams.get("token") ?? "";
-    return provided === token;
+    if (secureEqual(provided, settings.token)) return { token: provided };
+    for (const [deviceId, token] of Object.entries(settings.deviceTokens)) if (secureEqual(provided, token)) return { token: provided, deviceId };
+    return void 0;
+  }
+  validIdentity(identity) {
+    const settings = this.store.get();
+    return secureEqual(identity.token, identity.deviceId ? settings.deviceTokens[identity.deviceId] : settings.token);
+  }
+  originAllowed(req) {
+    const origin = req.headers.origin;
+    if (!origin) return true;
+    const allowed = this.store.get().allowedOrigins;
+    if (allowed.length) return allowed.includes(origin);
+    try {
+      return new URL(origin).hostname === new URL(`http://${req.headers.host}`).hostname && /^https?:/.test(origin);
+    } catch {
+      return false;
+    }
+  }
+  claimConversation(deviceId, conversationId) {
+    if (Object.hasOwn(this.conversationOwners, conversationId)) return this.conversationOwners[conversationId] === deviceId;
+    if (conversationId !== deviceId && !conversationId.startsWith(`${deviceId}-`) || Object.keys(this.conversationOwners).length >= 4096) return false;
+    const next = { ...this.conversationOwners, [conversationId]: deviceId }, temporary = `${this.ownersPath}.${newId()}.tmp`;
+    writeFileSync4(temporary, JSON.stringify(next), { mode: 384 });
+    renameSync4(temporary, this.ownersPath);
+    this.conversationOwners = Object.assign(/* @__PURE__ */ Object.create(null), next);
+    return true;
   }
   // ---- REST ----
   static applyCors(req, res) {
     const origin = req.headers.origin;
     if (typeof origin === "string" && origin !== "") res.setHeader("access-control-allow-origin", origin);
-    res.setHeader("access-control-allow-methods", "GET, POST, PUT, OPTIONS");
+    res.setHeader("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("vary", "Origin");
     res.setHeader("access-control-allow-headers", "content-type, x-voice-token");
     res.setHeader("access-control-max-age", "600");
   }
   tokenOf(req, url) {
-    return req.headers["x-voice-token"] ?? url.searchParams.get("token") ?? "";
+    const header = req.headers["x-voice-token"];
+    return (typeof header === "string" ? header : void 0) ?? url.searchParams.get("token") ?? "";
   }
-  handleRest(req, res) {
+  async handleRest(req, res) {
+    if (!this.originAllowed(req)) {
+      json(res, 403, { ok: false, error: "origin_denied" });
+      return;
+    }
     _VoiceServer.applyCors(req, res);
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -4888,9 +5693,16 @@ var VoiceServer = class _VoiceServer {
       res.writeHead(400).end();
       return;
     }
-    const token = this.store.get().token;
-    if (token !== "" && this.tokenOf(req, url) !== token) {
-      json(res, 401, { ok: false, error: "unauthorized", message: "\u4EE4\u724C\u4E0D\u6B63\u786E\uFF08\u9762\u677F\u53F3\u4E0A\u53EF\u89C1\u5F53\u524D\u4EE4\u724C\uFF09" });
+    const assets = { "/demo": ["examples/avatar-client.html", "text/html; charset=utf-8"], "/demo-client.js": ["lib/demo-client.js", "text/javascript; charset=utf-8"], "/voice-client.js": ["lib/voice-client.js", "text/javascript; charset=utf-8"] };
+    if (req.method === "GET" && Object.hasOwn(assets, url.pathname)) {
+      const [path, type] = assets[url.pathname];
+      res.writeHead(200, { "content-type": type, "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
+      res.end(readFileSync4(resolve2(this.config.assetsRoot ?? fileURLToPath(new URL("..", import.meta.url)), path)));
+      return;
+    }
+    const token = this.store.get().adminToken;
+    if (!secureEqual(this.tokenOf(req, url), token)) {
+      json(res, 401, { ok: false, error: "unauthorized", message: "\u8BF7\u586B\u5199\u670D\u52A1\u5668 settings.json \u4E2D\u7684 adminToken\uFF1B\u8BBE\u5907\u4EE4\u724C\u4E0D\u5177\u5907\u7BA1\u7406\u6743\u9650" });
       return;
     }
     const route = `${req.method} ${url.pathname}`;
@@ -4903,21 +5715,50 @@ var VoiceServer = class _VoiceServer {
         json(res, 200, { ok: true, settings: maskSettings(this.store.get()) });
         return;
       case "PUT /settings":
-        void this.handlePutSettings(req, res);
+        await this.handlePutSettings(req, res);
         return;
       case "POST /token":
         json(res, 200, { ok: true, token: this.store.regenerateToken() });
+        this.closeRevoked();
         return;
+      case "POST /devices": {
+        const body = await readBody(req);
+        if (body === null) {
+          json(res, 413, { ok: false, error: "too_large" });
+          return;
+        }
+        let patch;
+        try {
+          patch = JSON.parse(body);
+        } catch {
+          json(res, 400, { ok: false, error: "bad_json" });
+          return;
+        }
+        if (!identifier(patch?.deviceId, 48)) {
+          json(res, 400, { ok: false, error: "bad_device_id" });
+          return;
+        }
+        const deviceToken = this.store.issueDevice(patch.deviceId);
+        this.closeRevoked();
+        json(res, 200, { ok: true, deviceId: patch.deviceId, token: deviceToken });
+        return;
+      }
       case "POST /test/asr":
-        void this.handleTestAsr(res);
+        await this.handleTestAsr(res);
         return;
       case "POST /test/tts":
-        void this.handleTestTts(res);
+        await this.handleTestTts(res);
         return;
       case "POST /test/llm":
-        void this.handleTestLlm(res);
+        await this.handleTestLlm(res);
         return;
       default:
+        if (req.method === "DELETE" && url.pathname.startsWith("/devices/")) {
+          this.store.revokeDevice(decodeURIComponent(url.pathname.slice("/devices/".length)));
+          this.closeRevoked();
+          json(res, 200, { ok: true });
+          return;
+        }
         json(res, 404, { ok: false, error: "not_found" });
     }
   }
@@ -4930,6 +5771,7 @@ var VoiceServer = class _VoiceServer {
       service: "dsh-yusheng-voice",
       version: VERSION,
       protocol: PROTOCOL_VERSION,
+      supportedProtocols: SUPPORTED_VERSIONS,
       endpoint: `ws://${this.config.host}:${this.config.port}${WS_PATH}`,
       uptimeSec: Math.round((Date.now() - this.startedAt) / 1e3),
       tokenConfigured: settings.token !== "",
@@ -4957,11 +5799,13 @@ var VoiceServer = class _VoiceServer {
     let patch;
     try {
       patch = JSON.parse(body === "" ? "{}" : body);
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new Error("invalid object");
     } catch {
       json(res, 400, { ok: false, error: "bad_json" });
       return;
     }
     const { settings, rejected } = this.store.update(patch);
+    this.closeRevoked();
     this.log("info", `settings updated${rejected.length > 0 ? ` (rejected: ${rejected.join(", ")})` : ""}`);
     json(res, 200, { ok: true, rejected, settings: maskSettings(settings) });
   }
@@ -4969,10 +5813,10 @@ var VoiceServer = class _VoiceServer {
   async handleTestAsr(res) {
     const settings = this.store.get();
     const started = Date.now();
-    const silence = Buffer5.alloc(TTS_SAMPLE_RATE * 2, 0);
+    const silence = Buffer8.alloc(TTS_SAMPLE_RATE * 2, 0);
     try {
-      const text = await transcribePcm(silence.subarray(0, 16e3 * 2), { apiKey: settings.minimaxApiKey, model: settings.asrModel });
-      json(res, 200, { ok: true, durationMs: Date.now() - started, note: "ASR \u8C03\u7528\u6210\u529F", text });
+      const text2 = await transcribePcm(silence.subarray(0, 16e3 * 2), { apiKey: settings.minimaxApiKey, model: settings.asrModel });
+      json(res, 200, { ok: true, durationMs: Date.now() - started, note: "ASR \u8C03\u7528\u6210\u529F", text: text2 });
     } catch (error) {
       const code = error instanceof AsrError ? error.code : "asr_failed";
       const message = error instanceof Error ? error.message : String(error);
@@ -5013,7 +5857,7 @@ var VoiceServer = class _VoiceServer {
           gotDelta = true;
         },
         onEnd: () => void 0
-      });
+      }, "", { signal: AbortSignal.timeout(3e4) });
       const outcome = await turn.done;
       json(res, 200, {
         ok: outcome.kind === "completed",
@@ -5031,7 +5875,15 @@ var VoiceServer = class _VoiceServer {
       });
     }
   }
+  closeRevoked() {
+    for (const [connection, identity] of this.identities) if (!this.validIdentity(identity)) connection.close(1008, "credential revoked");
+  }
 };
+function secureEqual(provided, expected) {
+  if (!provided || !expected) return false;
+  const a = Buffer8.from(provided), b = Buffer8.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 function parseUrl(req) {
   const raw = req.url;
   if (typeof raw !== "string") return void 0;
@@ -5043,27 +5895,29 @@ function parseUrl(req) {
   }
 }
 function readBody(req) {
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const chunks = [];
     let size = 0;
     let settled = false;
     const finish = (value) => {
       if (!settled) {
         settled = true;
-        resolve3(value);
+        resolve4(value);
       }
     };
     req.on("data", (chunk) => {
+      if (settled) return;
       size += chunk.length;
       if (size > BODY_LIMIT) {
-        req.destroy();
+        chunks.length = 0;
         finish(null);
         return;
       }
       chunks.push(chunk);
     });
-    req.on("end", () => finish(Buffer5.concat(chunks).toString("utf8")));
+    req.on("end", () => finish(Buffer8.concat(chunks).toString("utf8")));
     req.on("error", () => finish(null));
+    req.on("aborted", () => finish(null));
   });
 }
 function json(res, status, payload) {
@@ -5081,7 +5935,7 @@ function clampPort(value) {
 }
 var index_default = {
   name: "yusheng-voice",
-  inject: ["agentDefaultModel", "agents", "sessions", "sessionQuery"],
+  inject: ["agentDefaultModel", "agents", "sessions", "sessionQuery", "agentPresets", "permissionPresets"],
   apply(root, config = {}) {
     const unknown = Object.keys(config).filter((key) => !CONFIG_KEYS.has(key));
     if (unknown.length > 0) {
@@ -5093,17 +5947,16 @@ var index_default = {
     const store = new SettingsStore(settingsPath);
     const log = (level, message) => {
       try {
-        root.logger?.[level]?.(`yusheng-voice: ${message}`);
+        if (typeof root.logger?.[level] === "function") root.logger[level](`yusheng-voice: ${message}`);
+        else console[level](`yusheng-voice: ${message}`);
       } catch {
       }
     };
-    const bridge = new AgentBridge(root, resolve2(dirname3(settingsPath), "sessions.json"));
+    const bridge = new AgentBridge(root, resolve3(dirname5(settingsPath), "sessions.json"));
     const server = new VoiceServer(store, bridge, { host, port }, log);
     root.effect(() => server.stop(), "yusheng-voice: server");
     server.start().then(() => {
-      if (store.get().token === "") {
-        log("warn", `token \u672A\u914D\u7F6E\uFF0C\u8BED\u97F3\u7AEF\u70B9\u4E0E\u8BBE\u7F6E\u63A5\u53E3\u5F53\u524D\u5F00\u653E\uFF1B\u8BF7\u5C3D\u5FEB\u5728\u8BBE\u7F6E\u9762\u677F\u751F\u6210\u4EE4\u724C\uFF08\u8BBE\u7F6E\u6587\u4EF6 ${settingsPath}\uFF09`);
-      }
+      log("info", `REST uses a separate adminToken stored in ${settingsPath}`);
     }).catch((error) => {
       log("warn", `voice server failed to start on ${host}:${port}: ${error instanceof Error ? error.message : String(error)}`);
     });

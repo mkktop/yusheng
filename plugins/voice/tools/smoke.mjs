@@ -1,7 +1,7 @@
 // 本地冒烟测试：mock 掉 dsh 宿主服务，验证插件装载、REST 与 WS 协议主干。
 // 用法：node tools/smoke.mjs （会在 127.0.0.1:18090 起服务，无需真实凭据）
 
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -59,6 +59,8 @@ plugin.apply(root, { host: '127.0.0.1', port: 18090, settingsPath: join(tmp, 'se
 const base = 'http://127.0.0.1:18090'
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 await sleep(300)
+const adminToken = JSON.parse(readFileSync(join(tmp, 'settings.json'), 'utf8')).adminToken
+const auth = { 'x-voice-token': adminToken }
 
 let failures = 0
 function check(name, ok, detail = '') {
@@ -67,26 +69,26 @@ function check(name, ok, detail = '') {
 }
 
 // 1. status（未配置令牌 → 开放）
-const status1 = await (await fetch(`${base}/status`)).json()
+const status1 = await (await fetch(`${base}/status`, { headers: auth })).json()
 check('GET /status', status1.ok === true && status1.service === 'dsh-yusheng-voice')
 check('status.model 来自宿主选择', status1.model?.model === 'mock-model')
 
 // 2. 写入令牌后未授权 401
 const put = await (await fetch(`${base}/settings`, {
-  method: 'PUT', headers: { 'content-type': 'application/json' },
+  method: 'PUT', headers: { 'content-type': 'application/json', ...auth },
   body: JSON.stringify({ ttsVoice: 'female-yujie', ttsSpeed: 1.5, bogus: 'x' }),
 })).json()
 check('PUT /settings 合法字段生效', put.ok === true && put.settings.ttsVoice === 'female-yujie' && put.settings.ttsSpeed === 1.5, `rejected=${JSON.stringify(put.rejected)}`)
 check('未知字段被拒绝并保留其余', put.rejected.includes('bogus'))
-check('脱敏视图不含密钥', !('minimaxApiKey' in put.settings) || typeof put.settings.minimaxApiKey === 'string')
+check('脱敏视图不含密钥或管理令牌', put.settings.minimaxApiKey === '' && !('adminToken' in put.settings))
 
-const tokenResult = await (await fetch(`${base}/token`, { method: 'POST' })).json()
+const tokenResult = await (await fetch(`${base}/token`, { method: 'POST', headers: auth })).json()
 check('POST /token', typeof tokenResult.token === 'string' && tokenResult.token.startsWith('ysv-'))
 const token = tokenResult.token
 
 const unauth = await fetch(`${base}/status`)
 check('配置令牌后未授权 401', unauth.status === 401)
-const authed = await (await fetch(`${base}/status?token=${token}`)).json()
+const authed = await (await fetch(`${base}/status`, { headers: auth })).json()
 check('带令牌可用', authed.ok === true)
 
 // 3. WS 协议
@@ -149,7 +151,7 @@ await waitFor(() => received.some((m) => m.type === 'tts' && m.state === 'stop' 
 check('忙线 busy + abort 收尾', true)
 
 // 7. 自检端点（ASR 无凭据应 ok:false 但 HTTP 200）
-const testAsr = await (await fetch(`${base}/test/asr?token=${token}`, { method: 'POST' })).json()
+const testAsr = await (await fetch(`${base}/test/asr`, { method: 'POST', headers: auth })).json()
 check('POST /test/asr 返回结构化结果', testAsr.ok === false && testAsr.code === 'no_api_key')
 
 ws.close()

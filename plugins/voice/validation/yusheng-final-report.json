@@ -1,0 +1,74 @@
+{
+  "at": "2026-10-25T01:09:35.523Z",
+  "checks": [
+    {
+      "name": "REST credentials separated and protocol advertised",
+      "ok": true,
+      "durationMs": 529,
+      "version": "0.2.0",
+      "model": {
+        "provider": "minimax-cn",
+        "model": "MiniMax-M3.1-Flash"
+      }
+    },
+    {
+      "name": "v1 real MiniMax TTS raw PCM",
+      "ok": true,
+      "durationMs": 4175,
+      "bytes": 79134,
+      "firstAudioMs": 2325
+    },
+    {
+      "name": "v2 real agent tool execution, framed audio, playback and persistent context",
+      "ok": true,
+      "durationMs": 18133,
+      "firstAudioMs": 5428,
+      "toolEvents": 9,
+      "bytes": 417402,
+      "sessionId": "voice-validation-agent-r85cd6f63",
+      "memory": true
+    },
+    {
+      "name": "real ASR to agent to TTS",
+      "ok": true,
+      "durationMs": 3441,
+      "recognized": "请只回复你好",
+      "outputBytes": 38452
+    },
+    {
+      "name": "ASR abort suppresses stale events while next turn succeeds",
+      "ok": true,
+      "durationMs": 2710,
+      "oldEvents": 5,
+      "newTurn": true
+    },
+    {
+      "name": "real agent cancel settles and releases conversation lease",
+      "ok": true,
+      "durationMs": 16383,
+      "cancelled": true,
+      "nextTurn": true
+    },
+    {
+      "name": "long real TTS exceeds former 30 second drain limit",
+      "ok": true,
+      "durationMs": 57285,
+      "audioSeconds": 53.00745833333333,
+      "bytes": 2544358
+    },
+    {
+      "name": "client playback flow pauses and resumes real audio",
+      "ok": true,
+      "durationMs": 8368,
+      "paused": true,
+      "resumed": true,
+      "samples": 177494
+    },
+    {
+      "name": "real turn deadline cancels long tool work and restores settings",
+      "ok": true,
+      "durationMs": 15013,
+      "reason": "timeout"
+    }
+  ]
+}
