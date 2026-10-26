@@ -165,6 +165,25 @@ test('slow socket applies producer backpressure and cancellation wakes it', asyn
   controller.abort(); await assert.rejects(producer)
 })
 
+test('audio pacing does not accumulate per-frame scheduling overhead', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] })
+  const controller=new AbortController(),times=[]
+  const socket={readyState:1,bufferedAmount:0,send(){times.push(Date.now());t.mock.timers.tick(3)}}
+  const sender=new AudioSender(socket,controller.signal,1,false)
+  await sender.push(Buffer.alloc(1920*25))
+  let settled=false
+  const done=sender.finish().finally(()=>{settled=true})
+  for(let i=0;i<1500&&!settled;i++) {
+    t.mock.timers.tick(1)
+    for(let j=0;j<6;j++)await Promise.resolve()
+  }
+  assert.equal(settled,true)
+  await done
+  assert.equal(times.length,25)
+  assert.ok(times.at(-1)-times[0]<=970,`40ms sample clock drifted to ${times.at(-1)-times[0]}ms`)
+  controller.abort()
+})
+
 test('negotiated playback flow pauses and resumes audio without dropping frames', async () => {
   const controller=new AbortController(),frames=[];let buffered=60000
   const sender=new AudioSender({readyState:1,bufferedAmount:0,send:x=>frames.push(x)},controller.signal,7,false,()=>buffered)

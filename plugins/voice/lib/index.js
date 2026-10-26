@@ -4864,7 +4864,7 @@ var AudioSender = class {
       this.sentSamples += pcm.length / 2;
       this.bytes -= pcm.length;
       this.wake();
-      nextSend = Math.max(nextSend, Date.now()) + pcm.length / (SAMPLE_RATE_OUT * 2) * 1e3;
+      nextSend = Math.max(nextSend + pcm.length / (SAMPLE_RATE_OUT * 2) * 1e3, Date.now() - 200);
     }
     this.items = [];
     this.tail = Buffer5.alloc(0);

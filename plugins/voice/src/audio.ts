@@ -103,7 +103,10 @@ export class AudioSender {
         this.ws.send(Buffer.concat([header, pcm]))
       } else this.ws.send(pcm)
       this.sentSamples += pcm.length / 2; this.bytes -= pcm.length; this.wake()
-      nextSend = Math.max(nextSend, Date.now()) + pcm.length / (SAMPLE_RATE_OUT * 2) * 1000
+      // Keep the sample clock anchored: adding scheduler/socket overhead to
+      // every 40ms frame makes delivery steadily slower than the DAC. Allow a
+      // small catch-up burst after a stall, bounded to 200ms of queued audio.
+      nextSend = Math.max(nextSend + pcm.length / (SAMPLE_RATE_OUT * 2) * 1000, Date.now() - 200)
     }
     this.items = []; this.tail = Buffer.alloc(0); this.bytes = 0
   }
