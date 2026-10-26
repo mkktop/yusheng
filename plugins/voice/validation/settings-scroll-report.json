@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-26",
+  "environment": "Actual React settings component and API in a fixture reproducing dsh fixed-height grid / flex column / overflow:hidden; synthetic clients",
+  "before": {
+    "viewport": 720,
+    "panelHeight": 1229,
+    "panelScrollHeight": 1229,
+    "overflowY": "visible",
+    "bottomNoteBottom": 1260.5729,
+    "documentScrollHeight": 720
+  },
+  "after": {
+    "viewport": 720,
+    "panelHeight": 688,
+    "overflowY": "auto",
+    "documentScrollHeight": 720,
+    "voice": {
+      "scrollTop": 540.6667,
+      "bottomNoteBottom": 719.9063,
+      "saveBottom": 654.1146
+    },
+    "persona": {
+      "scrollTop": 1055.3334,
+      "bottomNoteBottom": 720.3021,
+      "saveBottom": 654.5104
+    },
+    "memory": {
+      "scrollTop": 791.3333,
+      "bottomNoteBottom": 719.8125,
+      "lastControlBottom": 603.5625
+    },
+    "keyboardHomeScrollTop": 0,
+    "documentScroll": 0
+  },
+  "deployment": {
+    "target": "GM800 /opt/yusheng-voice/lib/client.js",
+    "sha256": "9b21df8ca8d381e6651402ac542134b374e8ea07cb9b5aae7d05269162030039",
+    "backup": "/opt/yusheng-backups/ui-before-settings-scroll-20261026-220933.tgz"
+  }
+}

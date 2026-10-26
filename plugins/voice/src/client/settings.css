@@ -19,6 +19,13 @@
   line-height: 1.6;
   width: 100%;
   min-width: 0;
+  /* The dsh main slot is a fixed-height flex column with overflow hidden. */
+  flex: 1 1 0%;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
   container-type: inline-size;
 }
 .ys-settings *, .ys-settings *::before, .ys-settings *::after { box-sizing: border-box; }

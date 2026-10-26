@@ -1,3 +1,11 @@
+# 设置页滚动修复（2026-10-26）
+
+dsh 主面板是固定高度的 grid/flex 容器，中心列 `overflow:hidden`；原设置页没有限高和独立滚动，长内容被裁切。设置页根节点增加 flex 伸缩、100% 高度、min-height:0 和 overflow:auto，并提供可聚焦的命名区域以支持键盘滚动。
+
+使用真实设置组件/API，在复现宿主布局的固定 720px 视口中验证：原布局底部位于 1261px，无法通过页面滚动到达；修复后设置区域高 688px，声音、人设和记忆页均可滚到最后，保存按钮/底部操作可见，外层文档保持不滚动。Ctrl+Home / Ctrl+End 验证通过。见 [滚动报告](validation/settings-scroll-report.json) 和 [底部截图](validation/settings-scroll-bottom.png)（模拟客户端）。
+
+构建通过，已同步设置页构建与对应源码至 GM800，文件 SHA-256 与本地一致。浏览器需强制刷新加载更新。
+
 # 0.6.0 结构化记忆与相关回忆（2026-10-25）
 
 已部署到 GM800 `/opt/yusheng-voice`，原“木偶”配置与会话保留。升级前插件与完整客户端数据分别备份到 `/opt/yusheng-backups/voice-before-memory-v2-20261025-201146.tgz`、`data-before-memory-v2-20261025-201146.tgz`（0600，留在设备本地）。回滚到 0.5 时需同时恢复兼容的数据备份。
