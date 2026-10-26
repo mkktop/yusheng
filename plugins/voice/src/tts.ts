@@ -24,6 +24,7 @@ export interface TtsOptions {
   vol?: number
   pitch?: number
   signal?: AbortSignal
+  timeoutMs?: number
 }
 
 const TTS_ENDPOINT = 'https://api.minimax.cn/v1/t2a_v2'
@@ -35,7 +36,8 @@ const TTS_ENDPOINT = 'https://api.minimax.cn/v1/t2a_v2'
 export async function* synthesizeStream(text: string, options: TtsOptions): AsyncGenerator<Buffer> {
   const apiKey = options.apiKey
   if (apiKey === '') throw new TtsError('no_api_key', 'minimax API key 未配置（设置面板 → MiniMax 凭据）')
-  const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000)
+  const timeout=AbortSignal.timeout(options.timeoutMs??60_000)
+  const signal=options.signal?AbortSignal.any([options.signal,timeout]):timeout
 
   const body = {
     model: options.model || 'speech-2.8-turbo',
@@ -69,6 +71,7 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
     })
   } catch (error) {
     if (options.signal?.aborted) return
+    if(timeout.aborted)throw new TtsError('tts_timeout','语音合成请求超时')
     throw new TtsError('network', `语音合成请求失败：${String(error)}`)
   }
 
@@ -136,6 +139,7 @@ export async function* synthesizeStream(text: string, options: TtsOptions): Asyn
     if (!finished && !options.signal?.aborted) throw new TtsError('incomplete_audio', '语音合成流未正常结束')
   } catch (error) {
     if (options.signal?.aborted) return
+    if(timeout.aborted)throw new TtsError('tts_timeout','语音合成流超时')
     if (error instanceof TtsError) throw error
     throw new TtsError('stream', `语音合成流中断：${String(error)}`)
   } finally {

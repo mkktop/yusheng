@@ -36,7 +36,8 @@ let exitCode = 0
 let activeTurn
 const startedAt = Date.now()
 
-const finishTimer = setTimeout(() => { exitCode=1; reallyDone('timeout 120s') }, 120_000)
+// Allow the maximum 120s capture plus 600s turn deadline and connection overhead.
+const finishTimer = setTimeout(() => { exitCode=1; reallyDone('timeout 750s') }, 750_000)
 
 function reallyDone(reason) {
   if (stopped) return

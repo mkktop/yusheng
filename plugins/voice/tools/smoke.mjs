@@ -110,7 +110,7 @@ check('专用会话模式已注册', authed.presets?.some(p => p.id === 'yusheng
 
 // 3. WS 协议
 const ws = new WebSocket(`ws://127.0.0.1:18090/voice?token=${token}`)
-ws.binaryType = 'nodebuffer'
+ws.binaryType = 'arraybuffer'
 const received = []
 const waiters = []
 ws.onmessage = (event) => {

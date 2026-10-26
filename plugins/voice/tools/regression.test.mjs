@@ -1,20 +1,22 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 
 const directory = mkdtempSync(join(tmpdir(), 'yusheng-regression-'))
 after(() => rmSync(directory, { recursive: true, force: true }))
-await build({ entryPoints: ['src/connection.ts', 'src/llm.ts', 'src/audio.ts', 'src/settings.ts', 'src/server.ts', 'src/tts.ts', 'src/protocol.ts','src/interaction.ts','src/surface.ts','src/persona.ts','src/management.ts','src/client/management-client.ts','src/clients.ts','src/client-memory.ts'], outdir: directory, bundle: true, platform: 'node', format: 'esm', outExtension: { '.js': '.mjs' }, external: ['bufferutil','utf-8-validate'], banner: { js: "import { createRequire as __regCreateRequire } from 'node:module'; const require = __regCreateRequire(import.meta.url);" }, logLevel: 'silent' })
+await build({ entryPoints: ['src/connection.ts', 'src/llm.ts', 'src/audio.ts', 'src/settings.ts', 'src/server.ts', 'src/asr.ts', 'src/tts.ts', 'src/protocol.ts','src/interaction.ts','src/surface.ts','src/persona.ts','src/management.ts','src/client/management-client.ts','src/clients.ts','src/client-memory.ts'], outdir: directory, bundle: true, platform: 'node', format: 'esm', outExtension: { '.js': '.mjs' }, external: ['bufferutil','utf-8-validate'], banner: { js: "import { createRequire as __regCreateRequire } from 'node:module'; const require = __regCreateRequire(import.meta.url);" }, logLevel: 'silent' })
 const load = name => import(pathToFileURL(join(directory, `${name}.mjs`)))
 const { VoiceConnection } = await load('connection')
 const { AgentBridge } = await load('llm')
 const { AudioSender } = await load('audio')
 const { VoiceServer } = await load('server')
 const { synthesizeStream } = await load('tts')
+const { transcribePcm } = await load('asr')
 const { abortable } = await load('protocol')
 const { support, cue, component, interactionTools } = await load('interaction')
 const { SurfaceStore } = await load('surface')
@@ -732,4 +734,48 @@ test('presentation tools use agent-scoped registry and dispose after settlement'
   await definitions.get('voice_present').execute({expression:'happy'},exec)
   await assert.rejects(definitions.get('voice_present').execute({expression:'happy'},{...exec,agent:{}}))
   assert.equal(effects.length,1);h.idle.resolve();await turn.done;assert.equal(disposed,2);assert.equal(definitions.size,0)
+})
+
+
+test('ASR interrupted response bodies preserve structured provider errors',async()=>{
+  const original=globalThis.fetch
+  try{
+    globalThis.fetch=async()=>new Response(new ReadableStream({start(controller){controller.error(new Error('body interrupted'))}}))
+    await assert.rejects(transcribePcm(Buffer.alloc(3200),{apiKey:'mock'}),{code:'network'})
+    globalThis.fetch=async()=>Response.json({})
+    await assert.rejects(transcribePcm(Buffer.alloc(3200),{apiKey:'mock'}),{code:'bad_response'})
+  }finally{globalThis.fetch=original}
+})
+
+test('CLI consumes real authenticated WS PCM and fails on TTS errors', {timeout:8000},async()=>{
+  const path=join(directory,'cli-settings.json'),store=new SettingsStore(path),token=store.issueDevice('cli-test')
+  store.update({minimaxApiKey:'mock'})
+  const bridge={sessionId:()=> 'voice-cli-test',currentModel:()=>undefined,listPresets:async()=>[],release(){}}
+  const server=new VoiceServer(store,bridge,{host:'127.0.0.1',port:0},()=>{}),original=globalThis.fetch,children=[]
+  const outputDir=join(directory,'cli-output');(await import('node:fs')).mkdirSync(outputDir)
+  await server.start();const url='ws://127.0.0.1:'+server.httpServer.address().port+'/voice',pcm=Buffer.alloc(1920,6)
+  const run=()=>new Promise((resolve,reject)=>{
+    const child=spawn(process.execPath,[join(process.cwd(),'tools/test-client.mjs'),url,'--token',token,'--device','cli-test','speak','test'],{cwd:outputDir});children.push(child)
+    let output='';child.stdout.on('data',data=>output+=data);child.stderr.on('data',data=>output+=data)
+    child.once('error',reject);child.once('close',code=>resolve({code,output}))
+  })
+  try{
+    globalThis.fetch=async()=>new Response('data: '+JSON.stringify({data:{audio:pcm.toString('hex'),status:2}})+'\n')
+    const success=await run();assert.equal(success.code,0,success.output)
+    const files=readdirSync(outputDir).filter(name=>name.endsWith('.pcm'));assert.equal(files.length,1);assert.deepEqual(readFileSync(join(outputDir,files[0])),pcm)
+    store.update({minimaxApiKey:''});server.clientStore.update('cli-test',{minimaxApiKey:''})
+    const failure=await run();assert.equal(failure.code,1,failure.output);assert.match(failure.output,/no_api_key/)
+  }finally{globalThis.fetch=original;for(const child of children)child.kill();server.stop()}
+})
+
+
+test('TTS provider timeout remains a structured failure',async()=>{
+  const original=globalThis.fetch,keepAlive=setTimeout(()=>{},1000)
+  try{
+    globalThis.fetch=async(_url,{signal})=>new Promise((_,reject)=>{
+      if(signal.aborted)reject(signal.reason)
+      else signal.addEventListener('abort',()=>reject(signal.reason),{once:true})
+    })
+    await assert.rejects(async()=>{for await(const _ of synthesizeStream('test',{apiKey:'mock',timeoutMs:5})){}},{code:'tts_timeout'})
+  }finally{globalThis.fetch=original;clearTimeout(keepAlive)}
 })

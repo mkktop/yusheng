@@ -69,7 +69,9 @@ export async function transcribePcm(pcm: Buffer, options: AsrOptions): Promise<s
     throw new AsrError('network', `语音识别请求失败：${String(error)}`)
   }
 
-  const bodyText = await response.text()
+  let bodyText: string
+  try { bodyText = await response.text() }
+  catch (error) { throw new AsrError('network', `语音识别响应中断：${String(error)}`) }
   let payload: any = undefined
   try {
     payload = JSON.parse(bodyText)

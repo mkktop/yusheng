@@ -4602,7 +4602,12 @@ async function transcribePcm(pcm, options) {
   } catch (error) {
     throw new AsrError("network", `\u8BED\u97F3\u8BC6\u522B\u8BF7\u6C42\u5931\u8D25\uFF1A${String(error)}`);
   }
-  const bodyText = await response.text();
+  let bodyText;
+  try {
+    bodyText = await response.text();
+  } catch (error) {
+    throw new AsrError("network", `\u8BED\u97F3\u8BC6\u522B\u54CD\u5E94\u4E2D\u65AD\uFF1A${String(error)}`);
+  }
   let payload = void 0;
   try {
     payload = JSON.parse(bodyText);
@@ -4636,7 +4641,8 @@ var TTS_ENDPOINT = "https://api.minimax.cn/v1/t2a_v2";
 async function* synthesizeStream(text2, options) {
   const apiKey = options.apiKey;
   if (apiKey === "") throw new TtsError("no_api_key", "minimax API key \u672A\u914D\u7F6E\uFF08\u8BBE\u7F6E\u9762\u677F \u2192 MiniMax \u51ED\u636E\uFF09");
-  const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(6e4)]) : AbortSignal.timeout(6e4);
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? 6e4);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
   const body = {
     model: options.model || "speech-2.8-turbo",
     text: text2,
@@ -4668,6 +4674,7 @@ async function* synthesizeStream(text2, options) {
     });
   } catch (error) {
     if (options.signal?.aborted) return;
+    if (timeout.aborted) throw new TtsError("tts_timeout", "\u8BED\u97F3\u5408\u6210\u8BF7\u6C42\u8D85\u65F6");
     throw new TtsError("network", `\u8BED\u97F3\u5408\u6210\u8BF7\u6C42\u5931\u8D25\uFF1A${String(error)}`);
   }
   if (!response.ok || !response.body) {
@@ -4732,6 +4739,7 @@ async function* synthesizeStream(text2, options) {
     if (!finished && !options.signal?.aborted) throw new TtsError("incomplete_audio", "\u8BED\u97F3\u5408\u6210\u6D41\u672A\u6B63\u5E38\u7ED3\u675F");
   } catch (error) {
     if (options.signal?.aborted) return;
+    if (timeout.aborted) throw new TtsError("tts_timeout", "\u8BED\u97F3\u5408\u6210\u6D41\u8D85\u65F6");
     if (error instanceof TtsError) throw error;
     throw new TtsError("stream", `\u8BED\u97F3\u5408\u6210\u6D41\u4E2D\u65AD\uFF1A${String(error)}`);
   } finally {
